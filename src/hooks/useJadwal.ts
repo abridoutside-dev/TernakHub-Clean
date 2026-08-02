@@ -1,52 +1,48 @@
-// ─── usePemberianPakan Hook — FLOW-003M19 ────────────────────────────────────
+// ─── useJadwal Hook ───────────────────────────────────────────────────────────
 //
-// React hook that provides workspace-scoped pemberian pakan history from Supabase.
-// Design mirrors useStokInventaris (FLOW-003M16):
-//  - Fetches pemberian_pakan rows for the active workspace on mount / workspace change.
-//  - Calls populatePemberianPakanFromDb() to hydrate the in-memory PEMBERIAN_PAKAN_DB
-//    so that existing accessor functions (getPemberianPakanList, getPemberianPakanByTarget)
+// React hook that provides workspace-scoped jadwal pemberian pakan data from
+// Supabase. Design mirrors usePemberianPakan (FLOW-003M19):
+//  - Fetches jadwal_pemberian_pakan rows for the active workspace on mount /
+//    workspace change.
+//  - Calls populateJadwalFromDb() to hydrate the in-memory JADWAL_PEMBERIAN_DB
+//    so that existing accessor functions (getJadwalList, getJadwalById, etc.)
 //    work without modification on hard refresh.
 //  - If DB returns 0 rows, the in-memory store is preserved intact.
 //  - Uses an abort flag to prevent stale-closure races.
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../contexts/WorkspaceContext';
-import { repoGetPemberianPakanByWorkspace } from '../repositories/pemberianPakanRepository';
-import { populatePemberianPakanFromDb } from '../data/pemberianPakanData';
-import { useJadwal } from './useJadwal';
+import { repoGetJadwalByWorkspace } from '../repositories/jadwalPemberianPakanRepository';
+import { populateJadwalFromDb } from '../data/jadwalPemberianPakanData';
 
-export interface UsePemberianPakanResult {
+export interface UseJadwalResult {
   loading: boolean;
   error:   string | null;
   refresh: () => void;
 }
 
-export function usePemberianPakan(): UsePemberianPakanResult {
+export function useJadwal(): UseJadwalResult {
   const { activeWorkspace } = useWorkspace();
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
   const [, setTick]           = useState(0);
-
-  // Co-hydrate jadwal alongside pemberian pakan history so any page that calls
-  // usePemberianPakan() also benefits from real jadwal data on hard refresh.
-  useJadwal();
 
   const fetchData = useCallback(async (aborted: { current: boolean }) => {
     if (!activeWorkspace?.workspace_uuid) return;
     setLoading(true);
     setError(null);
     try {
-      const rows = await repoGetPemberianPakanByWorkspace(activeWorkspace.workspace_uuid);
+      const rows = await repoGetJadwalByWorkspace(activeWorkspace.workspace_uuid);
       if (aborted.current) return;
       if (rows.length > 0) {
-        populatePemberianPakanFromDb(rows);
+        populateJadwalFromDb(rows);
         setTick((t) => t + 1);
       }
       // rows.length === 0 → DB empty or not connected; keep in-memory data intact
     } catch (err) {
       if (!aborted.current) {
-        const msg = err instanceof Error ? err.message : 'Gagal memuat riwayat pemberian pakan.';
-        console.warn('[usePemberianPakan] fetch error:', msg);
+        const msg = err instanceof Error ? err.message : 'Gagal memuat jadwal pemberian pakan.';
+        console.warn('[useJadwal] fetch error:', msg);
         setError(msg);
       }
     } finally {

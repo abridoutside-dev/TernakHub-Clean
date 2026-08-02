@@ -60,6 +60,101 @@ export interface JadwalPemberianRecord {
 
 const JADWAL_PEMBERIAN_DB: JadwalPemberianRecord[] = [];
 
+// ─── Supabase read-path ───────────────────────────────────────────────────────
+
+/** Minimal subset of a jadwal_pemberian_pakan DB row. */
+interface JadwalPemberianDbRowMinimal {
+  id:                    string;
+  livestock_id:          string | null;
+  batch_id:              string | null;
+  schedule_name:         string | null;
+  frequency:             string | null;
+  time_slots:            string[] | null;
+  amount_per_session_kg: number | null;
+  is_active:             boolean;
+  start_date:            string | null;
+  notes:                 string | null;
+  created_at:            string;
+}
+
+/** Maps a DB frequency string to the local JadwalPemberianJenis enum. */
+function mapFrequency(freq: string | null): JadwalPemberianJenis {
+  switch ((freq ?? '').toLowerCase()) {
+    case 'once':
+    case 'one_time':
+    case 'sekali':
+      return 'Sekali';
+    case 'daily':
+    case 'harian':
+      return 'Harian';
+    case 'weekly':
+    case 'mingguan':
+      return 'Mingguan';
+    case 'custom':
+    case 'kustom':
+      return 'Kustom';
+    default:
+      return 'Harian';
+  }
+}
+
+/**
+ * Hydrates JADWAL_PEMBERIAN_DB from Supabase jadwal_pemberian_pakan rows.
+ * Creates one JadwalPemberianRecord per DB row with a synthetic single-item
+ * (because the DB stores only amount_per_session_kg, not full item detail).
+ * If rows is empty, existing in-session records are preserved intact.
+ *
+ * Called by useJadwal() on workspace mount / change.
+ */
+export function populateJadwalFromDb(rows: JadwalPemberianDbRowMinimal[]): void {
+  if (rows.length === 0) return;
+
+  const dbIds = new Set(rows.map((r) => r.id));
+
+  // Retain any in-session records not yet in DB (created this session, not yet synced)
+  const inSession = JADWAL_PEMBERIAN_DB.filter((r) => !dbIds.has(r.id));
+
+  // Clear and re-seed: in-session first, then DB-sourced records
+  JADWAL_PEMBERIAN_DB.splice(0, JADWAL_PEMBERIAN_DB.length, ...inSession);
+
+  for (const row of rows) {
+
+    const targetKind: 'individu' | 'batch' = row.livestock_id ? 'individu' : 'batch';
+    const targetId = row.livestock_id ?? row.batch_id ?? '';
+
+    const syntheticItem: JadwalPemberianItem = {
+      inventarisId:  '',
+      namaPakan:     row.schedule_name ?? 'Jadwal Pakan',
+      kategori:      '',
+      sumber:        '',
+      jumlahRencana: row.amount_per_session_kg ?? 0,
+      satuan:        'Kg',
+    };
+
+    const status: JadwalPemberianStatus = row.is_active ? 'Terjadwal' : 'Dibatalkan';
+    const now = row.created_at;
+
+    const record: JadwalPemberianRecord = {
+      id:           row.id,
+      targetKind,
+      targetId,
+      targetName:   null,
+      targetIcon:   targetKind === 'individu' ? '🐑' : '📦',
+      targetTypeBg: targetKind === 'individu' ? 'bg-green-100' : 'bg-blue-100',
+      tanggal:      row.start_date ?? now.slice(0, 10),
+      jam:          (row.time_slots && row.time_slots.length > 0) ? row.time_slots[0] : '',
+      jenis:        mapFrequency(row.frequency),
+      items:        [syntheticItem],
+      catatan:      row.notes ?? undefined,
+      status,
+      createdAt:    now,
+      updatedAt:    now,
+    };
+
+    JADWAL_PEMBERIAN_DB.push(record);
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function daysBetween(fromIso: string, toIso: string): number {
