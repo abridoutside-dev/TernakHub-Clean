@@ -1,0 +1,138 @@
+CATAT BOBOT REVISION
+
+Fokus hanya pada CB-003.
+
+Jangan mengubah workflow lain.
+Jangan mengubah UI selain feedback yang berkaitan dengan proses Simpan.
+
+==================================================
+CB-003
+FEEDBACK & SOFT VALIDATION
+==================================================
+
+CB-003 belum selesai.
+
+Saat ini baru terdapat feedback BERHASIL.
+
+Masih terdapat dua kekurangan:
+
+1. Feedback GAGAL belum ada.
+2. Belum ada Soft Validation ketika perubahan bobot sangat besar.
+
+==================================================
+1. FEEDBACK BERHASIL
+==================================================
+
+Tetap gunakan implementasi yang sudah ada.
+
+==================================================
+2. FEEDBACK GAGAL
+==================================================
+
+Jika proses penyimpanan gagal:
+
+Tampilkan Toast/Snackbar gagal.
+
+Contoh:
+
+"Bobot gagal disimpan."
+
+Jika sistem memiliki pesan error yang aman ditampilkan,
+
+tambahkan alasan secara singkat.
+
+Contoh:
+
+"Gagal menyimpan bobot. Silakan coba lagi."
+
+atau
+
+"Gagal menyimpan bobot. Koneksi terputus."
+
+Aplikasi tidak boleh gagal secara diam-diam.
+
+==================================================
+3. SOFT VALIDATION
+==================================================
+
+Jika sistem mendeteksi perubahan bobot yang sangat besar
+(baik penurunan maupun kenaikan),
+
+JANGAN langsung menyimpan.
+
+Tampilkan Dialog Konfirmasi.
+
+Contoh:
+
+--------------------------------------------------
+
+Perubahan Bobot Cukup Besar
+
+Bobot terakhir :
+60 kg
+
+Bobot baru :
+30 kg
+
+Terjadi perubahan bobot yang cukup besar.
+
+Perubahan ini bisa saja benar,
+misalnya setelah melahirkan, sakit, perubahan pakan,
+atau kondisi lainnya.
+
+Mohon pastikan hasil penimbangan sudah benar.
+
+[ Periksa Lagi ]
+
+[ Tetap Simpan ]
+
+--------------------------------------------------
+
+Default fokus tombol adalah:
+
+Periksa Lagi
+
+==================================================
+BUSINESS RULE
+==================================================
+
+Sistem hanya memberi PERINGATAN.
+
+Sistem tidak mengambil keputusan.
+
+Keputusan akhir tetap berada pada peternak.
+
+Jika user memilih:
+
+"Tetap Simpan"
+
+maka proses penyimpanan dilanjutkan seperti biasa.
+
+==================================================
+PENTING
+==================================================
+
+Gunakan bahasa yang netral.
+
+Jangan menggunakan kalimat:
+
+"Data tidak normal"
+
+atau
+
+"Data salah"
+
+Karena perubahan bobot besar dapat terjadi secara nyata
+di peternakan.
+
+==================================================
+OUTPUT
+==================================================
+
+Laporkan:
+
+1. File yang diubah.
+2. Kapan Toast Berhasil muncul.
+3. Kapan Toast Gagal muncul.
+4. Kapan Dialog Soft Validation muncul.
+5. Konfirmasi bahwa keputusan akhir tetap berada pada pengguna.

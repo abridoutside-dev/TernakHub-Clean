@@ -1,0 +1,158 @@
+Read /docs/PROJECT_RULES.md and /docs/PROJECT_ARCHITECTURE.md before making changes.
+
+Create the Feed Stock History page for the Farm Workspace.
+
+UI ONLY.
+
+Do not implement backend, API, AI, database, pagination, filtering logic, export, or business logic.
+
+=================================================
+PURPOSE
+=================================================
+
+This page displays the complete movement history of feed inventory.
+
+It is the history of stock movement only.
+
+It is NOT livestock feeding history.
+
+=================================================
+HEADER
+=================================================
+
+Title:
+
+Riwayat Stok Pakan
+
+Display:
+
+Search bar
+
+Placeholder:
+
+Cari nama pakan...
+
+Filter button
+
+=================================================
+FILTER
+=================================================
+
+UI only.
+
+Filter options:
+
+• Semua
+
+• Stok Masuk
+
+• Stok Keluar
+
+• Penyesuaian
+
+Date Range
+
+Feed Category
+
+=================================================
+HISTORY LIST
+=================================================
+
+Display history cards.
+
+Each card contains:
+
+Transaction Type Icon
+
+⬆️ Stok Masuk
+
+⬇️ Stok Keluar
+
+🔄 Penyesuaian
+
+Feed Name
+
+Transaction Date & Time
+
+Quantity
+
+Example:
+
++250 Kg
+
+-120 Kg
+
+Current Stock After Transaction
+
+Reason
+
+Examples:
+
+Tambah Stok
+
+Pemberian Pakan
+
+Terjual
+
+Rusak
+
+Dipindahkan
+
+Penyesuaian
+
+Operator
+
+Example:
+
+Oleh:
+Budi
+
+If Reason = Pemberian Pakan
+
+Display small badge:
+
+🐑 Individu
+
+or
+
+📦 Batch
+
+(UI placeholder only)
+
+=================================================
+DETAIL BUTTON
+=================================================
+
+Each history card has:
+
+Lihat Detail >
+
+(UI only)
+
+=================================================
+EMPTY STATE
+=================================================
+
+Illustration placeholder
+
+Text:
+
+Belum ada riwayat stok pakan.
+
+=================================================
+IMPORTANT
+=================================================
+
+This page belongs ONLY to the Farm Workspace.
+
+Display inventory movement only.
+
+Do not display livestock growth.
+
+Do not display AI.
+
+Do not display nutrition analysis.
+
+Do not display feed formulation.
+
+Stop when UI is complete.

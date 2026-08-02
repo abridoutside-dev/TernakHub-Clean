@@ -1,0 +1,128 @@
+# TASK ID
+P0-001B — Tetapkan Single Source of Truth Workspace
+
+# Branch Aktif
+feature/production-readiness
+
+# PENTING
+
+Project Production terhubung dengan:
+- GitHub (Source of Truth)
+- Cloudflare Pages
+- Supabase Production
+
+Gunakan branch aktif:
+feature/production-readiness
+
+DILARANG:
+- Membuat branch baru.
+- Merge ke main.
+- Membuat migration database.
+- Mengubah schema Supabase.
+- Mengubah UI.
+- Mengubah routing.
+- Mengubah business logic Workspace.
+- Menghapus repository lama.
+- Menghapus data lama.
+- Mengubah modul selain Workspace.
+
+Jika menemukan masalah di luar scope, cukup laporkan.
+
+--------------------------------------------------
+
+# OBJECTIVE
+
+Menetapkan SATU (1) Single Source of Truth untuk seluruh data Workspace sebagai persiapan migrasi penuh ke Supabase.
+
+Task ini BUKAN migrasi CRUD.
+
+Task ini hanya melakukan konsolidasi arsitektur agar seluruh Workspace nantinya membaca dan menulis melalui satu jalur yang konsisten.
+
+--------------------------------------------------
+
+# SCOPE
+
+1. Identifikasi seluruh repository Workspace yang ditemukan pada P0-001A.
+
+2. Tentukan repository yang menjadi Single Source of Truth.
+
+3. Pastikan seluruh service Workspace hanya bergantung pada repository tersebut.
+
+4. Repository lain yang masih digunakan:
+- jangan dihapus
+- jangan diubah
+- tandai sebagai LEGACY
+- beri komentar bahwa repository tersebut akan dipensiunkan pada P0-001D.
+
+5. Pastikan tidak ada service Workspace yang membaca dua repository berbeda secara bersamaan.
+
+--------------------------------------------------
+
+# OUT OF SCOPE
+
+DILARANG:
+
+- Migrasi CRUD ke Supabase.
+- Mengubah query Supabase.
+- Mengubah database.
+- Mengubah Auth.
+- Mengubah Dashboard.
+- Mengubah Admin.
+- Mengubah Marketplace.
+- Mengubah Livestock.
+- Menghapus file legacy.
+- Mengubah seed.
+
+--------------------------------------------------
+
+# ACCEPTANCE CRITERIA
+
+✅ Workspace hanya memiliki satu jalur repository resmi.
+
+✅ Repository lama tetap ada tetapi jelas berstatus LEGACY.
+
+✅ Tidak ada perubahan perilaku aplikasi.
+
+✅ Tidak ada TypeScript error baru.
+
+✅ Tidak ada lint error baru.
+
+--------------------------------------------------
+
+# OUTPUT WAJIB
+
+1. Ringkasan perubahan.
+
+2. Daftar file yang diubah.
+
+3. Repository yang ditetapkan sebagai Single Source of Truth.
+
+4. Daftar repository LEGACY.
+
+5. Risiko yang masih tersisa sebelum P0-001C.
+
+--------------------------------------------------
+
+# SELF REVIEW
+
+Pastikan:
+
+- Scope tidak melebar.
+- Tidak ada perubahan di luar modul Workspace.
+- Tidak ada perubahan database.
+
+--------------------------------------------------
+
+# COMMIT
+
+Commit Message
+
+P0-001B: Define workspace single source of truth
+
+Push ke:
+
+feature/production-readiness
+
+JANGAN merge ke main.
+
+STOP setelah push berhasil.

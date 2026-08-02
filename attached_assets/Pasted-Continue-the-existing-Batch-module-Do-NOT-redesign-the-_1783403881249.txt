@@ -1,0 +1,212 @@
+Continue the existing Batch module.
+
+Do NOT redesign the UI.
+Reuse existing components.
+Do NOT modify unrelated modules.
+
+==================================================
+STEP 19 — Batch Member Management
+==================================================
+
+Complete member management inside Batch Detail.
+
+------------------------------------------
+1. Member Toolbar
+------------------------------------------
+
+Create toolbar above member list.
+
+Contains:
+
+- Search
+- Filter
+- Total Member
+- Add Member button
+
+Reuse existing design.
+
+------------------------------------------
+2. Search
+------------------------------------------
+
+Support searching by:
+
+- Livestock Name
+- Digital ID
+- Breed
+
+Search must be realtime.
+
+------------------------------------------
+3. Filter
+------------------------------------------
+
+Support filters:
+
+- Species
+- Breed
+- Program
+- Sex
+
+Do NOT create new UI patterns.
+
+Reuse existing filter component.
+
+------------------------------------------
+4. Sort
+------------------------------------------
+
+Provide sorting:
+
+- Name A-Z
+- Name Z-A
+- Latest Added
+- Oldest Added
+- Highest Weight
+- Lowest Weight
+
+==================================================
+STEP 20 — Member Card
+==================================================
+
+Each member card displays:
+
+- Photo
+- Name
+- Digital ID
+- Breed
+- Weight
+- Program
+- Health Badge
+
+Click card
+
+↓
+
+Open Livestock Profile.
+
+==================================================
+STEP 21 — Member Actions
+==================================================
+
+Each member has:
+
+More Menu
+
+Contains:
+
+- View Profile
+- Remove from Batch
+
+If Batch Finished
+
+Disable all editing.
+
+==================================================
+STEP 22 — Multi Select
+==================================================
+
+Enable Multi Select.
+
+Long press
+
+OR
+
+Select Mode button.
+
+After entering Select Mode
+
+Display bottom action bar.
+
+Actions:
+
+- Remove Selected
+
+Nothing else.
+
+==================================================
+STEP 23 — Remove Selected
+==================================================
+
+Confirmation dialog.
+
+Title:
+
+Remove livestock from Batch?
+
+Body:
+
+Selected livestock will leave the active batch.
+History will remain.
+
+Require confirmation.
+
+After removal:
+
+Automatically update:
+
+- Batch
+- Livestock Profile
+- Active Batch
+- History
+
+==================================================
+STEP 24 — Empty Result
+==================================================
+
+If Search has no result
+
+Display:
+
+"No livestock found."
+
+==================================================
+STEP 25 — Loading State
+==================================================
+
+Display skeleton loading.
+
+Reuse existing loading component.
+
+==================================================
+STEP 26 — Pagination
+==================================================
+
+Reuse Livestock pagination.
+
+==================================================
+STEP 27 — Validation
+==================================================
+
+Prevent duplicate member.
+
+Prevent archived livestock.
+
+Prevent sold livestock.
+
+Prevent inactive livestock.
+
+==================================================
+STEP 28 — QA
+==================================================
+
+Verify:
+
+✓ Search
+✓ Filter
+✓ Sort
+✓ Multi Select
+✓ Remove Selected
+✓ Pagination
+✓ Empty Search
+✓ Loading
+✓ Open Profile
+✓ Synchronization
+
+Stop here.
+
+DO NOT start Mutasi.
+
+DO NOT redesign Batch UI.
+
+DO NOT refactor unrelated code.

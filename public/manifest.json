@@ -1,0 +1,18 @@
+{
+  "name": "TernakHub",
+  "short_name": "TernakHub",
+  "description": "The most trusted livestock ecosystem for farmers and buyers.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7FAF8",
+  "theme_color": "#1B7A43",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

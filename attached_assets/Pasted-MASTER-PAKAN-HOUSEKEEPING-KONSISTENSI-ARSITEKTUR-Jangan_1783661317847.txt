@@ -1,0 +1,127 @@
+MASTER PAKAN — HOUSEKEEPING & KONSISTENSI ARSITEKTUR
+
+Jangan mengubah arsitektur Master Pakan.
+
+Jangan mengubah UI.
+
+Jangan mengubah data nutrisi.
+
+Jangan mengubah routing yang sudah berjalan.
+
+Yang dikerjakan HANYA audit dan pembersihan implementasi.
+
+==================================================
+TUJUAN
+==================================================
+
+Membersihkan sisa implementasi lama agar struktur Master Pakan konsisten dengan roadmap final MP-001 s.d. MP-037.
+
+==================================================
+TASK 1
+VALIDASI KATEGORI KACANG BIJIAN
+==================================================
+
+Periksa seluruh project.
+
+Cari seluruh referensi:
+
+• MasterPakanKacangBijian
+• kacang-bijian
+• kacangBijian
+• kacang_bijian
+
+Periksa:
+
+• Routing
+• Menu
+• Import
+• Export
+• Navigasi
+• Data source
+
+Jika kategori tersebut SUDAH TIDAK DIGUNAKAN:
+
+• Hapus file yang tidak terpakai.
+• Hapus import yang tidak digunakan.
+• Hapus route yang tidak digunakan.
+• Hapus data source yang tidak digunakan.
+
+Jika ternyata MASIH DIGUNAKAN:
+
+Jangan hapus.
+
+Berikan laporan lokasi penggunaannya melalui komentar kode.
+
+==================================================
+TASK 2
+KONSISTENSI DAUN NON LEGUMINOSA
+==================================================
+
+Periksa implementasi kategori:
+
+Daun Non Leguminosa
+
+Saat ini kemungkinan masih menggunakan nama internal:
+
+MasterPakanDaunan
+
+Lakukan audit.
+
+Jika hanya nama file internal yang berbeda:
+
+• Biarkan routing tetap berjalan.
+• Biarkan slug tetap berjalan.
+• Jangan mengubah URL.
+• Jangan mengubah data.
+
+Namun tambahkan komentar kode yang menjelaskan:
+
+"MasterPakanDaunan digunakan sebagai implementasi kategori Daun Non Leguminosa."
+
+Tujuannya agar developer berikutnya tidak bingung.
+
+==================================================
+YANG TIDAK BOLEH
+==================================================
+
+❌ Jangan mengubah tampilan.
+
+❌ Jangan mengubah jumlah item.
+
+❌ Jangan mengubah data kategori.
+
+❌ Jangan mengubah slug aktif.
+
+❌ Jangan mengubah route aktif.
+
+❌ Jangan mengubah struktur MP-001 sampai MP-037.
+
+❌ Jangan membuat kategori baru.
+
+==================================================
+OUTPUT
+==================================================
+
+Berikan laporan:
+
+1. Apakah MasterPakanKacangBijian masih digunakan atau tidak.
+
+2. File mana saja yang dibersihkan.
+
+3. File mana saja yang diberi komentar dokumentasi.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ Tidak ada perubahan UI.
+
+✅ Tidak ada perubahan data Master Pakan.
+
+✅ Tidak ada perubahan routing aktif.
+
+✅ File legacy yang tidak dipakai berhasil dibersihkan.
+
+✅ Dokumentasi internal kategori Daun Non Leguminosa ditambahkan.
+
+✅ Project tetap build tanpa error.

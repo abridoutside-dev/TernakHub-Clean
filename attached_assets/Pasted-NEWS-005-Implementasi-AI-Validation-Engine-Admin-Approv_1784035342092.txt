@@ -1,0 +1,372 @@
+NEWS-005 — Implementasi AI Validation Engine & Admin Approval
+
+Baca dan patuhi:
+
+docs/architecture/NEWS_EVENT_MODULE_CONSTITUTION.md
+
+Jangan mengubah Constitution tersebut.
+
+Seluruh implementasi WAJIB mengikuti Constitution.
+
+==================================================
+TUJUAN
+==================================================
+
+Membangun AI Validation Engine
+sebagai sistem analisis konten.
+
+AI bukan pengambil keputusan.
+
+AI hanya membuat
+Validation Report.
+
+Keputusan akhir
+tetap berada pada Admin.
+
+==================================================
+WORKFLOW
+==================================================
+
+Workspace PRO / Enterprise
+
+↓
+
+Submit
+
+↓
+
+AI Validation
+
+↓
+
+Validation Report
+
+↓
+
+Admin Review
+
+↓
+
+Approve
+
+atau
+
+Reject
+
+↓
+
+Publish
+
+==================================================
+AI VALIDATION
+==================================================
+
+AI wajib melakukan
+analisis otomatis.
+
+Tidak boleh
+langsung Publish.
+
+Tidak boleh
+langsung Reject.
+
+==================================================
+VALIDASI NEWS
+==================================================
+
+Minimal memeriksa:
+
+• Kredibilitas sumber
+
+• Kredibilitas domain
+
+• Referensi
+
+• Penulis
+
+• Tanggal
+
+• Bahasa
+
+• Kesesuaian kategori
+
+• Tag
+
+• Duplikasi artikel
+
+• Potensi Hoaks
+
+• Potensi Clickbait
+
+• Kelengkapan data
+
+• Konsistensi isi
+
+• Bukti pendukung
+
+==================================================
+VALIDASI EVENT
+==================================================
+
+Minimal memeriksa:
+
+• OCR Poster
+
+• Nama Event
+
+• Jenis Event
+
+• Penyelenggara
+
+• Lokasi
+
+• Google Maps
+
+• Tanggal
+
+• Jam
+
+• Kontak
+
+• HTM
+
+• Link Pendaftaran
+
+• Sponsor
+
+• Konsistensi Poster
+  dengan Form
+
+• Event Duplikat
+
+• Jadwal Bentrok
+  (jika event sama)
+
+==================================================
+VALIDASI RSS
+==================================================
+
+AI memeriksa:
+
+• Domain terpercaya
+
+• Topik relevan
+
+• Bahasa
+
+• Duplikasi
+
+• Kategori
+
+• Ringkasan
+
+==================================================
+AI REPORT
+==================================================
+
+AI menghasilkan
+Validation Report.
+
+Minimal berisi:
+
+• Ringkasan
+
+• Temuan
+
+• Bukti
+
+• Warning
+
+• Risiko
+
+• Confidence
+
+• Rekomendasi
+
+==================================================
+REKOMENDASI AI
+==================================================
+
+🟢 Layak Dipublikasikan
+
+🟡 Perlu Revisi
+
+🔴 Sebaiknya Ditolak
+
+AI hanya memberi
+rekomendasi.
+
+==================================================
+ADMIN REVIEW
+==================================================
+
+Admin tidak melakukan
+validasi dari awal.
+
+Admin membaca:
+
+• Validation Report
+
+• Temuan AI
+
+• Bukti
+
+• Warning
+
+• Confidence
+
+• Rekomendasi
+
+==================================================
+ADMIN ACTION
+==================================================
+
+Admin hanya dapat:
+
+• Approve
+
+• Reject
+
+• Minta Revisi
+
+==================================================
+REJECT
+==================================================
+
+Apabila Reject,
+
+Admin wajib memilih
+atau menambahkan
+alasan.
+
+Alasan AI
+tetap disimpan.
+
+==================================================
+REVISI
+==================================================
+
+Apabila Minta Revisi,
+
+Submission kembali
+ke Publisher.
+
+Publisher memperbaiki
+konten.
+
+Kemudian Submit ulang.
+
+AI melakukan
+validasi ulang.
+
+==================================================
+AUDIT TRAIL
+==================================================
+
+Seluruh proses
+harus tercatat.
+
+Minimal:
+
+• Submit
+
+• AI Validation
+
+• AI Report
+
+• Admin Review
+
+• Approve
+
+• Reject
+
+• Revision
+
+==================================================
+VALIDASI
+==================================================
+
+Pastikan:
+
+AI
+
+↓
+
+Validation
+
+↓
+
+Admin Review
+
+↓
+
+Publish
+
+berjalan
+end-to-end.
+
+==================================================
+BUILD
+==================================================
+
+Pastikan:
+
+npm run build
+
+berhasil.
+
+Tidak ada:
+
+• TypeScript Error
+
+• Runtime Error
+
+==================================================
+OUTPUT
+==================================================
+
+Laporkan:
+
+1. Workflow AI Validation.
+
+2. Workflow Admin Review.
+
+3. Struktur Validation Report.
+
+4. Audit Trail.
+
+5. Build Result.
+
+==================================================
+YANG TIDAK BOLEH
+==================================================
+
+❌ AI Publish otomatis.
+
+❌ AI Reject otomatis.
+
+❌ Mengubah Constitution.
+
+❌ Mengubah Marketplace.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ AI Validation berjalan.
+
+✅ AI Report selesai.
+
+✅ Admin Approval berjalan.
+
+✅ Admin Reject berjalan.
+
+✅ Request Revision berjalan.
+
+✅ Audit Trail lengkap.
+
+✅ Build bersih.
+
+Berhenti setelah NEWS-005 selesai.
+
+Jangan melanjutkan ke NEWS-006 tanpa instruksi.

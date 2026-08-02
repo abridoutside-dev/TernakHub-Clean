@@ -1,0 +1,342 @@
+:root {
+  --color-primary: #1b7a43;
+  --color-primary-dark: #145a32;
+  --color-primary-light: #e8f5ee;
+  --color-bg: #f7faf8;
+  --color-surface: #ffffff;
+  --color-text: #16241c;
+  --color-muted: #6b7a72;
+  --color-border: #e3ece6;
+  --color-danger: #d32f2f;
+  --color-danger-bg: #ffebee;
+  --color-warning: #f57c00;
+  --color-info: #1565c0;
+  --color-info-bg: #eff6ff;
+  --color-success: #16a34a;
+  --color-escrow: #7c3aed;
+  --color-transport: #006064;
+  --color-cancelled: #5d4037;
+  --color-cancelled-bg: #efebe9;
+  --color-chat-read: #a8edff;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
+  --shadow-fab: 0 4px 16px rgba(27,122,67,0.35);
+  --top-app-bar-row-height: 56px;
+  --top-app-bar-height: calc(var(--top-app-bar-row-height) + env(safe-area-inset-top, 0px));
+  --bottom-nav-row-height: 64px;
+  --bottom-nav-height: calc(var(--bottom-nav-row-height) + env(safe-area-inset-bottom, 0px));
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.page-content-shell > * {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-primary);
+}
+
+input[readonly] {
+  background: #f2f5f3;
+  color: var(--color-muted);
+  cursor: default;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7a72' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* ─── Admin Layout (ADM-001 / ADM-002) ──────────────────────────────────────── */
+
+/* Root flex container */
+.adm-root {
+  display: flex;
+  min-height: 100dvh;
+  background: #f1f5f9;
+  font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Sidebar ── */
+.adm-sidebar {
+  width: 240px;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  transition: width 0.22s ease;
+  z-index: 100;
+}
+
+/* Collapsed: icon-only (64px) */
+.adm-sidebar--collapsed {
+  width: 64px;
+}
+
+/* ── Topbar ── */
+.adm-topbar {
+  height: 56px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-shrink: 0;
+}
+
+/* Search bar — visible on desktop, hidden on small mobile */
+.adm-search-wrap {
+  flex: 1;
+  max-width: 340px;
+  min-width: 0;
+}
+
+/* Main body (right of sidebar) */
+.adm-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+/* Scrollable content */
+.adm-content {
+  flex: 1;
+  padding: 24px 24px 0;
+  overflow-y: auto;
+}
+
+/* Hamburger — hidden on desktop, shown on tablet/mobile */
+.adm-hamburger {
+  display: none !important;
+}
+
+/* Collapse toggle — desktop only */
+.adm-collapse-btn {
+  display: flex;
+}
+
+/* Environment badge */
+.adm-env-badge {
+  display: inline-block;
+}
+
+/* ── Dashboard content grids ── */
+
+.adm-header-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.adm-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.adm-health-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.adm-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.adm-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.adm-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* ── Tablet (< 1024px) — sidebar becomes drawer ── */
+@media (max-width: 1023px) {
+  .adm-sidebar {
+    position: fixed;
+    left: -240px;
+    top: 0;
+    height: 100vh;
+    width: 240px !important; /* always full width in drawer mode */
+    transition: left 0.25s ease;
+  }
+  .adm-sidebar--mobile-open {
+    left: 0 !important;
+  }
+  /* Collapse button not shown on tablet/mobile */
+  .adm-collapse-btn {
+    display: none;
+  }
+  .adm-hamburger {
+    display: flex !important;
+  }
+  .adm-header-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .adm-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .adm-health-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .adm-actions-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .adm-bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Mobile (< 600px) ── */
+@media (max-width: 599px) {
+  .adm-content {
+    padding: 16px 16px 0;
+  }
+  .adm-topbar {
+    padding: 0 12px;
+    gap: 10px;
+  }
+  .adm-search-wrap {
+    display: none;
+  }
+  .adm-header-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .adm-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .adm-health-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .adm-actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .adm-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .adm-env-badge {
+    display: none;
+  }
+}
+
+/* ── Print — Marketplace Transaction Receipt ── */
+@media print {
+  /* Hide all app chrome: nav, tabs, buttons, headers, footer */
+  .receipt-no-print {
+    display: none !important;
+  }
+
+  /* Allow the root layout to reflow naturally for print */
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Make the receipt scroll container expand to full content height */
+  .receipt-print-area {
+    flex: unset !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+    /* Ensure content fits A4 and thermal 80 mm width */
+    width: 100% !important;
+  }
+
+  /* Remove box shadows and backgrounds that waste toner */
+  .receipt-print-area * {
+    box-shadow: none !important;
+  }
+
+  /* Force page breaks to avoid splitting a card mid-content */
+  .receipt-print-area > div {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,283 @@
+MPK-R01 — Optimasi Marketplace
+
+Baca dan patuhi:
+
+docs/architecture/MARKETPLACE_MODULE_CONSTITUTION.md
+
+Jangan mengubah Constitution tersebut.
+
+Seluruh implementasi WAJIB mengikuti Constitution.
+
+==================================================
+
+TUJUAN
+
+Melakukan optimasi Marketplace
+tanpa mengubah arsitektur
+dan tanpa menambah fitur baru.
+
+Fokus pada performa,
+pengalaman pengguna,
+serta konsistensi implementasi.
+
+==================================================
+
+RUANG LINGKUP
+
+Lakukan optimasi terhadap:
+
+• Landing Marketplace
+
+• Listing Explorer
+
+• Detail Listing
+
+• Create Listing
+
+• Listing Saya
+
+• Dashboard Penjual
+
+• Dashboard Pembeli
+
+• Wishlist
+
+• Chat
+
+• Negosiasi
+
+• Transaksi
+
+• Riwayat
+
+• Notifikasi
+
+• AI Insight
+
+==================================================
+
+PAGINATION
+
+Backend WAJIB
+menggunakan Pagination.
+
+Minimal:
+
+• Page
+
+• Limit
+
+• Total Data
+
+• Total Halaman
+
+• Next
+
+• Previous
+
+==================================================
+
+INFINITE SCROLL
+
+Frontend boleh menggunakan
+Infinite Scroll.
+
+Namun data tetap
+menggunakan Pagination.
+
+==================================================
+
+LAZY LOADING
+
+Optimalkan:
+
+• Thumbnail
+
+• Gallery
+
+• Card Listing
+
+• Detail Listing
+
+• AI Insight
+
+==================================================
+
+SEARCH
+
+Optimalkan Search.
+
+Minimal:
+
+• Debounce
+
+• Pencarian cepat
+
+• Tidak melakukan query
+setiap karakter diketik.
+
+==================================================
+
+FILTER
+
+Optimalkan:
+
+• Multi Filter
+
+• Reset Filter
+
+• Kombinasi Search + Filter
+
+==================================================
+
+SORT
+
+Pastikan Sort
+tetap bekerja
+bersamaan dengan:
+
+• Search
+
+• Filter
+
+• Pagination
+
+==================================================
+
+LOADING
+
+Implementasikan:
+
+• Skeleton Loading
+
+• Loading Indicator
+
+• Empty State
+
+• Error State
+
+==================================================
+
+RESPONSIVE
+
+Pastikan:
+
+• Android
+
+• iOS
+
+• Tablet
+
+• Desktop
+
+tetap nyaman digunakan.
+
+==================================================
+
+PERFORMANCE
+
+Pastikan:
+
+• Tidak ada render berulang
+yang tidak diperlukan.
+
+• Hindari query berulang.
+
+• Optimalkan pengambilan data.
+
+• Optimalkan komponen.
+
+==================================================
+
+VALIDASI
+
+Pastikan:
+
+Search
+
+↓
+
+Filter
+
+↓
+
+Sort
+
+↓
+
+Pagination
+
+↓
+
+Infinite Scroll
+
+tetap berjalan
+secara bersamaan.
+
+==================================================
+
+BUILD
+
+Pastikan:
+
+• npm run build berhasil.
+
+• Tidak ada TypeScript Error.
+
+• Tidak ada Runtime Error.
+
+==================================================
+
+OUTPUT
+
+Laporkan:
+
+1. Optimasi yang dilakukan.
+
+2. Performa yang meningkat.
+
+3. Validasi Search.
+
+4. Validasi Filter.
+
+5. Validasi Pagination.
+
+6. Build Result.
+
+==================================================
+
+YANG TIDAK BOLEH
+
+❌ Mengubah Constitution.
+
+❌ Mengubah arsitektur.
+
+❌ Membuat fitur baru.
+
+❌ Mengubah workflow.
+
+==================================================
+
+ACCEPTANCE CRITERIA
+
+✅ Pagination selesai.
+
+✅ Infinite Scroll selesai.
+
+✅ Lazy Loading selesai.
+
+✅ Debounce Search selesai.
+
+✅ Empty State selesai.
+
+✅ Error State selesai.
+
+✅ Skeleton Loading selesai.
+
+✅ Responsive selesai.
+
+✅ Build bersih.
+
+Berhenti setelah MPK-R01 selesai.
+
+Jangan melanjutkan ke MPK-R02 tanpa instruksi.

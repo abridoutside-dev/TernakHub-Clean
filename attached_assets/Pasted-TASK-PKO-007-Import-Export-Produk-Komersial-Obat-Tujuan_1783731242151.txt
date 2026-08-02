@@ -1,0 +1,177 @@
+TASK: PKO-007 — Import & Export Produk Komersial Obat
+
+Tujuan:
+Menambahkan fitur Import dan Export untuk Produk Komersial Obat agar Admin dapat mengelola data produk secara massal dengan tetap menjaga integritas relasi terhadap Master Obat.
+
+PENTING
+
+- Jangan mengubah arsitektur aplikasi.
+- Jangan mengubah Master Obat.
+- Jangan mengubah workflow modul lain.
+- Import & Export hanya berlaku untuk Produk Komersial Obat.
+
+==================================================
+MENU ADMIN
+==================================================
+
+Tambahkan dua menu pada Admin Produk Komersial:
+
+• Import Produk
+
+• Export Produk
+
+==================================================
+EXPORT
+==================================================
+
+Mendukung format:
+
+- JSON
+
+- CSV
+
+Data yang diekspor mencakup:
+
+• Brand
+
+• Produk
+
+• UUID
+
+• brand_uuid
+
+• master_obat_uuid
+
+• Nama Produk
+
+• Bentuk Sediaan
+
+• Kemasan
+
+• Produsen
+
+• Distributor
+
+• Nomor Registrasi
+
+• Status
+
+• Catatan
+
+==================================================
+IMPORT
+==================================================
+
+Mendukung format:
+
+- JSON
+
+- CSV
+
+==================================================
+VALIDASI
+==================================================
+
+Sebelum import lakukan validasi:
+
+✓ Struktur file valid
+
+✓ UUID valid
+
+✓ brand_uuid valid
+
+✓ master_obat_uuid valid
+
+✓ Tidak ada relasi rusak
+
+✓ Tidak ada field wajib yang kosong
+
+==================================================
+MODE IMPORT
+==================================================
+
+Sediakan dua pilihan:
+
+Merge
+
+- Menambahkan data baru.
+- Memperbarui data berdasarkan UUID jika sudah ada.
+
+Replace
+
+- Mengganti seluruh Produk Komersial.
+- Tidak mengubah Master Obat.
+
+==================================================
+ERROR HANDLING
+==================================================
+
+Jika ditemukan:
+
+- master_obat_uuid tidak ditemukan
+
+- brand_uuid tidak ditemukan
+
+- UUID ganda
+
+- Struktur file tidak valid
+
+Batalkan proses import.
+
+Tampilkan pesan kesalahan yang jelas.
+
+==================================================
+LOG
+==================================================
+
+Catat:
+
+• Import
+
+• Export
+
+• Merge
+
+• Replace
+
+Untuk audit internal.
+
+==================================================
+UUID
+==================================================
+
+Seluruh UUID harus dipertahankan.
+
+Jangan membuat UUID baru apabila data sudah memilikinya.
+
+==================================================
+BELUM TERMASUK
+==================================================
+
+- Sinkronisasi Cloud
+
+- Marketplace
+
+- Harga
+
+- Supplier
+
+- Stock
+
+- Batch
+
+- Expired
+
+==================================================
+STYLE
+==================================================
+
+Gunakan dialog, progress indicator, snackbar, dan komponen yang sama dengan Produk Komersial Pakan.
+
+Tidak membuat desain baru.
+
+==================================================
+OUTPUT
+==================================================
+
+Admin Produk Komersial Obat mampu melakukan Import dan Export data secara massal dengan tetap menjaga integritas relasi terhadap Master Obat.

@@ -1,0 +1,199 @@
+Read /docs/PROJECT_RULES.md and /docs/PROJECT_ARCHITECTURE.md before making changes.
+
+Create the Weight Recording page for the Farm Workspace.
+
+UI ONLY.
+
+Do not implement backend, API, AI logic, search logic, filtering logic, navigation logic, or business logic.
+
+=================================================
+PURPOSE
+=================================================
+
+This page is used to record livestock weight.
+
+=================================================
+HEADER
+=================================================
+
+Back button
+
+Title:
+
+Catat Bobot
+
+=================================================
+AI ASSISTANT
+=================================================
+
+Display AI Insight card at the top.
+
+Free account:
+
+Blurred preview with Pro badge.
+
+Pro account:
+
+Fully visible.
+
+This AI is context-specific for weight management.
+
+(UI only)
+
+=================================================
+MODE
+=================================================
+
+Segmented control.
+
+○ Individu
+
+○ Batch
+
+Default:
+
+Individu
+
+=================================================
+LIVESTOCK TYPE
+=================================================
+
+Display only livestock types registered in this Farm Workspace.
+
+Example:
+
+🐑 Domba
+
+🐐 Kambing
+
+🐄 Sapi
+
+=================================================
+PROGRAM
+=================================================
+
+Dropdown.
+
+Default:
+
+Semua Program
+
+Options:
+
+Semua Program
+
+Fattening
+
+Breeding
+
+Kontes
+
+Karantina
+
+Replacement
+
+Others
+
+=================================================
+SEARCH
+=================================================
+
+Individual mode:
+
+Placeholder:
+
+Cari ID ternak atau nama...
+
+Batch mode:
+
+Placeholder:
+
+Cari ID batch...
+
+=================================================
+LIST
+=================================================
+
+Individual Mode
+
+Card:
+
+Photo
+
+Livestock ID
+
+Name
+
+Current Weight
+
+Program
+
+Button:
+
+Catat Bobot
+
+--------------------------------------------
+
+Batch Mode
+
+Card:
+
+Batch ID
+
+Program
+
+Total Animals
+
+Average Weight
+
+Button:
+
+Catat Bobot
+
+=================================================
+WEIGHT INPUT
+=================================================
+
+Selecting "Catat Bobot" opens Bottom Sheet.
+
+Individual:
+
+Current Weight
+
+New Weight
+
+Recording Date
+
+Notes
+
+Save
+
+--------------------------------------------
+
+Batch:
+
+Current Average Weight
+
+New Average Weight
+
+Recording Date
+
+Notes
+
+Save
+
+(UI only)
+
+=================================================
+IMPORTANT
+=================================================
+
+Do NOT display history.
+
+Do NOT display charts.
+
+History belongs to the Weight History page.
+
+Current implementation is ONLY for Farm Workspace.
+
+Stop when UI is complete.

@@ -1,0 +1,115 @@
+PK-014 — Integrasi Produk Komersial dengan AI Nutrisi (Readiness)
+
+Jangan mengubah arsitektur aplikasi.
+
+Jangan mengubah Master Pakan.
+
+Jangan mengubah modul lain.
+
+Yang dikerjakan HANYA menyiapkan Produk Komersial agar siap digunakan oleh AI Nutrisi pada masa mendatang.
+
+==================================================
+TUJUAN
+==================================================
+
+Menyiapkan struktur data sehingga AI dapat memahami, menganalisis, dan memberikan rekomendasi berdasarkan Produk Komersial.
+
+Belum mengimplementasikan AI.
+
+==================================================
+KEMAMPUAN AI YANG DIPERSIAPKAN
+==================================================
+
+AI nantinya dapat:
+
+• Menjelaskan fungsi produk.
+
+• Membandingkan beberapa produk.
+
+• Memberikan rekomendasi berdasarkan tujuan pemeliharaan.
+
+• Memberikan alternatif produk apabila suatu produk tidak tersedia.
+
+• Mengidentifikasi kelebihan dan kekurangan suatu produk.
+
+• Menjelaskan kandungan nutrisi.
+
+• Menjelaskan target penggunaan.
+
+==================================================
+SUMBER DATA
+==================================================
+
+AI menggunakan data dari:
+
+• Living Database
+
+• Knowledge Base
+
+• Dokumen Produk
+
+• Data Nutrisi
+
+• Referensi Resmi
+
+==================================================
+STRUKTUR DATA
+==================================================
+
+Seluruh referensi menggunakan UUID.
+
+AI tidak membaca berdasarkan nama produk.
+
+==================================================
+KONTEKS AI
+==================================================
+
+AI harus dapat memahami hubungan antara:
+
+• Brand
+
+• Seri Produk
+
+• Detail Produk
+
+• Nutrisi
+
+• Komposisi
+
+• Target Ternak
+
+• Fase Pemeliharaan
+
+==================================================
+BATASAN
+==================================================
+
+AI hanya menggunakan data yang tersedia.
+
+Tidak boleh mengarang kandungan nutrisi.
+
+Tidak boleh memberikan informasi yang tidak memiliki sumber.
+
+==================================================
+YANG TIDAK BOLEH
+==================================================
+
+❌ Jangan membuat AI Chat.
+
+❌ Jangan membuat API AI.
+
+❌ Jangan mengubah modul lain.
+
+❌ Jangan mengubah arsitektur aplikasi.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ Struktur data siap digunakan AI.
+
+✅ Seluruh relasi menggunakan UUID.
+
+✅ AI memiliki sumber data yang jelas.
+
+✅ Siap diintegrasikan dengan AI TernaKHub pada tahap berikutnya.

@@ -1,0 +1,153 @@
+MP-018 — Implementasi Sub Kategori "Kelapa"
+
+Jangan mengubah struktur Tab Master Pakan.
+
+Jangan mengubah kategori lain.
+
+Yang dikerjakan HANYA halaman "Kelapa" pada Master Pakan.
+
+==================================================
+TUJUAN
+==================================================
+
+Saat pengguna memilih kategori "Kelapa", tampilkan seluruh bahan baku yang berasal dari tanaman kelapa yang digunakan sebagai pakan ternak.
+
+Ini merupakan Master Pakan.
+
+Bukan Formula.
+
+Kategori ini hanya berisi bahan baku tunggal yang berasal dari tanaman kelapa, baik bagian utama maupun hasil samping langsung, tanpa proses pencampuran.
+
+==================================================
+LAYOUT
+==================================================
+
+Back Button
+
+↓
+
+Header
+
+Kelapa
+
+↓
+
+AI Insight Kelapa
+
+↓
+
+Ringkasan
+
+↓
+
+Search
+
+↓
+
+Daftar Bahan Kelapa
+
+==================================================
+RINGKASAN
+==================================================
+
+Tampilkan:
+
+• Total Referensi Kelapa
+
+• Harga Rata-rata
+
+• Terakhir Diperbarui
+
+• Jumlah Data Nutrisi Lengkap
+
+==================================================
+SEARCH
+==================================================
+
+Cari berdasarkan nama bahan kelapa.
+
+==================================================
+DAFTAR BAHAN KELAPA
+==================================================
+
+Tampilkan minimal referensi berikut:
+
+• Kelapa Utuh
+
+• Daging Kelapa Segar
+
+• Air Kelapa
+
+• Ampas Kelapa
+
+• Tepung Kelapa
+
+• Bungkil Kelapa
+
+• Kulit Ari Kelapa
+
+• Sabut Kelapa
+
+• Tempurung Kelapa
+
+• Nira Kelapa
+
+• Gula Kelapa
+
+• dan seluruh bahan tunggal lainnya yang berasal langsung dari tanaman kelapa serta umum digunakan atau berpotensi digunakan sebagai bahan pakan.
+
+==================================================
+SETIAP CARD
+==================================================
+
+Menampilkan:
+
+• Nama
+
+• Nama Latin (jika ada)
+
+• Deskripsi singkat
+
+• Tombol "Lihat Detail"
+
+Belum menampilkan kandungan nutrisi.
+
+==================================================
+DETAIL
+==================================================
+
+Saat tombol "Lihat Detail" ditekan,
+
+gunakan halaman Detail Master Pakan (struktur sama seperti MP-003, MP-005, MP-007, MP-009, MP-011, MP-013, MP-015, dan MP-017).
+
+==================================================
+YANG TIDAK BOLEH MASUK
+==================================================
+
+❌ Silase Kelapa
+
+❌ Kelapa Fermentasi
+
+❌ Complete Feed
+
+❌ Konsentrat
+
+❌ TMR
+
+❌ Campuran berbahan kelapa
+
+Karena semuanya merupakan hasil Formula Pakan.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ Halaman Kelapa berisi seluruh bahan baku tunggal yang berasal dari tanaman kelapa.
+
+✅ Tidak ada produk Formula.
+
+✅ Semua item memiliki tombol "Lihat Detail".
+
+✅ Struktur konsisten dengan seluruh kategori Master Pakan lainnya.
+
+✅ Siap diintegrasikan dengan halaman Detail Master Pakan (MP-019).

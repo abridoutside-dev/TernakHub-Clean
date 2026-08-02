@@ -1,0 +1,162 @@
+TASK P0-006B-1
+
+Repository:
+TernakHub
+
+Branch:
+feature/production-readiness
+
+==================================================
+TUJUAN
+==================================================
+
+Selesaikan seluruh temuan Production Readiness pada modul Admin yang masih belum benar-benar berfungsi.
+
+Jangan menghapus fitur.
+
+Jangan menyembunyikan menu.
+
+Jangan mengganti dengan placeholder.
+
+Seluruh fitur yang memang sudah didukung arsitektur aplikasi harus benar-benar aktif.
+
+==================================================
+TEMUAN
+==================================================
+
+1.
+
+Masih terdapat route Admin yang hanya melakukan redirect tanpa implementasi halaman yang semestinya.
+
+2.
+
+Masih terdapat aksi pada modul Transport yang hanya menampilkan:
+
+- Sedang dalam pengembangan
+- Coming Soon
+- Placeholder
+- Disabled Action
+
+==================================================
+IMPLEMENTASI
+==================================================
+
+A.
+
+Audit seluruh Dashboard Admin.
+
+Identifikasi seluruh menu, route, dan action yang:
+
+- Redirect sementara
+- Placeholder
+- Coming Soon
+- Disabled
+- TODO
+
+==================================================
+
+B.
+
+Perbaiki seluruh route.
+
+Setiap menu Admin harus membuka halaman yang benar sesuai modulnya.
+
+Jangan melakukan redirect ke halaman lain hanya untuk menghindari error.
+
+==================================================
+
+C.
+
+Audit modul Transport.
+
+Pastikan seluruh action yang tersedia benar-benar berfungsi.
+
+Gunakan:
+
+- Repository
+- Service
+- Route
+- Dialog
+- Form
+
+yang memang sudah tersedia pada aplikasi.
+
+==================================================
+
+D.
+
+Jika suatu action memang membutuhkan backend yang sudah tersedia,
+
+hubungkan ke backend tersebut.
+
+Jangan menggunakan dummy.
+
+==================================================
+
+E.
+
+Jika ditemukan placeholder,
+
+selesaikan implementasinya.
+
+Bukan dihapus.
+
+Bukan disembunyikan.
+
+==================================================
+JANGAN
+==================================================
+
+❌ Jangan menghapus menu.
+
+❌ Jangan menyembunyikan menu.
+
+❌ Jangan membuat placeholder baru.
+
+❌ Jangan membuat dummy implementation.
+
+❌ Jangan mengubah arsitektur Dashboard Admin.
+
+==================================================
+VALIDASI
+==================================================
+
+Pastikan:
+
+✓ Seluruh route Admin membuka halaman yang benar.
+
+✓ Tidak ada redirect sementara.
+
+✓ Seluruh action Transport berfungsi.
+
+✓ Tidak ada placeholder.
+
+✓ TypeScript Check bersih.
+
+✓ Production Build sukses.
+
+==================================================
+COMMIT
+==================================================
+
+P0-006B-1: Complete admin production readiness
+
+==================================================
+LAPORAN
+==================================================
+
+Berikan:
+
+1. Route yang diperbaiki.
+
+2. Action Transport yang diselesaikan.
+
+3. File yang berubah.
+
+4. Hasil TypeScript Check.
+
+5. Hasil Production Build.
+
+6. Commit hash.
+
+Berhenti setelah task selesai.

@@ -1,0 +1,153 @@
+TASK: RP-011 — Reproduction AI Insight
+
+Use:
+
+docs/prompts/ROADMAP_TEMPLATE.md
+
+Read:
+
+docs/architecture/README.md
+
+Follow ONLY the applicable Constitution documents.
+
+==================================================
+ROADMAP
+==================================================
+
+Implement AI Insight for the Reproduction Module.
+
+This roadmap follows RP-010 (Reproduction History).
+
+==================================================
+OBJECTIVE
+==================================================
+
+Provide rule-based reproductive insights.
+
+AI is Decision Support only.
+
+AI is READ ONLY.
+
+==================================================
+DATA SOURCE
+==================================================
+
+Reuse existing data from:
+
+- Reproduction Program
+- Program Execution
+- Monitoring
+- Pregnancy Examination
+- Pregnancy
+- Birth
+- Offspring Registration
+- Weaning
+- Reproduction History
+
+Do NOT create a new data source.
+
+==================================================
+AI SUMMARY
+==================================================
+
+Generate summary for:
+
+- Active Programs
+- Pregnant Animals
+- Upcoming Births
+- Recent Births
+- Weaning Status
+
+==================================================
+AI ANALYSIS
+==================================================
+
+Analyze:
+
+- Pregnancy progression
+- Reproductive performance
+- Birth performance
+- Weaning performance
+- Reproduction history trend
+
+==================================================
+AI WARNING
+==================================================
+
+Generate warnings for:
+
+- Overdue pregnancy examination
+- Overdue monitoring
+- Pregnancy exceeds expected due date
+- Abnormal birth records
+- Duplicate active pregnancy
+- Missing follow-up after birth
+- Delayed weaning
+
+==================================================
+AI RECOMMENDATION
+==================================================
+
+Generate recommendations:
+
+- Schedule pregnancy examination
+- Schedule monitoring
+- Prepare for birth
+- Register offspring
+- Perform weaning
+- Review reproduction history
+
+==================================================
+AI PREDICTION
+==================================================
+
+Estimate:
+
+- Expected birth date
+- Upcoming weaning schedule
+- Active reproduction workload
+
+Predictions are informational only.
+
+==================================================
+DISPLAY
+==================================================
+
+Reuse existing AI Insight cards.
+
+Priority:
+
+- Info
+- Warning
+- Critical
+
+Display:
+
+- Analysis Timestamp
+- Data Source
+- Confidence Status (Rule-Based)
+
+==================================================
+VALIDATION
+==================================================
+
+Verify:
+
+- AI never modifies data.
+- AI never creates transactions.
+- AI reads existing data only.
+- AI follows AI Constitution.
+
+==================================================
+OUTPUT
+==================================================
+
+Implement ONLY RP-011.
+
+Reuse existing AI components.
+
+Reuse existing Summary cards.
+
+Do not redesign architecture.
+
+Do not modify unrelated modules.

@@ -1,0 +1,226 @@
+# =====================================================
+# SUB-002 — Subscription Feature Access Matrix
+# =====================================================
+
+OBJECTIVE
+
+Implement Feature Access Matrix based on Workspace Subscription.
+
+Subscription controls feature availability.
+
+Workspace is the access owner.
+
+DO NOT implement payment.
+
+DO NOT implement billing.
+
+----------------------------------------------------
+
+SUBSCRIPTION SOURCE
+
+Read subscription only from Active Workspace.
+
+Never from User Account.
+
+----------------------------------------------------
+
+FEATURE ACCESS
+
+========================
+FREE
+========================
+
+Workspace
+
+✔ Workspace Management
+
+Livestock
+
+✔ Full Recording
+
+Feed
+
+✔ Master Feed
+
+✔ Feed Stock
+
+✔ Feed Formula
+
+✔ Basic Formula Analysis
+
+Only display:
+
+- PK
+- TDN
+- Formula Weight
+- Estimated Cost
+
+Medicine
+
+✔ Full Recording
+
+Marketplace
+
+✔ Buy
+
+✔ Sell
+
+✔ Negotiation
+
+Reports
+
+✔ Basic Reports
+
+AI
+
+Limited
+
+Example
+
+- Daily AI quota
+- Basic AI Insight only
+
+----------------------------------------------------
+
+========================
+PRO
+========================
+
+Everything in FREE
+
+PLUS
+
+Formula Feed
+
+✔ Complete Nutrition Analysis
+
+Examples
+
+- Dry Matter
+- PK
+- TDN
+- SK
+- LK
+- Ash
+- Ca
+- P
+- NDF
+- ADF
+- NFC
+- Energy
+
+AI
+
+✔ Unlimited AI Insight
+
+✔ Formula Recommendation
+
+✔ Feed Optimization
+
+✔ Cost Optimization
+
+✔ Performance Analysis
+
+Reports
+
+✔ Advanced Report
+
+✔ Export PDF
+
+✔ Export Excel
+
+History
+
+✔ Formula Version
+
+✔ Comparison
+
+Backup
+
+✔ Automatic Backup
+
+----------------------------------------------------
+
+========================
+ENTERPRISE
+========================
+
+Everything in PRO
+
+PLUS
+
+✔ Multi Organization
+
+✔ Enterprise Dashboard
+
+✔ Organization Analytics
+
+✔ Advanced Permission
+
+✔ Audit Trail
+
+✔ API Integration
+
+✔ SLA
+
+✔ Dedicated Support
+
+----------------------------------------------------
+
+ACCESS CONTROL
+
+If feature unavailable
+
+Show Upgrade Dialog.
+
+Never hide the feature completely.
+
+Display:
+
+Feature
+
+Benefits
+
+Current Plan
+
+Upgrade Button
+
+----------------------------------------------------
+
+UPGRADE DIALOG
+
+Display
+
+Current Plan
+
+Target Plan
+
+Unlocked Features
+
+Price
+
+Action
+
+Upgrade Workspace
+
+----------------------------------------------------
+
+OUT OF SCOPE
+
+Payment
+
+Invoice
+
+Coupon
+
+Billing
+
+Referral
+
+----------------------------------------------------
+
+OUTPUT
+
+SUB-002 Completion Report
+
+STOP.

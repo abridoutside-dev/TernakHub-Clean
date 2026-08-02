@@ -1,0 +1,275 @@
+FP-005 (Revisi) — Implementasi Halaman Produksi Formula
+
+Jangan mengubah arsitektur aplikasi.
+
+Jangan mengubah Master Pakan.
+
+Jangan mengubah Produk Komersial.
+
+Jangan mengubah Livestock.
+
+Perubahan pada Tab Stok hanya diperbolehkan sebagai hasil dari proses Produksi.
+
+Yang dikerjakan HANYA implementasi Halaman Produksi Formula.
+
+==================================================
+TUJUAN
+==================================================
+
+Mengubah Formula (Template) menjadi hasil produksi nyata.
+
+Produksi menggunakan bahan dari Stok.
+
+Produksi mengurangi stok bahan baku.
+
+Produksi menambah stok hasil produksi.
+
+==================================================
+AKSES
+==================================================
+
+Formula
+
+↓
+
+Detail Formula
+
+↓
+
+Produksi
+
+==================================================
+LAYOUT
+==================================================
+
+Header
+
+↓
+
+Informasi Formula
+
+↓
+
+Ketersediaan Bahan
+
+↓
+
+Jumlah Produksi
+
+↓
+
+Analisis Produksi
+
+↓
+
+Preview Perubahan Stok
+
+↓
+
+Konfirmasi Produksi
+
+==================================================
+INFORMASI FORMULA
+==================================================
+
+Tampilkan:
+
+• Nama Formula
+
+• Jenis Formula
+
+• Target Ternak
+
+• Total Bahan
+
+• Total Berat Formula
+
+==================================================
+KETERSEDIAAN BAHAN
+==================================================
+
+Tampilkan seluruh bahan beserta kondisi stok saat ini.
+
+Contoh:
+
+✔ Janggel Giling
+500 kg tersedia
+
+✔ Dedak Halus
+300 kg tersedia
+
+⚠ Ampas Kedelai
+20 kg tersedia
+
+❌ Bungkil Kelapa
+0 kg
+
+==================================================
+JUMLAH PRODUKSI
+==================================================
+
+Pengguna menentukan jumlah produksi.
+
+Sistem secara otomatis menghitung:
+
+• Maksimum produksi saat ini.
+
+• Faktor pembatas produksi.
+
+Sediakan tombol:
+
+"Maksimum Produksi"
+
+untuk mengisi jumlah maksimum otomatis.
+
+==================================================
+ANALISIS PRODUKSI
+==================================================
+
+Setiap perubahan jumlah produksi harus langsung memperbarui:
+
+• Total bahan yang dibutuhkan.
+
+• Total biaya produksi.
+
+• HPP per Kg.
+
+• Estimasi hasil produksi.
+
+Secara real-time.
+
+==================================================
+PREVIEW PERUBAHAN STOK
+==================================================
+
+Sebelum Produksi dijalankan tampilkan simulasi:
+
+STOK BERKURANG
+
+• Janggel Giling
+-100 kg
+
+• Dedak Halus
+-50 kg
+
+• Ampas Kedelai
+-50 kg
+
+STOK BERTAMBAH
+
+• Complete Feed Ekonomis
++250 kg
+
+Belum mengubah data stok.
+
+==================================================
+VALIDASI
+==================================================
+
+Produksi hanya dapat dilakukan apabila:
+
+• Seluruh bahan tersedia.
+
+• Stok mencukupi.
+
+• Tidak ada stok negatif.
+
+Jika ada bahan kurang:
+
+Tampilkan penyebabnya.
+
+Nonaktifkan tombol Produksi.
+
+==================================================
+PROSES PRODUKSI
+==================================================
+
+Saat tombol Produksi ditekan:
+
+Sistem harus:
+
+1. Validasi ulang stok.
+
+2. Mengurangi stok bahan baku.
+
+3. Menambah stok hasil produksi.
+
+4. Jika hasil produksi sudah ada pada Tab Stok:
+
+Tambah jumlah stok.
+
+5. Jika belum ada:
+
+Buat item stok baru dengan jenis:
+
+"Hasil Produksi"
+
+==================================================
+KONSISTENSI DATA
+==================================================
+
+Seluruh proses harus bersifat atomik.
+
+Jika salah satu proses gagal:
+
+Seluruh perubahan dibatalkan.
+
+==================================================
+SETELAH PRODUKSI
+==================================================
+
+Otomatis memperbarui:
+
+• Dashboard Stok.
+
+• Tab Stok.
+
+• Detail Item Stok.
+
+• AI Insight Stok.
+
+• Ringkasan Formula.
+
+• Riwayat Produksi.
+
+==================================================
+YANG TIDAK BOLEH
+==================================================
+
+❌ Jangan mengubah Formula.
+
+❌ Jangan mengubah Master Pakan.
+
+❌ Jangan mengubah Produk Komersial.
+
+❌ Jangan mengubah Livestock.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ Halaman Produksi selesai.
+
+✅ Ketersediaan bahan tampil real-time.
+
+✅ Maksimum Produksi dihitung otomatis.
+
+✅ Faktor pembatas tampil.
+
+✅ Analisis Produksi berjalan real-time.
+
+✅ Preview perubahan stok tampil.
+
+✅ Produksi mengurangi stok bahan baku.
+
+✅ Produksi menambah stok hasil produksi.
+
+✅ Hasil produksi digabung apabila Formula yang sama sudah ada.
+
+✅ Dashboard dan Tab Stok diperbarui otomatis.
+
+✅ Riwayat Produksi otomatis tercatat.
+
+✅ Seluruh proses bersifat atomik.
+
+✅ Siap dilanjutkan ke FP-006.

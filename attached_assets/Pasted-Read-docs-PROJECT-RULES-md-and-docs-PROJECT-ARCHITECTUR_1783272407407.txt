@@ -1,0 +1,169 @@
+Read /docs/PROJECT_RULES.md and /docs/PROJECT_ARCHITECTURE.md before making changes.
+
+Create the "Tambah Stok Pakan" page.
+
+UI ONLY.
+
+Do not modify other pages.
+
+Do not implement backend, API, database, validation, AI, storage, or business logic.
+
+Keep existing App Shell and Floating Assistant.
+
+=================================================
+HEADER
+=================================================
+
+Title:
+
+Tambah Stok Pakan
+
+Back button.
+
+=================================================
+FEED INFORMATION
+=================================================
+
+Display fields:
+
+Nama Pakan *
+
+Searchable dropdown.
+
+Placeholder examples:
+
+- CP-01
+- Silase Tebon Jagung
+- Rumput Gajah
+- Hay
+- Complete Feed
+- Konsentrat
+
+Include:
+
+"+ Tambah Jenis Pakan"
+
+(UI placeholder only)
+
+=================================================
+CATEGORY
+=================================================
+
+Dropdown:
+
+- Hijauan
+- Konsentrat
+- Silase
+- Hay
+- Fermentasi
+- Mineral
+- Vitamin
+- Lainnya
+
+=================================================
+STOCK ENTRY
+=================================================
+
+Fields:
+
+Jumlah *
+
+Unit *
+
+Dropdown:
+
+- kg
+- gram
+- ton
+- liter
+- karung
+- sak
+- ikat
+- ember
+
+=================================================
+SOURCE
+=================================================
+
+Dropdown:
+
+- Pembelian
+- Produksi Sendiri
+- Hibah
+- Retur
+- Lainnya
+
+=================================================
+SUPPLIER
+=================================================
+
+Optional text field.
+
+Label:
+
+Supplier / Asal
+
+=================================================
+DATE
+=================================================
+
+Tanggal Masuk
+
+Default placeholder:
+Today
+
+=================================================
+PRICE
+=================================================
+
+Optional.
+
+Harga Total
+
+(No calculation.)
+
+=================================================
+PHOTO
+=================================================
+
+Buttons:
+
+📷 Ambil Foto
+
+🖼️ Pilih dari Galeri
+
+Preview placeholder only.
+
+=================================================
+NOTES
+=================================================
+
+Catatan (Opsional)
+
+=================================================
+BOTTOM BUTTONS
+=================================================
+
+Batal
+
+Simpan
+
+=================================================
+IMPORTANT
+=================================================
+
+This page ONLY records incoming feed stock.
+
+Do NOT include:
+
+- Feeding livestock
+- Feed schedule
+- Feed consumption
+- Batch selection
+- Livestock selection
+
+Those belong to future modules.
+
+Use placeholder data only.
+
+Stop when finished.

@@ -1,0 +1,301 @@
+DB-010 — Dashboard Personalization & Customization
+
+Baca dan patuhi:
+
+docs/architecture/DASHBOARD_MODULE_CONSTITUTION.md
+
+Jangan mengubah Constitution.
+
+==================================================
+TUJUAN
+==================================================
+
+Membangun fondasi:
+
+Dashboard Personalization.
+
+Dashboard harus dapat
+disesuaikan oleh pengguna
+tanpa mengubah
+arsitektur modul.
+
+Fitur ini hanya
+menyiapkan struktur.
+
+Bukan implementasi penuh.
+
+==================================================
+PRINSIP
+==================================================
+
+Dashboard tetap:
+
+Control Center.
+
+Personalisasi hanya
+mengubah tampilan.
+
+Bukan mengubah
+data bisnis.
+
+==================================================
+YANG DAPAT DIATUR
+==================================================
+
+Siapkan struktur
+untuk:
+
+✓ Urutan Widget
+
+✓ Tampilkan/Sembunyikan Widget
+
+✓ Widget Favorit
+
+✓ Widget Default
+
+Belum perlu
+fitur drag & drop.
+
+==================================================
+DEFAULT WIDGET
+==================================================
+
+Default Dashboard:
+
+1.
+
+AI Insight
+
+↓
+
+2.
+
+Quick Action
+
+↓
+
+3.
+
+Summary Card
+
+↓
+
+4.
+
+Today's Activity
+
+↓
+
+5.
+
+Alert & Reminder
+
+↓
+
+6.
+
+Recent Activity
+
+↓
+
+7.
+
+News & Event
+
+↓
+
+8.
+
+Business Snapshot
+
+==================================================
+VISIBILITY
+==================================================
+
+Setiap Widget
+memiliki status:
+
+✓ Visible
+
+✓ Hidden
+
+Dashboard tetap
+memiliki widget wajib.
+
+==================================================
+WIDGET WAJIB
+==================================================
+
+Widget berikut
+
+TIDAK BOLEH
+
+disembunyikan:
+
+• AI Insight
+
+• Quick Action
+
+• Summary Card
+
+Widget lain
+boleh disembunyikan.
+
+==================================================
+PREFERENCE
+==================================================
+
+Siapkan struktur:
+
+Dashboard Preference.
+
+Contoh:
+
+• Compact Mode
+
+• Comfortable Mode
+
+• Default Layout
+
+Belum perlu
+halaman pengaturan.
+
+==================================================
+WORKSPACE
+==================================================
+
+Personalisasi
+disimpan
+per Workspace.
+
+Contoh:
+
+Workspace Farm A
+
+↓
+
+Layout A
+
+Workspace Farm B
+
+↓
+
+Layout B
+
+==================================================
+FUTURE READY
+==================================================
+
+Siapkan struktur
+untuk:
+
+• Drag & Drop
+
+• Widget Resize
+
+• Widget Pin
+
+• AI Dashboard
+
+• Dashboard Template
+
+Belum diimplementasikan.
+
+==================================================
+EMPTY STATE
+==================================================
+
+Apabila seluruh
+widget opsional
+disembunyikan,
+
+tetap tampilkan:
+
+AI Insight
+
+Quick Action
+
+Summary Card
+
+==================================================
+RESPONSIVE
+==================================================
+
+Pastikan:
+
+✓ Android
+
+✓ Tablet
+
+✓ Desktop
+
+==================================================
+BUILD
+==================================================
+
+Pastikan:
+
+tsc -b
+
+vite build
+
+berhasil.
+
+Tidak ada:
+
+• TypeScript Error
+
+• Runtime Error
+
+==================================================
+OUTPUT
+==================================================
+
+Laporkan:
+
+1. Struktur Personalization.
+
+2. Widget Configuration.
+
+3. Workspace Preference.
+
+4. Responsive.
+
+5. Build Result.
+
+==================================================
+YANG TIDAK BOLEH
+==================================================
+
+❌ Mengubah Constitution.
+
+❌ Mengubah Marketplace.
+
+❌ Menambah database baru.
+
+❌ Mengimplementasikan
+Drag & Drop.
+
+❌ Mengubah data
+modul lain.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ Struktur personalisasi selesai.
+
+✅ Widget wajib terlindungi.
+
+✅ Preference per Workspace siap.
+
+✅ Future-ready untuk
+drag & drop.
+
+✅ Build bersih.
+
+Berhenti setelah
+DB-010 selesai.
+
+Jangan melanjutkan
+ke DB-R01.

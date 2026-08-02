@@ -1,0 +1,221 @@
+TASK: PKO-003 (Final Revisi) — Lengkapi Database Dummy Produk Komersial Obat
+
+Tujuan:
+Melengkapi Produk Komersial Obat dengan data dummy yang realistis sebagai katalog produk dagang, bukan database referensi obat.
+
+PENTING
+
+- Jangan mengubah arsitektur aplikasi.
+- Jangan mengubah Master Obat.
+- Jangan membuat CRUD.
+- Jangan membuat Admin.
+- Jangan mengambil data dari internet.
+- Gunakan data dummy yang realistis dan konsisten.
+
+==================================================
+KONSEP
+==================================================
+
+Produk Komersial Obat berisi PRODUK DAGANG.
+
+Bukan daftar obat generik.
+
+Seluruh produk harus memiliki relasi:
+
+master_obat_uuid
+
+Sebagai referensi ke Master Obat.
+
+==================================================
+TARGET
+==================================================
+
+Minimal:
+
+10 Brand
+
+Setiap Brand memiliki 8–15 produk.
+
+Target:
+
+80–120 produk dummy.
+
+==================================================
+BRAND
+==================================================
+
+Gunakan contoh Brand berikut:
+
+- Fertilife
+- Medion
+- Interchemie
+- Virbac
+- Zoetis
+- Elanco
+- Vetoquinol
+- MSD Animal Health
+- Bioveta
+- Sanbe
+
+==================================================
+PRODUK
+==================================================
+
+Setiap Brand memiliki nama produk yang berbeda.
+
+Contoh pola penamaan:
+
+Brand Fertilife
+
+- B Complex Fertilife
+- ADE Fertilife
+- Ivermec Fertilife
+- Oxytet LA Fertilife
+- Calci Fertilife
+- Rumen Plus Fertilife
+- Electrolyte Fertilife
+- Oxytocin Fertilife
+- Flunix Fertilife
+- Meloxi Fertilife
+
+Brand Medion
+
+- Medoxy LA
+- Medivit ADE
+- Wormectin M
+- Medical B Complex
+- Medical Calcium
+- Medilyte
+- Mediprobiotic
+- Medoxicam
+- Medflunix
+- Medoxytocin
+
+Brand Interchemie
+
+- Intermectin
+- Intermycin LA
+- Inter ADE
+- Inter B Complex
+- Inter Calcium
+- Inter Electrolyte
+- Inter Meloxicam
+- Inter Flunixin
+
+Lanjutkan pola serupa untuk seluruh Brand.
+
+==================================================
+SETIAP PRODUK MEMILIKI
+==================================================
+
+UUID
+
+master_obat_uuid
+
+Brand UUID
+
+Nama Produk
+
+Brand
+
+Bentuk Sediaan
+
+Kemasan
+
+Status
+
+==================================================
+BENTUK SEDIAAN
+==================================================
+
+Variasikan:
+
+- Injeksi
+- Oral
+- Bolus
+- Tablet
+- Serbuk
+- Premix
+- Cair
+- Spray
+- Pour On
+- Gel
+
+==================================================
+KEMASAN
+==================================================
+
+Variasikan:
+
+- 10 ml
+- 20 ml
+- 50 ml
+- 100 ml
+- 250 ml
+- 500 ml
+- 1 Liter
+- 100 gram
+- 250 gram
+- 500 gram
+- 1 Kg
+- 5 Kg
+
+==================================================
+STATUS
+==================================================
+
+Sebagian Aktif
+
+Sebagian Nonaktif
+
+==================================================
+RINGKASAN
+==================================================
+
+Pastikan Ringkasan otomatis menyesuaikan jumlah Brand dan Produk.
+
+==================================================
+MODE BRAND
+==================================================
+
+Menampilkan jumlah produk sebenarnya pada setiap Brand.
+
+==================================================
+MODE PRODUK
+==================================================
+
+Menampilkan seluruh produk dari seluruh Brand.
+
+==================================================
+SEARCH
+==================================================
+
+Pastikan Search tetap bekerja terhadap data dummy.
+
+==================================================
+FILTER
+==================================================
+
+Pastikan Filter Status tetap bekerja.
+
+==================================================
+BELUM TERMASUK
+==================================================
+
+- CRUD
+- Admin
+- Harga
+- Supplier
+- Foto Produk
+- Barcode
+- Nomor Registrasi
+- Batch
+- Expired
+- Import
+- Export
+
+==================================================
+OUTPUT
+==================================================
+
+Produk Komersial Obat memiliki katalog dummy yang realistis dengan sekitar 80–120 produk dagang dari berbagai Brand, siap digunakan untuk pengujian UI dan sebagai fondasi modul Admin Produk Komersial.

@@ -1,0 +1,177 @@
+Read /docs/PROJECT_RULES.md and /docs/PROJECT_ARCHITECTURE.md before making changes.
+
+Rebuild the Livestock Home page for the Farm Workspace based on the latest architecture decisions.
+
+UI ONLY.
+
+Do not implement backend, API, AI logic, database, search logic, filtering logic, navigation logic, or business logic.
+
+=================================================
+PURPOSE
+=================================================
+
+This page is the operational entry point for livestock management.
+
+Do NOT display dashboard summaries.
+
+Dashboard already contains all farm summaries.
+
+=================================================
+HEADER
+=================================================
+
+Title:
+
+Livestock
+
+Top-right:
+
+Search icon
+
+No summary cards.
+
+=================================================
+QUICK ACTION
+=================================================
+
+Display horizontal quick action cards.
+
+Actions:
+
+⚖️ Catat Bobot
+
+🌿 Pemberian Pakan
+
+❤️ Kesehatan
+
+🧬 Reproduksi
+
+🔄 Mutasi
+
+Each Quick Action opens its own operational page.
+
+=================================================
+MODE
+=================================================
+
+Display segmented control.
+
+○ Individu
+
+○ Batch
+
+Default:
+
+Individu
+
+Changing mode updates the livestock list below.
+
+=================================================
+LIVESTOCK TYPE
+=================================================
+
+Display horizontal chips.
+
+Only display livestock types registered in this Farm Workspace.
+
+Examples:
+
+🐑 Domba
+
+🐐 Kambing
+
+🐄 Sapi
+
+Display "+" button at the end.
+
+The "+" button opens the Workspace Livestock Type Management page.
+
+(UI only)
+
+=================================================
+PROGRAM FILTER
+=================================================
+
+Dropdown.
+
+Default:
+
+Semua Program
+
+Options:
+
+Semua Program
+
+Fattening
+
+Breeding
+
+Kontes
+
+Karantina
+
+Replacement
+
+Others
+
+Changing program filters the livestock list.
+
+(UI only)
+
+=================================================
+SEARCH
+=================================================
+
+One search field.
+
+Placeholder:
+
+Cari ID ternak atau nama...
+
+If Batch mode is active:
+
+Placeholder:
+
+Cari ID batch...
+
+=================================================
+LIVESTOCK LIST
+=================================================
+
+INDIVIDUAL MODE
+
+Display cards.
+
+Each card contains:
+
+Photo
+
+Livestock ID
+
+Name
+
+Current Weight
+
+Program
+
+Current Status
+
+Chevron >
+
+Selecting card opens Livestock Profile.
+
+-------------------------------------------------
+
+BATCH MODE
+
+Display cards.
+
+Each card contains:
+
+Batch ID
+
+Livestock Type
+
+Program
+
+Total

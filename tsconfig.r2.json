@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": [
+    "server/index.ts",
+    "server/r2Client.ts",
+    "server/uploadPolicy.ts",
+    "server/supabaseAdmin.ts",
+    "server/middleware/**/*.ts",
+    "server/repositories/**/*.ts",
+    "server/routes/**/*.ts",
+    "server/utils/**/*.ts"
+  ]
+}

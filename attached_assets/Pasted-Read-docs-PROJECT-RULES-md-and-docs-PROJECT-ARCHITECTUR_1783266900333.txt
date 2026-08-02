@@ -1,0 +1,155 @@
+Read /docs/PROJECT_RULES.md and /docs/PROJECT_ARCHITECTURE.md before making changes.
+
+Create the "Catat Bobot" page (UI only).
+
+GENERAL
+
+- Mobile-first.
+- Keep existing App Shell.
+- Keep Floating Assistant.
+- No backend.
+- No database.
+- No storage.
+- No validation.
+- No AI.
+- Placeholder UI only.
+
+=================================================
+HEADER
+=================================================
+
+Title:
+
+Catat Bobot
+
+Back button.
+
+=================================================
+SECTION 1 : PILIH TERNAK
+=================================================
+
+Display:
+
+Pilih Ternak
+
+Support two selection methods.
+
+Method 1
+
+Cari berdasarkan:
+
+- Nama
+- ID Ternak
+
+Method 2
+
+Livestock Picker
+
+Display photo cards showing:
+
+- Photo
+- Name
+- Livestock ID
+- Breed
+- Sex
+- Latest Weight
+- Health Status
+
+Selection is optional UI only.
+
+=================================================
+SECTION 2 : INFORMASI TERNAK
+=================================================
+
+After selecting a livestock (placeholder),
+
+display a summary card:
+
+Photo
+
+Name
+
+Livestock ID
+
+Breed
+
+Sex
+
+Age
+
+Latest Weight
+
+Last Weight Date
+
+=================================================
+SECTION 3 : CATAT BOBOT
+=================================================
+
+Fields:
+
+Tanggal Penimbangan
+
+Bobot (kg)
+
+Metode Penimbangan
+
+Options:
+
+- Timbangan Digital
+- Timbangan Manual
+- Estimasi
+- Lainnya
+
+If Lainnya:
+
+Show:
+
+Keterangan Metode
+
+=================================================
+SECTION 4 : FOTO
+=================================================
+
+Display two buttons:
+
+📷 Ambil Foto
+
+🖼️ Pilih dari Galeri
+
+Show image preview placeholder.
+
+=================================================
+SECTION 5 : CATATAN
+=================================================
+
+Optional notes.
+
+=================================================
+BOTTOM
+=================================================
+
+Buttons:
+
+Batal
+
+Simpan
+
+=================================================
+IMPORTANT
+=================================================
+
+Use section cards.
+
+Comfortable spacing.
+
+Scrolling optimized for mobile.
+
+No business logic.
+
+No database.
+
+No API.
+
+Placeholder UI only.
+
+Stop when finished.

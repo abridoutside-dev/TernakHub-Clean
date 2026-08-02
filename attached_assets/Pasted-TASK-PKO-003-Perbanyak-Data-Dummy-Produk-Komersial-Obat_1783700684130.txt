@@ -1,0 +1,164 @@
+TASK: PKO-003 — Perbanyak Data Dummy Produk Komersial Obat
+
+Tujuan:
+Mengisi Produk Komersial Obat dengan data dummy yang realistis agar tampilan, navigasi, pencarian, filter, dan struktur data dapat diuji dengan baik.
+
+PENTING
+
+- Jangan mengubah arsitektur aplikasi.
+- Jangan mengubah Master Obat.
+- Jangan membuat CRUD.
+- Jangan membuat Admin.
+- Jangan mengambil data dari internet.
+- Gunakan data dummy yang realistis.
+
+==================================================
+TARGET
+==================================================
+
+Minimal:
+
+10 Brand
+
+Minimal 5 produk setiap Brand
+
+Target sekitar 50–70 produk.
+
+==================================================
+BRAND
+==================================================
+
+Gunakan contoh berikut.
+
+- Fertilife
+- Medion
+- Interchemie
+- Sanbe
+- Vetoquinol
+- Virbac
+- Zoetis
+- Elanco
+- Bioveta
+- MSD Animal Health
+
+==================================================
+CONTOH PRODUK
+==================================================
+
+Setiap Brand memiliki kombinasi produk seperti:
+
+- B Complex
+- Vitamin ADE
+- Vitamin B12
+- Ivermectin
+- Albendazole
+- Levamisole
+- Oxytetracycline
+- Penicillin Streptomycin
+- Flunixin
+- Meloxicam
+- Dexamethasone
+- Multivitamin
+- Calcium Borogluconate
+- Anti Bloat
+- Electrolyte
+- Probiotik
+- Mineral Mix
+- Selenium + Vitamin E
+- Toltrazuril
+- Sulfa
+
+Nama boleh dikombinasikan dengan nama Brand.
+
+==================================================
+SETIAP PRODUK MEMILIKI
+==================================================
+
+UUID
+
+master_obat_uuid
+
+Nama Produk
+
+Brand
+
+Bentuk Sediaan
+
+contoh:
+
+- Injeksi
+- Oral
+- Bolus
+- Serbuk
+- Cair
+- Premix
+- Spray
+- Pour On
+
+Kemasan
+
+contoh:
+
+- 10 ml
+- 20 ml
+- 50 ml
+- 100 ml
+- 250 ml
+- 500 ml
+- 1 Liter
+- 1 Kg
+- 5 Kg
+
+Status
+
+Aktif / Nonaktif
+
+==================================================
+RINGKASAN
+==================================================
+
+Pastikan kartu ringkasan otomatis berubah sesuai jumlah data.
+
+==================================================
+MODE BRAND
+==================================================
+
+Jumlah produk setiap Brand tampil sesuai data sebenarnya.
+
+==================================================
+MODE PRODUK
+==================================================
+
+Seluruh produk tampil.
+
+==================================================
+SEARCH
+==================================================
+
+Pastikan pencarian placeholder tetap berjalan seperti sebelumnya bila sudah ada implementasi.
+
+==================================================
+FILTER
+==================================================
+
+Pastikan filter Aktif / Nonaktif tetap sesuai.
+
+==================================================
+TIDAK TERMASUK
+==================================================
+
+- CRUD
+- Admin
+- Foto Produk
+- Barcode
+- Nomor Registrasi
+- Harga
+- Supplier
+- Import
+- Export
+
+==================================================
+OUTPUT
+==================================================
+
+Produk Komersial Obat kini berisi sekitar 50–70 data dummy realistis sehingga seluruh tampilan dan navigasi dapat diuji secara optimal.

@@ -1,0 +1,853 @@
+src/main.tsx:import { createRoot } from 'react-dom/client';
+src/main.tsx:  createRoot(document.getElementById('root')!).render(
+src/main.tsx:import { StrictMode } from 'react';
+src/main.tsx:    <StrictMode>
+src/main.tsx:    </StrictMode>,
+src/hooks/useBatch.ts:  const { currentUser } = useAuth();
+src/hooks/useWorkspacePermission.ts:  const { currentUser }    = useAuth();
+src/pages/WorkspaceSettingsArchive.tsx://   - useAuth()      → currentUser.id
+src/pages/WorkspaceSettingsRoles.tsx:  const { currentUser }      = useAuth();
+src/pages/TransportWorkspace.tsx:  const { currentUser } = useAuth();
+src/pages/LivestockProfile.tsx:  const { currentUser } = useAuth();
+src/pages/WorkspaceSettingsMembers.tsx://   - useAuth() for current user identity (self-removal guard)
+src/pages/WorkspaceSettingsMembers.tsx:  const { currentUser } = useAuth();
+src/pages/Reproduksi.tsx:  const { currentUser }     = useAuth();
+src/pages/Reproduksi.tsx:  const { currentUser }     = useAuth();
+src/pages/admin/AdminDashboard.tsx:  const { currentUser } = useAuth();
+src/pages/admin/layout/AdminGuard.tsx:  const { currentUser, loading } = useAuth();
+src/pages/admin/layout/AdminGuard.tsx:  const { currentUser } = useAuth();
+src/pages/admin/layout/AdminTopBar.tsx:  const { signOut, currentUser } = useAuth();
+src/pages/FarmProfile.tsx:  const { currentUser } = useAuth();
+src/pages/Marketplace.tsx:  const { currentUser } = useAuth();
+src/pages/Mutasi.tsx:  const { currentUser }     = useAuth();
+src/pages/CreateBatch.tsx:  const { currentUser }             = useAuth();
+src/pages/MarketplaceBuatListing.tsx:  const { currentUser } = useAuth();
+src/pages/WorkspacePublicProfile.tsx:  const { currentUser } = useAuth();
+src/pages/MarketplaceBuatNegosiasi.tsx:  const { currentUser } = useAuth();
+src/pages/workspaceDashboards/DrugStoreWorkspaceRoute.tsx:  const { currentUser } = useAuth();
+src/pages/workspaceDashboards/FeedStoreWorkspaceRoute.tsx:  const { currentUser } = useAuth();
+src/pages/FeedStoreWorkspace.tsx:  const { currentUser } = useAuth();
+src/pages/CatatBobot.tsx:  const { currentUser } = useAuth();
+src/pages/FormulaEditor.tsx:  const { currentUser }     = useAuth();
+src/pages/ProfileWorkspaceMembers.tsx:  const { currentUser } = useAuth();
+src/pages/FormulaProduksi.tsx:  const { currentUser }     = useAuth();
+src/pages/MarketplaceDetailListing.tsx:  const { currentUser } = useAuth();
+src/pages/MarketplaceDetailListing.tsx:  const { currentUser } = useAuth();
+src/pages/MarketplaceDetailListing.tsx:  const { currentUser } = useAuth();
+src/pages/VeterinaryWorkspace.tsx:  const { currentUser } = useAuth();
+src/pages/AddLivestock.tsx:  const { currentUser }     = useAuth();
+src/pages/AddLivestock.tsx:  const { currentUser }                 = useAuth();
+src/pages/MarketplaceModerasiDetailKasus.tsx:  const { currentUser } = useAuth();
+src/pages/Profile.tsx:  const { signOut } = useAuth();
+src/pages/ProfileWorkspace.tsx:  const { currentUser } = useAuth();
+src/pages/auth/ForgotPassword.tsx:  const { resetPassword } = useAuth();
+src/pages/auth/Register.tsx:  const { signUp, signIn } = useAuth();
+src/pages/auth/VerifyEmail.tsx:  const { currentUser, resendVerificationEmail, fetchUser } = useAuth();
+src/pages/auth/AcceptInvitation.tsx:  const { currentUser, loading: authLoading } = useAuth();
+src/pages/auth/Login.tsx:  const { signIn } = useAuth();
+src/pages/auth/WorkspaceCreate.tsx:  const { currentUser, loading: authLoading } = useAuth();
+src/pages/auth/WorkspaceSelect.tsx:  const { currentUser, loading: authLoading } = useAuth();
+src/contexts/WorkspaceContext.tsx:  const { currentUser, loading: authLoading } = useAuth();
+src/contexts/AuthContext.tsx: *   const { currentUser, userProfile, signOut } = useAuth();
+src/contexts/AuthContext.tsx:export function useAuth(): AuthContextValue {
+src/App.tsx:  const { currentUser, loading } = useAuth();
+src/App.tsx:  const { currentUser, loading: authLoading } = useAuth();
+src/lib/authBridge.ts://  • React components must use useAuth() from AuthContext — never this file.
+src/components/AuthenticatedRoute.tsx:  const { currentUser, loading } = useAuth();
+src/components/BottomNav.tsx:  const { currentUser } = useAuth();
+src/main.tsx:import { AuthProvider } from './contexts/AuthContext';
+src/main.tsx:          <AuthProvider>
+src/main.tsx:          </AuthProvider>
+src/contexts/AuthContext.tsx:export function AuthProvider({ children }: { children: ReactNode }) {
+src/contexts/AuthContext.tsx: * Throws if called outside of <AuthProvider>. This is intentional:
+src/contexts/AuthContext.tsx:    throw new Error('[TernakHub] useAuth must be used inside <AuthProvider>.');
+src/repositories/workspaceInvitationsRepository.ts:      return null;
+src/repositories/workspaceInvitationsRepository.ts:    return null;
+src/repositories/userProfileRepository.ts:      return null;
+src/repositories/userProfileRepository.ts:    return null;
+src/repositories/workspaceMembersRepository.ts:  if (error || !data) return null;
+src/repositories/workspaceMembersRepository.ts:  if (!data) return null;
+src/repositories/workspaceMembersRepository.ts:  if (!data) return null;
+src/repositories/workspaceSubscriptionRepository.ts:      return null;
+src/repositories/workspaceSubscriptionRepository.ts:    if (!data) return null;
+src/repositories/workspaceSubscriptionRepository.ts:      return null;
+src/repositories/workspaceSubscriptionRepository.ts:    return null;
+src/repositories/workspaceSubscriptionRepository.ts:      return null;
+src/repositories/workspaceSubscriptionRepository.ts:    return null;
+src/repositories/mediaRepository.ts:  if (!uuid) return null;
+src/repositories/mediaRepository.ts:  if (!record) return null;
+src/repositories/customRolesRepository.ts:    return null;
+src/repositories/notificationRepository.ts:  if (!data) return null;
+src/hooks/useWorkspacePermission.ts:    if (!currentUser || !resolvedWorkspaceId) return null;
+src/hooks/useWorkspacePermission.ts:    if (!role) return null;
+src/services/globalSearchService.ts:          return null;
+src/services/platformInitService.ts:    return null;
+src/services/newsEventService.ts:  if (!id) return null;
+src/services/newsEventService.ts:    if (error || !data) return null;
+src/services/newsEventService.ts:    return null;
+src/services/customRoleService.ts:  return null;
+src/services/batchService.ts:    default:           return null; // 'Draft' | 'Dibatalkan' not in DB enum
+src/services/masterPakanCatalogService.ts:    return null;
+src/services/healthService.ts:  if (!value || value.trim() === '') return null;
+src/services/healthService.ts:  if (!value || value === '') return null;
+src/services/stokInventarisService.ts:      return null;
+src/services/stokInventarisService.ts:    return null;
+src/services/stokInventarisService.ts:    return null;
+src/services/integrasiPengobatanService.ts:  return null;
+src/dev/data-factory/factories/batchFactory.ts:  if (!batch || batch.status !== 'Aktif') return null;
+src/dev/data-factory/factories/batchFactory.ts:  if (alreadyActive) return null;
+src/pages/MarketplaceEscrowDetail.tsx:  if (transfers.length === 0) return null;
+src/pages/MarketplaceEscrowDetail.tsx:  if (!d) return null;
+src/pages/Silsilah.tsx:  if (!id) return null;
+src/pages/Silsilah.tsx:  return null;
+src/pages/Silsilah.tsx:  if (!id) return null;
+src/pages/Silsilah.tsx:  if (!status) return null;
+src/pages/Silsilah.tsx:  if (!dot || !st) return null;
+src/pages/PengobatanKesehatan.tsx:    return null;
+src/pages/AdminNewsEventReviewDetail.tsx:  if (!value) return null;
+src/pages/KnowledgeBasePKArtikelDetail.tsx:  if (targetTernakNama.length === 0 && faseNama.length === 0) return null;
+src/pages/KnowledgeBasePKArtikelDetail.tsx:  if (lainnya.length === 0) return null;
+src/pages/AdminPublicationManagement.tsx:  if (v < 1) return null;
+src/pages/LivestockProfile.tsx:  if (!entry) return null;
+src/pages/LivestockProfile.tsx:  if (batches.length === 0) return null;
+src/pages/Keturunan.tsx:  if (!id) return null;
+src/pages/Keturunan.tsx:  return null;
+src/pages/Keturunan.tsx:  if (!id) return null;
+src/pages/BatchProfile.tsx:  if (parts.length < 3) return null;
+src/pages/BatchProfile.tsx:  if (isNaN(day) || month === undefined || isNaN(year)) return null;
+src/pages/BatchProfile.tsx:  if (totalPages <= 1) return null;
+src/pages/BatchProfile.tsx:  if (!showEdit && !showMenu) return null; // read-only: no header buttons
+src/pages/BatchProfile.tsx:  if (!open) return null;
+src/pages/BatchProfile.tsx:  if (!open) return null;
+src/pages/BatchProfile.tsx:  return null;
+src/pages/RiwayatPemberianPakan.tsx:  if (!open) return null;
+src/pages/MarketplaceDetailTransaksi.tsx:  if (filtered.length === 0) return null;
+src/pages/MarketplaceDetailTransaksi.tsx:  return null;
+src/pages/admin/AdminDashboard.tsx:  if (!table) return null;
+src/pages/admin/AdminDashboard.tsx:  if (error || count === null) return null;
+src/pages/admin/modules/AdminSubPagePlaceholder.tsx:  return null;
+src/pages/KonsentratProdukDetail.tsx:  if (value === undefined) return null;
+src/pages/RiwayatKesehatanHewanDetail.tsx:  if (!pemeriksaan) return null;
+src/pages/RiwayatKesehatanHewanDetail.tsx:  if (items.length === 0) return null;
+src/pages/RiwayatKesehatanHewanDetail.tsx:    if (kontrolRecords.length === 0) return null;
+src/pages/WorkspacePublicProfile.tsx:  if (!isOwnerOrAdmin) return null;
+src/pages/WorkspacePublicProfile.tsx:  if (!id) return null;
+src/pages/WorkspacePublicProfile.tsx:  if (links.length === 0) return null;
+src/pages/NewsEvent.tsx:  if (!item.acara) return null;
+src/pages/EditLivestock.tsx:  if (!msg) return null;
+src/pages/FormulaEditor.tsx:  if (!msg) return null;
+src/pages/FormulaEditor.tsx:  if (picker.step === 'closed') return null;
+src/pages/FormulaEditor.tsx:  return null;
+src/pages/ArchiveLivestock.tsx:            if (count === 0) return null;
+src/pages/MarketplaceDetailNegosiasi.tsx:  return null; // terminal states — tidak ada aksi
+src/pages/RiwayatObatTab.tsx:  if (count === 0) return null;
+src/pages/SiblingList.tsx:  if (!id) return null;
+src/pages/SiblingList.tsx:  return null;
+src/pages/SiblingList.tsx:  if (!id) return null;
+src/pages/BatchList.tsx:  if (!lv || !batch) return null;
+src/pages/MarketplaceKelolaListing.tsx:    if (!listing) return null;
+src/pages/NewsEventSubmissionPreview.tsx:  if (!value) return null;
+src/pages/RiwayatKesehatanHewan.tsx:  return null;
+src/pages/RiwayatKesehatanHewan.tsx:  if (count === 0) return null;
+src/pages/RiwayatKesehatanHewan.tsx:      return null;
+src/pages/auth/ForgotPassword.tsx:  return null;
+src/pages/auth/ForgotPassword.tsx:  return null;
+src/pages/auth/Register.tsx:  return null;
+src/pages/auth/Register.tsx:  return null;
+src/pages/auth/Register.tsx:  return null;
+src/pages/auth/Register.tsx:  return null;
+src/pages/auth/Register.tsx:  if (!password) return null;
+src/pages/auth/Login.tsx:  return null;
+src/pages/auth/Login.tsx:  return null;
+src/pages/auth/WorkspaceCreate.tsx:  if (!v.trim()) return null; // optional field
+src/pages/auth/WorkspaceCreate.tsx:  return null;
+src/pages/auth/WorkspaceCreate.tsx:  return null;
+src/pages/auth/WorkspaceCreate.tsx:  return null;
+src/pages/auth/WorkspaceCreate.tsx:  return null;
+src/pages/auth/WorkspaceCreate.tsx:  if (!v.trim()) return null;
+src/pages/auth/WorkspaceCreate.tsx:  if (!v.trim()) return null;
+src/pages/auth/WorkspaceSelect.tsx:    return null;
+src/pages/auth/Initialize.tsx:  return null;
+src/pages/auth/Initialize.tsx:  return null;
+src/pages/auth/Initialize.tsx:  return null;
+src/pages/auth/Initialize.tsx:  return null;
+src/pages/auth/ResetPassword.tsx:  if (!password) return null;
+src/pages/auth/ResetPassword.tsx:  return null;
+src/pages/auth/ResetPassword.tsx:  return null;
+src/data/alertReminderData.ts:  if (kritis.length === 0) return null;
+src/data/alertReminderData.ts:  if (habis.length === 0) return null;
+src/data/alertReminderData.ts:  if (count === 0) return null;
+src/data/alertReminderData.ts:  if (sakit === 0) return null;
+src/data/alertReminderData.ts:  if (!besok) return null;
+src/data/alertReminderData.ts:  if (aktif.length === 0) return null;
+src/data/alertReminderData.ts:  if (belumDicatat.length === 0) return null;
+src/data/registrasiAnakData.ts:  if (!program) return null;
+src/data/registrasiAnakData.ts:  if (program.pejantanIds.length !== 1) return null;
+src/data/registrasiAnakData.ts:  return null;
+src/data/masterPakanData.ts:  if (pk === null) return null;
+src/data/masterPakanData.ts:  if (tdn === null) return null;
+src/data/monitoringReproduksiData.ts:  return null;
+src/data/transactionReceiptData.ts:  if (!transaksi) return null;
+src/data/workspaceSubscriptionData.ts:  if (fromPlan === targetPlan) return null;
+src/data/workspaceSubscriptionData.ts:  if (!request || request.status !== 'Waiting for Payment' || !input.proofFileName.trim()) return null;
+src/data/workspaceSubscriptionData.ts:  if (!request || request.status !== 'Payment Proof Submitted') return null;
+src/data/dashboardBusinessSnapshotData.ts:  if (bulanan.length < 2) return null;
+src/data/marketplaceBuyerDashboardData.ts:      if (!listing) return null;
+src/data/marketplaceStokObatIntegrationData.ts:  if (listing.sumber.modul !== 'StokObat') return null;
+src/data/marketplaceStokObatIntegrationData.ts:  if (tersedia === null) return null;
+src/data/marketplaceStokObatIntegrationData.ts:  if (listing.qtyDijual <= tersedia) return null;
+src/data/escrowWorkflowData.ts:  if (!providerLookup || providerLookup.status !== 'Active') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Assignment') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Payment Instruction') return null;
+src/data/escrowWorkflowData.ts:  if (!account) return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Buyer Payment') return null;
+src/data/escrowWorkflowData.ts:  if (input.amount <= 0) return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Verification') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Holding Funds') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Ready To Release') return null;
+src/data/escrowWorkflowData.ts:  if (!rec) return null;
+src/data/escrowWorkflowData.ts:  if (!allowedStatuses.includes(rec.status)) return null;
+src/data/escrowWorkflowData.ts:  if (!rec) return null;
+src/data/escrowWorkflowData.ts:  if (!allowedStatuses.includes(rec.status)) return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Disputed' || !rec.dispute) return null;
+src/data/escrowWorkflowData.ts:  if (!rec) return null;
+src/data/escrowWorkflowData.ts:  if (TERMINAL_ESCROW_WORKFLOW_STATUSES.has(rec.status)) return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Holding Funds') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Delivery') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Buyer Confirmation') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Waiting Buyer Confirmation') return null;
+src/data/escrowWorkflowData.ts:  if (!rec || rec.status !== 'Disputed') return null;
+src/data/kebuntinganData.ts:      return null;
+src/data/kebuntinganData.ts:  return null;
+src/data/kebuntinganData.ts:  return null;
+src/data/nutrisiProdukKomersialData.ts:  if (nilai == null) return null;
+src/data/nutrisiProdukKomersialData.ts:  if (typeof nilai !== 'number' || Number.isNaN(nilai) || !Number.isFinite(nilai)) return null;
+src/data/aiInsightReproduksiData.ts:      if (!kelahiran) return null;
+src/data/aiInsightReproduksiData.ts:      if (hasSapih) return null;
+src/data/sapihData.ts:  return null;
+src/data/escrowConfigData.ts:  if (!record || record.configType !== 'External') return null;
+src/data/marketplaceStokPakanIntegrationData.ts:  if (listing.sumber.modul !== 'StokPakan') return null;
+src/data/marketplaceStokPakanIntegrationData.ts:  if (tersedia === null) return null;
+src/data/marketplaceStokPakanIntegrationData.ts:  if (listing.qtyDijual <= tersedia) return null;
+src/data/serviceQuotationData.ts:  if (!q || q.status !== 'Draft') return null;
+src/data/serviceQuotationData.ts:  if (!q) return null;
+src/data/serviceQuotationData.ts:  if (!allowed.includes(q.status)) return null;
+src/data/serviceQuotationData.ts:  if (!q) return null;
+src/data/serviceQuotationData.ts:  if (!allowed.includes(q.status)) return null;
+src/data/serviceQuotationData.ts:  if (!q) return null;
+src/data/serviceQuotationData.ts:  if (!allowed.includes(q.status)) return null;
+src/data/serviceQuotationData.ts:  if (!q) return null;
+src/data/serviceQuotationData.ts:  if (!allowed.includes(q.status)) return null;
+src/data/serviceQuotationData.ts:  if (!q || q.status === 'Locked' || q.status === 'Cancelled') return null;
+src/data/reproduksiProgramData.ts:  return null;
+src/data/pemeriksaanKebuntinganData.ts:  return null;
+src/data/marketplaceTransaksiData.ts:    if (!listing) return null;
+src/data/aiReadinessPKData.ts:  if (!seri) return null;
+src/data/aiReadinessPKData.ts:  if (!a || !b) return null;
+src/data/aiReadinessPKData.ts:  if (total === 0) return null;
+src/data/transaksiTransportData.ts:  if (fee === null) return null;
+src/data/aiInsightBobotData.ts:  if (ms === 0) return null;
+src/data/dealData.ts:  return null;
+src/data/transactionOrchestrationData.ts:  if (!transaksi) return null;
+src/data/transaksiConversationData.ts:  if (!trx) return null;
+src/data/transaksiConversationData.ts:  if (!room) return null;
+src/data/pelaksanaanReproduksiData.ts:  return null;
+src/data/aiInsightBatchData.ts:  if (members.length === 0) return null;
+src/data/marketplaceNegosiasiData.ts:    if (!listing) return null;
+src/data/transportTripData.ts:  if (!trip) return null;
+src/data/livestockData.ts:  if (isNaN(lastWeight) || isNaN(newWeight)) return null;
+src/data/livestockData.ts:  if (!lastDateStr || !newDateStr) return null;
+src/data/livestockData.ts:  if (isNaN(lastMs) || isNaN(newMs)) return null;
+src/data/livestockData.ts:  if (days <= 0) return null; // same day or reversed — cannot compute ADG
+src/data/transaksiEscrowData.ts:  return null;
+src/data/transaksiEscrowData.ts:  if (!trx) return null;
+src/data/transaksiEscrowData.ts:  if (ESCROW_RECORDS.find((r) => r.transaksiId === transaksiId)) return null; // sudah ada
+src/data/transaksiEscrowData.ts:  if (!rec) return null;
+src/data/transaksiEscrowData.ts:  if (rec.status !== 'Transfer Processing' && rec.status !== 'Waiting Transfer') return null;
+src/data/marketplaceAsetWorkspaceData.ts:  return null; // jasa — tidak ada konsep stok fisik
+src/data/marketplaceAsetWorkspaceData.ts:  if (stokFisik === null) return null;
+src/data/businessInsightData.ts:    if (prev === 0) return null;
+src/data/mutasiData.ts:  return null;
+src/data/kelahiranData.ts:  return null;
+src/data/kelahiranData.ts:  return null;
+src/data/jadwalPemberianPakanData.ts:  if (getEffectiveStatus(record, fromIso) !== 'Terjadwal') return null;
+src/data/jadwalPemberianPakanData.ts:      return null;
+src/data/jadwalPemberianPakanData.ts:      return null;
+src/data/jadwalPemberianPakanData.ts:      return null;
+src/data/kontrolKesehatanData.ts:  return null;
+src/contexts/WorkspaceContext.tsx:    return null;
+src/contexts/WorkspaceContext.tsx:      return null;
+src/contexts/AuthContext.tsx:    return null;
+src/App.tsx:  if (loading) return null;
+src/utils/dateUtils.ts:    if (!month) return null;
+src/utils/dateUtils.ts:  return null;
+src/utils/livestockSummary.ts:      if (!lv) return null;
+src/utils/livestockSummary.ts:  if (LIVESTOCK_STATUS_DB[id] !== 'Arsip') return null;
+src/utils/livestockSummary.ts:  if (!LIVESTOCK_DB[id]) return null;
+src/utils/livestockSummary.ts:    return null;
+src/components/NewsEventShared.tsx:  if (!terverifikasi) return null;
+src/components/NewsEventShared.tsx:  if (tag.length === 0) return null;
+src/components/NewsEventShared.tsx:  if (kategori.length === 0) return null;
+src/components/NewsEventShared.tsx:  if (items.length === 0) return null;
+src/components/LivestockFilterSheet.tsx:  if (options.length === 0 && !emptyLabel) return null;
+src/components/LivestockFilterSheet.tsx:  if (!open) return null;
+src/components/LivestockFilterSheet.tsx:  if (chips.length === 0) return null;
+src/components/ScrollRestorer.tsx:  return null;
+src/components/marketplace/ChatTransport.tsx:  if (!deal) return null;
+src/components/marketplace/ChatTransport.tsx:  if (suggestions.length === 0) return null;
+src/components/marketplace/ChatTransport.tsx:  if (items.length === 0) return null;
+src/components/marketplace/ChatBars.tsx:    if (!canCreateDeal) return null;
+src/components/marketplace/ChatBars.tsx:  if (!canInvite && joined.length === 0 && pending.length === 0) return null;
+src/components/marketplace/ChatEscrow.tsx:  if (!isLocked) return null;
+src/components/marketplace/ChatEscrow.tsx:  if (suggestions.length === 0) return null;
+src/components/marketplace/ChatQuotation.tsx:  if (nonEscrowInvitations.length === 0 && !isProvider) return null;
+src/components/marketplace/ChatQuotation.tsx:            if (myActive) return null; // Already has an active quotation
+src/components/marketplace/ChatQuotation.tsx:            if (createFor) return null; // Form is open
+src/components/marketplace/ChatDealSheet.tsx:                        if (!display) return null;
+src/components/marketplace/ChatDealSheet.tsx:                            if (vetQuotes.length === 0) return null;
+src/components/EmailVerificationDialog.tsx:  if (!open) return null;
+src/components/FotoViewer.tsx:  if (!photo) return null;
+src/components/PlatformInitGuard.tsx:  if (initialized === null) return null;
+src/components/auth/AuthErrorMessage.tsx:  if (!message) return null;
+src/components/BottomNav.tsx:  if (!currentUser) return null;
+src/components/BottomNav.tsx:      return null;
+src/hooks/useLivestock.ts:      return;
+src/hooks/useLivestock.ts:      if (abortRef.current) return; // workspace changed mid-flight
+src/hooks/useLivestock.ts:      if (abortRef.current) return;
+src/hooks/useHealth.ts:      return;
+src/hooks/useHealth.ts:      if (abortRef.current) return; // workspace changed mid-flight
+src/hooks/useHealth.ts:      if (abortRef.current) return;
+src/hooks/useReproduksi.ts:      return;
+src/hooks/useReproduksi.ts:      if (abortRef.current) return;
+src/hooks/useReproduksi.ts:      if (abortRef.current) return;
+src/hooks/useStokInventaris.ts:    if (!activeWorkspace?.workspace_uuid) return;
+src/hooks/useStokInventaris.ts:      if (aborted.current) return;
+src/hooks/useBatch.ts:      return;
+src/hooks/useBatch.ts:      if (abortRef.current) return;
+src/hooks/useBatch.ts:      if (abortRef.current) return;
+src/hooks/useLivestockPhotos.ts:    if (!livestockId) return;
+src/hooks/useFormula.ts:      return;
+src/hooks/useFormula.ts:      if (abortRef.current) return;
+src/hooks/useFormula.ts:      if (abortRef.current) return;
+src/hooks/useFormula.ts:      if (abortRef.current) return;
+src/hooks/useStokObat.ts:      return;
+src/hooks/useStokObat.ts:      if (abortRef.current) return; // workspace changed mid-flight
+src/hooks/useStokObat.ts:      if (abortRef.current) return;
+src/hooks/usePemberianPakan.ts:    if (!activeWorkspace?.workspace_uuid) return;
+src/hooks/usePemberianPakan.ts:      if (aborted.current) return;
+src/hooks/useWorkspacePermission.ts:      return;
+src/hooks/useMarketplace.ts:      return;
+src/hooks/useMarketplace.ts:      if (abortRef.current) return;
+src/hooks/useMarketplace.ts:      if (abortRef.current) return;
+src/services/searchIndexSeeder.ts:  if (_seeded && !force) return;
+src/services/globalEscrowService.ts:  if (!provider) return; // Provider tidak ada — biarkan operasi berlanjut
+src/services/marketplaceService.ts:      return;
+src/services/marketplaceService.ts:  if (!supabaseId) return; // not yet in DB (seed data or unregistered)
+src/services/marketplaceService.ts:  if (!supabaseId) return;
+src/services/marketplaceService.ts:      return;
+src/services/marketplaceService.ts:  if (!supabaseId) return;
+src/services/marketplaceService.ts:      return;
+src/services/marketplaceService.ts:  if (!supabaseId) return;
+src/services/marketplaceService.ts:      return;
+src/services/marketplaceService.ts:  if (!roomSupabaseId) return; // room not yet in DB
+src/services/marketplaceService.ts:  if (!listingSupabaseId) return; // listing not in DB
+src/services/marketplaceService.ts:  if (!listingSupabaseId) return;
+src/dev/data-factory/devAutoSeed.ts:  if (Object.keys(LIVESTOCK_DB).length > 0) return; // data already present — skip
+src/dev/data-factory/factories/feedFactory.ts:  if (config.feedLogsPerBlok <= 0) return;
+src/dev/data-factory/factories/reproductionFactory.ts:  if (count <= 0) return;
+src/dev/data-factory/factories/healthHistoryFactory.ts:  if (count <= 0) return;
+src/dev/data-factory/factories/medicineFactory.ts:  if (config.medicineLogsPerAnimalProbability <= 0) return;
+src/dev/data-factory/factories/weightHistoryFactory.ts:  if (count <= 0) return;
+src/dev/data-factory/devConsole.ts:  if (typeof window === 'undefined') return;
+src/pages/WorkspaceSettingsArchive.tsx:      return;
+src/pages/WorkspaceSettingsArchive.tsx:      return;
+src/pages/WorkspaceSettingsArchive.tsx:      return;
+src/pages/NewsSubmissionForm.tsx:    if (!validate()) return;
+src/pages/MarketplaceEscrowDetail.tsx:    if (!isValid) return;
+src/pages/MarketplaceEscrowDetail.tsx:    if (!resolution.trim()) return;
+src/pages/MarketplaceEscrowDetail.tsx:    if (!transaksiId) return;
+src/pages/ProdukKomersialObatAdminBrand.tsx:      return;
+src/pages/ProdukKomersialObatAdminBrand.tsx:          return;
+src/pages/ProdukKomersialObatAdminBrand.tsx:                    return;
+src/pages/MasterReferensiPK.tsx:    if (!form) return;
+src/pages/MasterReferensiPK.tsx:      if (!form.nama.trim()) { setErr('Nama wajib diisi.'); return; }
+src/pages/MasterReferensiPK.tsx:      if (!window.confirm(`Hapus referensi "${item.nama}" dari ${label}? Riwayat perubahan tetap tersimpan.`)) return;
+src/pages/MasterReferensiPK.tsx:      if (!form.nama.trim()) { setErr('Nama wajib diisi.'); return; }
+src/pages/MasterReferensiPK.tsx:      if (!window.confirm(`Hapus referensi "${item.nama}" dari ${label}?\nData produk yang sudah memakai referensi ini tidak otomatis terpengaruh.\nRiwayat perubahan tetap tersimpan.`)) return;
+src/pages/EventSubmissionForm.tsx:    if (!validate()) return;
+src/pages/PengobatanKesehatan.tsx:    if (!draft.dosis.trim() || !resolvedFrekuensi || !resolvedLama || !resolvedCara) return;
+src/pages/PengobatanKesehatan.tsx:    if (!tindakanSesi) return;
+src/pages/PengobatanKesehatan.tsx:    if (!hasItems || !sesi) return;
+src/pages/SearchPage.tsx:      return;
+src/pages/SearchPage.tsx:      if (gen !== searchGen.current) return; // stale — discard
+src/pages/SearchPage.tsx:      if (gen !== searchGen.current) return;
+src/pages/AdminNewsEventReviewDetail.tsx:    if (!window.confirm('Approve Submission ini? Konten akan langsung Published ke listing publik.')) return;
+src/pages/AdminNewsEventReviewDetail.tsx:      return;
+src/pages/AdminNewsEventReviewDetail.tsx:      return;
+src/pages/WorkspaceSettingsRoles.tsx:    if (!n || n.length < 2) { setNameErr('Nama role minimal 2 karakter.'); return; }
+src/pages/WorkspaceSettingsRoles.tsx:    if (n.length > 40)       { setNameErr('Nama role maksimal 40 karakter.'); return; }
+src/pages/WorkspaceSettingsRoles.tsx:      return;
+src/pages/WorkspaceSettingsRoles.tsx:      return;
+src/pages/WorkspaceSettingsRoles.tsx:      return;
+src/pages/KeluarkanStokPakan.tsx:    if (!selectedFeed || !jumlah || !alasan) return;
+src/pages/KeluarkanStokPakan.tsx:    if (jumlahNum <= 0) { setError('Jumlah harus lebih dari nol.'); return; }
+src/pages/KeluarkanStokPakan.tsx:    if (!jenisOpt) { setError('Pilih alasan pengeluaran.'); return; }
+src/pages/JadwalPemberianPakan.tsx:    if (selectedIds.size === 0) return;
+src/pages/JadwalPemberianPakan.tsx:    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+src/pages/KnowledgeBasePKAdmin.tsx:    if (!form.produkId.trim()) { setErr('Pilih produk terlebih dahulu.'); return; }
+src/pages/KnowledgeBasePKAdmin.tsx:    if (!form.judul.trim())   { setErr('Judul artikel tidak boleh kosong.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!nomorPolisi.trim()) { setError('Nomor polisi wajib diisi.'); return; }
+src/pages/TransportWorkspace.tsx:    if (jenisLayanan.length === 0) { setError('Pilih minimal satu jenis layanan.'); return; }
+src/pages/TransportWorkspace.tsx:      setError('Tahun beli tidak valid.'); return;
+src/pages/TransportWorkspace.tsx:    if (!driverId) { setError('Pilih pengemudi.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!customerName.trim()) { setError('Nama customer wajib diisi.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!ruteAsal.trim() || !ruteTujuan.trim()) { setError('Rute asal dan tujuan wajib diisi.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!kendaraanId) { setError('Pilih kendaraan.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!driverId) { setError('Pilih pengemudi.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!muatan.trim()) { setError('Muatan wajib diisi.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!deliveryId) { setError('Pilih pengiriman.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!deliveryId) { setError('Pilih pengiriman.'); return; }
+src/pages/TransportWorkspace.tsx:    if (!tanggalSelesai) { setError('Tanggal selesai wajib diisi.'); return; }
+src/pages/AdminPublicationManagement.tsx:    if (!date) { setErr('Pilih tanggal terlebih dahulu.'); return; }
+src/pages/AdminPublicationManagement.tsx:    if (!time) { setErr('Pilih jam terlebih dahulu.'); return; }
+src/pages/AdminPublicationManagement.tsx:      return;
+src/pages/ProdukKomersialObatImportExport.tsx:    if (!file) return;
+src/pages/ProdukKomersialObatImportExport.tsx:    if (!validation?.valid || !validation.payload) return;
+src/pages/MarketplaceChat.tsx:    if (!room || !canSend) return;
+src/pages/MasterObatDetail.tsx:      return;
+src/pages/MasterObatDetail.tsx:          return;
+src/pages/MasterObatDetail.tsx:                    return;
+src/pages/WorkspaceSettingsProfile.tsx:    if (!activeWorkspace) return;
+src/pages/WorkspaceSettingsProfile.tsx:    if (!activeWorkspace) return;
+src/pages/WorkspaceSettingsProfile.tsx:      return;
+src/pages/WorkspaceSettingsProfile.tsx:      return;
+src/pages/WorkspaceSettingsProfile.tsx:        return;
+src/pages/MasterObatSubKategori.tsx:      return;
+src/pages/MasterObatSubKategori.tsx:          return;
+src/pages/MasterObatSubKategori.tsx:                    return;
+src/pages/LivestockProfile.tsx:    if (!open) return;
+src/pages/LivestockProfile.tsx:    if (!valid) return;
+src/pages/LivestockProfile.tsx:    if (isArchived) return;
+src/pages/LivestockProfile.tsx:    if (photoId === effectiveCoverId) return; // already cover
+src/pages/LivestockProfile.tsx:    if (!file) return;
+src/pages/LivestockProfile.tsx:    if (!pendingFile) return;
+src/pages/LivestockProfile.tsx:        return;
+src/pages/LivestockProfile.tsx:    if (!pendingFile) return;
+src/pages/LivestockProfile.tsx:        return;
+src/pages/LivestockProfile.tsx:    if (!fotoIdentitas) return;
+src/pages/LivestockProfile.tsx:    if (!ktpRef.current || pdfLoading) return;
+src/pages/IntegrasiPengobatan.tsx:    if (!sesiId) return;
+src/pages/BatchProfile.tsx:    if (!menuOpen) return;
+src/pages/BatchProfile.tsx:    if (longFiredRef.current) { longFiredRef.current = false; return; }
+src/pages/BatchProfile.tsx:                  if (disabled) return;
+src/pages/BatchProfile.tsx:    if (!trimmedName) return; // name required
+src/pages/BatchProfile.tsx:    if (!targetBatchId || targetBatches.length === 0) return;
+src/pages/BatchProfile.tsx:    if (targets.length === 0) return;
+src/pages/PenyesuaianStokObat.tsx:    if (Object.keys(errs).length > 0) return;
+src/pages/WorkspaceSettingsMembers.tsx:      return;
+src/pages/WorkspaceSettingsMembers.tsx:    if (!contact.trim()) { setError('Email atau nomor HP wajib diisi.'); return; }
+src/pages/WorkspaceSettingsMembers.tsx:      return;
+src/pages/WorkspaceSettingsMembers.tsx:    if (!activeWorkspace || !canInvite) return;
+src/pages/WorkspaceSettingsMembers.tsx:      return;
+src/pages/WorkspaceSettingsMembers.tsx:      return;
+src/pages/WorkspaceSettingsMembers.tsx:      return;
+src/pages/WorkspaceSettingsMembers.tsx:    if (!confirmState) return;
+src/pages/WorkspaceSettingsMembers.tsx:    if (!member) return;
+src/pages/Reproduksi.tsx:    if (!namaFile.trim()) return;
+src/pages/Reproduksi.tsx:    if (!window.confirm(`Batalkan Pelaksanaan "${p.nomorPelaksanaan}"?`)) return;
+src/pages/Reproduksi.tsx:    if (!window.confirm('Akhiri Kebuntingan ini sebagai Keguguran? Tindakan ini tidak dapat dibatalkan dan tidak membuat data Kelahiran.')) return;
+src/pages/Reproduksi.tsx:    if (!window.confirm('Tandai Kebuntingan ini Selesai? Tindakan ini tidak dapat dibatalkan. Pencatatan Kelahiran akan tersedia pada roadmap berikutnya (RP-007).')) return;
+src/pages/Reproduksi.tsx:    if (!current) return;
+src/pages/Reproduksi.tsx:    if (!current) return;
+src/pages/Reproduksi.tsx:    if (!window.confirm('Tandai Kelahiran ini sebagai Selesai? Tindakan ini tidak dapat dibatalkan.')) return;
+src/pages/Reproduksi.tsx:    if (!window.confirm(`Batalkan program "${program.namaProgram}"? Program tidak dapat dijalankan lagi setelah dibatalkan.`)) return;
+src/pages/MarketplaceDetailTransaksi.tsx:    if (cfg.catatanRequired && !catatan.trim()) return;
+src/pages/MarketplaceDetailTransaksi.tsx:    if (!id) return;
+src/pages/MarketplaceDetailTransaksi.tsx:    if (!modalAction || !transaksi) return;
+src/pages/MarketplaceDetailTransaksi.tsx:    if (!txId) return;
+src/pages/admin/modules/SettingsModule.tsx:    if (!trimmed) { setFeedback({ ok: false, msg: 'Nilai tidak boleh kosong.' }); return; }
+src/pages/admin/modules/SettingsModule.tsx:    if (trimmed === record.currentValue) { setFeedback({ ok: false, msg: 'Nilai sama dengan nilai saat ini.' }); return; }
+src/pages/admin/modules/MasterEscrowModule.tsx:    if (!validate()) { setActiveTab('profile'); return; }
+src/pages/admin/modules/MasterEscrowModule.tsx:    if (!editTarget) return;
+src/pages/admin/modules/MasterEscrowModule.tsx:    if (!editTarget) return;
+src/pages/admin/modules/GlobalSearchModule.tsx:      return;
+src/pages/admin/modules/GlobalSearchModule.tsx:      if (gen !== searchGen.current) return;
+src/pages/admin/modules/GlobalSearchModule.tsx:      if (gen !== searchGen.current) return;
+src/pages/admin/modules/GlobalSearchModule.tsx:    if (!debouncedQuery.trim() || debouncedQuery.trim().length < 2) return;
+src/pages/admin/modules/GlobalSearchModule.tsx:      if (gen !== searchGen.current) return;
+src/pages/admin/modules/GlobalSearchModule.tsx:      if (gen !== searchGen.current) return;
+src/pages/admin/modules/BackupModule.tsx:    if (!file) return;
+src/pages/admin/modules/MarketplaceModule.tsx:        if (cancelled) return;
+src/pages/admin/modules/MarketplaceModule.tsx:        if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
+src/pages/admin/modules/WorkspacesModule.tsx:        if (cancelled) return;
+src/pages/admin/modules/WorkspacesModule.tsx:        if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
+src/pages/admin/modules/UsersModule.tsx:        if (cancelled) return;
+src/pages/admin/modules/UsersModule.tsx:        if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
+src/pages/admin/modules/UsersSubPages.tsx:        if (cancelled) return;
+src/pages/admin/modules/UsersSubPages.tsx:        if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
+src/pages/AdminRssSources.tsx:      return;
+src/pages/PemeriksaanKesehatan.tsx:      return;
+src/pages/Marketplace.tsx:      return;
+src/pages/CreateBatch.tsx:    if (nameEmpty || nameDuplicate) return;
+src/pages/CreateBatch.tsx:      return;
+src/pages/CreateBatch.tsx:        return;
+src/pages/KontrolKesehatan.tsx:    if (!validate()) return;
+src/pages/ProdukKomersialAdmin.tsx:      if (!form.nama.trim() || !form.slug.trim()) { setErr('Nama dan slug wajib diisi.'); return; }
+src/pages/ProdukKomersialAdmin.tsx:        if (KONSENTRAT_MEREK_UUID[form.slug]) { setErr('Slug sudah digunakan merek lain.'); return; }
+src/pages/ProdukKomersialAdmin.tsx:      if (seriCount > 0 && !window.confirm(`Brand "${m.nama}" masih memiliki ${seriCount} seri produk. Hapus tetap dilanjutkan?`)) return;
+src/pages/ProdukKomersialAdmin.tsx:    if (!brand) return;
+src/pages/ProdukKomersialAdmin.tsx:    if (!form) return;
+src/pages/ProdukKomersialAdmin.tsx:      if (!form.namaProduk.trim() || !form.slug.trim()) { setErr('Nama produk dan slug wajib diisi.'); return; }
+src/pages/ProdukKomersialAdmin.tsx:      if (!window.confirm(`Hapus permanen "${s.namaProduk}"? Tindakan ini tidak dapat dibatalkan.`)) return;
+src/pages/ProdukKomersialAdmin.tsx:    if (!form) return;
+src/pages/ProdukKomersialAdmin.tsx:      if (!window.confirm('Hapus record Detail Produk ini? Riwayat perubahan tetap tersimpan.')) return;
+src/pages/ProdukKomersialAdmin.tsx:    if (!judul.trim()) { setErr('Judul wajib diisi.'); return; }
+src/pages/ProdukKomersialAdmin.tsx:    if (!window.confirm(`Arsipkan artikel "${a.judul}"?`)) return;
+src/pages/ProdukKomersialAdmin.tsx:    if (!produkFilter) return;
+src/pages/ProdukKomersialAdmin.tsx:    if (!form) return;
+src/pages/ProdukKomersialAdmin.tsx:      if (!form.namaDokumen.trim() || !form.formatFile.trim()) { setErr('Nama dokumen dan format file wajib diisi.'); return; }
+src/pages/ProdukKomersialAdmin.tsx:      if (!window.confirm(`Hapus dokumen "${d.namaDokumen}"? Riwayat perubahan tetap tersimpan.`)) return;
+src/pages/MasterPenyakitItemDetail.tsx:    if (pdfLoading) return;
+src/pages/MarketplaceBuatListing.tsx:    if (!formValid) return;
+src/pages/MarketplaceBuatListing.tsx:    if (!modul || !menuItem) return;
+src/pages/MarketplaceBuatListing.tsx:        return;
+src/pages/MarketplaceBuatListing.tsx:        return;
+src/pages/MarketplaceBuatListing.tsx:        return;
+src/pages/MarketplaceBuatListing.tsx:        return;
+src/pages/MarketplaceBuatListing.tsx:        return;
+src/pages/MarketplaceBuatListing.tsx:    if (!formValid) return;
+src/pages/MarketplaceBuatLaporan.tsx:      return;
+src/pages/MarketplaceBuatLaporan.tsx:      return;
+src/pages/MarketplaceBuatLaporan.tsx:      return;
+src/pages/MarketplaceBuatLaporan.tsx:      return;
+src/pages/MarketplaceBuatLaporan.tsx:      return;
+src/pages/MarketplaceBuatNegosiasi.tsx:      return;
+src/pages/MarketplaceBuatNegosiasi.tsx:      return;
+src/pages/MarketplaceBuatNegosiasi.tsx:      return;
+src/pages/MarketplaceBuatNegosiasi.tsx:      return;
+src/pages/TambahStokPakan.tsx:      return;
+src/pages/TambahStokPakan.tsx:      return;
+src/pages/TindakanKesehatan.tsx:    if (!resolvedNama || !draft.dilakukanOleh.trim() || !draft.tanggal.trim() || !draft.jam.trim()) return;
+src/pages/TindakanKesehatan.tsx:    if (!diagnosa || !pemeriksaan) return;
+src/pages/TindakanKesehatan.tsx:    if (!sesi) return;
+src/pages/TindakanKesehatan.tsx:    if (!hasItems || pakaiObat === null || !sesi) return;
+src/pages/MarketplaceEvidenceTimeline.tsx:    if (!fileName.trim() || !caption.trim()) return;
+src/pages/MarketplaceEvidenceTimeline.tsx:    if (!transaksiId) return;
+src/pages/ProfileSubscription.tsx:    if (!fileName.trim()) { setError('Nama file bukti pembayaran wajib diisi.'); return; }
+src/pages/ProfileSubscription.tsx:    if (!result) { setError('Gagal mengirim bukti. Coba lagi.'); return; }
+src/pages/ProfileSubscription.tsx:    if (target === plan) return;
+src/pages/ProfileSubscription.tsx:    if (pendingRequest) return; // already has a pending request
+src/pages/ProfileSubscription.tsx:    if (target === 'Enterprise') return;
+src/pages/ProfileSubscription.tsx:    if (!confirmPlan || !workspaceUuid) return;
+src/pages/ProdukKomersialObatAdminProduk.tsx:      return;
+src/pages/ProdukKomersialObatAdminProduk.tsx:    if (!namaKomersial.trim()) { setError('Nama Komersial wajib diisi.'); return; }
+src/pages/ProdukKomersialObatAdminProduk.tsx:    if (!bentukSediaan.trim()) { setError('Bentuk Sediaan wajib diisi.'); return; }
+src/pages/ProdukKomersialObatAdminProduk.tsx:    if (!kemasan.trim()) { setError('Kemasan wajib diisi.'); return; }
+src/pages/ProdukKomersialObatAdminProduk.tsx:    if (!produsen.trim()) { setError('Produsen wajib diisi.'); return; }
+src/pages/ProdukKomersialObatAdminProduk.tsx:                    return;
+src/pages/ProfileSecurity.tsx:    if (!validate()) return;
+src/pages/ProfileSecurity.tsx:      return;
+src/pages/ProfileSecurity.tsx:      return;
+src/pages/MarketplaceConversation.tsx:    if (!trimmed) return;
+src/pages/MarketplaceConversation.tsx:    if (!transaksiId) return;
+src/pages/MarketplaceConversation.tsx:    if (!r) return;
+src/pages/MarketplaceConversation.tsx:    if (!room) return;
+src/pages/BatchOperasi.tsx:    if (!selected) return;
+src/pages/PerubahanStok.tsx:    if (validationError) { setError(validationError); return; }
+src/pages/EditLivestock.tsx:    if (!isDirty) return;
+src/pages/EditLivestock.tsx:    if (!validate()) return;
+src/pages/EditLivestock.tsx:      if (!window.confirm('Anda memiliki perubahan yang belum disimpan. Yakin ingin keluar?')) return;
+src/pages/CatatBobot.tsx:    if (loading) return;
+src/pages/CatatBobot.tsx:      return;
+src/pages/CatatBobot.tsx:      return;
+src/pages/CatatBobot.tsx:      return;
+src/pages/CatatBobot.tsx:            return;
+src/pages/CatatBobot.tsx:        return;
+src/pages/CatatBobot.tsx:        return;
+src/pages/CatatBobot.tsx:        return;
+src/pages/CatatBobot.tsx:      if (items.length === 0) return;
+src/pages/CatatBobot.tsx:      if (items.length === 0) return;
+src/pages/AdminRssQueue.tsx:    if (!window.confirm('Publish artikel ini ke listing publik?')) return;
+src/pages/AdminRssQueue.tsx:    if (!rejectNote.trim()) { window.alert('Catatan alasan wajib diisi.'); return; }
+src/pages/FormulaEditor.tsx:      return;
+src/pages/FormulaEditor.tsx:      if (isNaN(p) || p <= 0) { setDetailError('Proporsi harus lebih dari 0.'); return; }
+src/pages/FormulaEditor.tsx:      if (p < 0) { setDetailError('Proporsi tidak boleh negatif.'); return; }
+src/pages/FormulaEditor.tsx:      if (isNaN(h) || h < 0) { setDetailError('Harga tidak boleh negatif.'); return; }
+src/pages/FormulaEditor.tsx:      return;
+src/pages/FormulaEditor.tsx:      return;
+src/pages/FormulaEditor.tsx:      return;
+src/pages/FormulaEditor.tsx:      return;
+src/pages/FormulaEditor.tsx:    if (!validate()) return;
+src/pages/ProfileWorkspaceMembers.tsx:    if (!contact.trim()) { setError('Email atau nomor HP wajib diisi.'); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!result.ok) { setError(result.message); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!canCreate && !canUpdate && !canDelete) return;
+src/pages/ProfileWorkspaceMembers.tsx:    if (!canUpdate) { showToast('error', 'Anda tidak memiliki izin untuk mengubah peran.'); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!canUpdate) { showToast('error', 'Anda tidak memiliki izin untuk mengubah status anggota.'); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!canDelete) { showToast('error', 'Anda tidak memiliki izin untuk menghapus anggota.'); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!canDelete) { showToast('error', 'Anda tidak memiliki izin untuk membatalkan undangan.'); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!canCreate) { showToast('error', 'Anda tidak memiliki izin untuk mengirim ulang undangan.'); return; }
+src/pages/ProfileWorkspaceMembers.tsx:    if (!confirmState) return;
+src/pages/ProfileWorkspaceMembers.tsx:      if (!member) return;
+src/pages/ProfileWorkspaceMembers.tsx:      if (!member) return;
+src/pages/FormulaProduksi.tsx:    if (!formula || !bolehProduksi) return;
+src/pages/MarketplaceDetailListing.tsx:    if (!currentUser) { navigate('/login', { state: { from: { pathname: window.location.pathname } } }); return; }
+src/pages/MarketplaceDetailListing.tsx:    if (isSeller) return;
+src/pages/MarketplaceDetailListing.tsx:    if (!currentUser) { navigate('/login', { state: { from: { pathname: window.location.pathname } } }); return; }
+src/pages/MarketplaceDetailListing.tsx:    if (isSeller) return;
+src/pages/MarketplaceDetailListing.tsx:    if (!window.confirm('Arsipkan listing ini? Listing akan dipindahkan ke arsip dan tidak lagi tampil di Marketplace.')) return;
+src/pages/MarketplaceDetailListing.tsx:    if (!window.confirm('Hapus listing Draft ini secara permanen? Tindakan ini tidak dapat diurungkan.')) return;
+src/pages/MarketplaceDetailListing.tsx:            if (isSeller) return;
+src/pages/MarketplaceDetailListing.tsx:              return;
+src/pages/MarketplaceDetailListing.tsx:            if (!bisaNego) return;
+src/pages/MarketplaceDetailListing.tsx:              return;
+src/pages/ProfileSupportReportBug.tsx:    if (!judul.trim()) { setError('Judul wajib diisi.'); return; }
+src/pages/ProfileSupportReportBug.tsx:    if (!kategori)     { setError('Pilih kategori bug.'); return; }
+src/pages/ProfileSupportReportBug.tsx:    if (!deskripsi.trim()) { setError('Deskripsi wajib diisi.'); return; }
+src/pages/NewsEventDetail.tsx:      return;
+src/pages/MarketplaceDetailNegosiasi.tsx:    if (!modal || !neg) return;
+src/pages/DiagnosaKesehatan.tsx:    if (!valid) return;
+src/pages/DashboardAiInsight.tsx:      return;
+src/pages/ProfileSupportFeedback.tsx:    if (!rating)    { setError('Berikan penilaian bintang terlebih dahulu.'); return; }
+src/pages/ProfileSupportFeedback.tsx:    if (!kategori)  { setError('Pilih kategori feedback.'); return; }
+src/pages/ProfileSupportFeedback.tsx:    if (!pesan.trim()) { setError('Tulis pesan feedback Anda.'); return; }
+src/pages/AddLivestock.tsx:    if (!bNama.trim()) return;
+src/pages/AddLivestock.tsx:      return;
+src/pages/AddLivestock.tsx:    if (!kelamin || !rasFinal) return;
+src/pages/AddLivestock.tsx:      return;
+src/pages/AddLivestock.tsx:      return;
+src/pages/AddLivestock.tsx:      return;
+src/pages/MarketplaceModerasiDetailKasus.tsx:      return;
+src/pages/TambahStokObat.tsx:    if (Object.keys(errs).length > 0) return;
+src/pages/PemberianPakan.tsx:    if (selectedIds.size === 0) return;
+src/pages/PemberianPakan.tsx:      return;
+src/pages/PemberianPakan.tsx:    if (!prefill) return;
+src/pages/ProfileWorkspaceDetail.tsx:    if (!name.trim()) { setError('Nama tidak boleh kosong.'); return; }
+src/pages/ProfileWorkspaceDetail.tsx:      return;
+src/pages/ProfileWorkspaceDetail.tsx:      return;
+src/pages/ProfileWorkspaceDetail.tsx:      return;
+src/pages/ProfileWorkspaceDetail.tsx:      return;
+src/pages/ProfileWorkspace.tsx:    if (!validate()) return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/ProfileWorkspace.tsx:      return;
+src/pages/MarketplaceKelolaListing.tsx:    if (!fHarga || Number.isNaN(harga) || harga <= 0) { setError('Harga harus lebih dari 0.'); return; }
+src/pages/MarketplaceKelolaListing.tsx:    if (!fQty || Number.isNaN(qty) || qty <= 0) { setError('Qty Listing harus lebih dari 0.'); return; }
+src/pages/MarketplaceKelolaListing.tsx:      return;
+src/pages/MarketplaceKelolaListing.tsx:    if (!fDeskripsi.trim()) { setError('Deskripsi tidak boleh kosong.'); return; }
+src/pages/MarketplaceKelolaListing.tsx:    if (!fKabupaten.trim()) { setError('Kabupaten/Kota tidak boleh kosong.'); return; }
+src/pages/MarketplaceKelolaListing.tsx:    if (!window.confirm('Tutup listing ini? Listing tidak akan tampil lagi di Marketplace, tapi tetap tersimpan sebagai riwayat.')) return;
+src/pages/MarketplaceKelolaListing.tsx:    if (!window.confirm('Arsipkan listing ini? Listing akan dipindahkan ke arsip dan tidak tampil di Marketplace.')) return;
+src/pages/MarketplaceKelolaListing.tsx:    if (!window.confirm('Hapus draft ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return;
+src/pages/FormulaDetail.tsx:          if (formula.status !== 'Aktif') return;
+src/pages/ProfileAccount.tsx:    if (!validate()) return;
+src/pages/MarketplaceAuditTimeline.tsx:    if (!transaksiId) return;
+src/pages/auth/ForgotPassword.tsx:    if (err) return;
+src/pages/auth/ForgotPassword.tsx:          return;
+src/pages/auth/Register.tsx:    if (eE || pE || wE || cE || tE) return;
+src/pages/auth/Register.tsx:        return;
+src/pages/auth/Register.tsx:        return;
+src/pages/auth/VerifyEmail.tsx:    if (cooldown <= 0) return;
+src/pages/auth/VerifyEmail.tsx:    if (!email || cooldown > 0) return;
+src/pages/auth/VerifyEmail.tsx:      return;
+src/pages/auth/VerifyEmail.tsx:    if (refreshing) return;
+src/pages/auth/AcceptInvitation.tsx:    if (!token) { setPhase('not_found'); return; }
+src/pages/auth/AcceptInvitation.tsx:    if (authLoading) return; // wait for auth to settle
+src/pages/auth/AcceptInvitation.tsx:        return;
+src/pages/auth/AcceptInvitation.tsx:        return;
+src/pages/auth/AcceptInvitation.tsx:        return;
+src/pages/auth/AcceptInvitation.tsx:    if (!token || !currentUser) return;
+src/pages/auth/AcceptInvitation.tsx:      return;
+src/pages/auth/AcceptInvitation.tsx:    if (!token) return;
+src/pages/auth/Login.tsx:    if (eErr || pErr) return;
+src/pages/auth/Login.tsx:        return;
+src/pages/auth/WorkspaceCreate.tsx:    if (!name.trim()) { setSlug(''); return; }
+src/pages/auth/WorkspaceCreate.tsx:    if (!validate()) return;
+src/pages/auth/WorkspaceCreate.tsx:    if (!wsType) return; // narrowed above but TS needs this
+src/pages/auth/WorkspaceCreate.tsx:        return;
+src/pages/auth/WorkspaceSelect.tsx:    if (autoNavigated) return;
+src/pages/auth/WorkspaceSelect.tsx:    if (authLoading || wsLoading) return;
+src/pages/auth/WorkspaceSelect.tsx:    if (wsError) return;
+src/pages/auth/WorkspaceSelect.tsx:    if (userWorkspaces.length !== 1) return;
+src/pages/auth/WorkspaceSelect.tsx:    if (ws.workspace_status === 'Archived' || mem.status === 'Inactive') return;
+src/pages/auth/WorkspaceSelect.tsx:    if (switchingId) return;
+src/pages/auth/WorkspaceSelect.tsx:      return;
+src/pages/auth/WorkspaceSelect.tsx:      return;
+src/pages/auth/WorkspaceSelect.tsx:      return;
+src/pages/auth/Initialize.tsx:    if (!password) return;
+src/pages/auth/Initialize.tsx:      return;
+src/pages/auth/Initialize.tsx:      if (cancelled) return;
+src/pages/auth/Initialize.tsx:        return;
+src/pages/auth/Initialize.tsx:        return;
+src/pages/auth/Initialize.tsx:    ) return;
+src/pages/auth/Initialize.tsx:        return;
+src/pages/auth/Initialize.tsx:        return;
+src/pages/auth/Initialize.tsx:        return;
+src/pages/auth/Initialize.tsx:      return;
+src/pages/auth/Initialize.tsx:        return;
+src/pages/auth/ResetPassword.tsx:    if (pErr || cErr) return;
+src/pages/auth/ResetPassword.tsx:        return;
+src/data/newsEventSubmissionData.ts:  if (!rec || rec.tipeKonten !== 'News') return;
+src/data/newsEventSubmissionData.ts:  if (!rec || rec.tipeKonten !== 'Event') return;
+src/data/newsEventSubmissionData.ts:  if (!rec || rec.status !== 'Published') return;
+src/data/stokInventarisData.ts:  if (rows.length === 0) return;
+src/data/stokInventarisData.ts:  if (rows.length === 0) return;
+src/data/transaksiAuditTrailData.ts:  if (_seeded) return;
+src/data/masterPakanData.ts:  if (!MASTER_PAKAN_DB[id]) return;
+src/data/monitoringReproduksiData.ts:  if (rows.length === 0) return;
+src/data/dashboardPersonalizationData.ts:  if (!isValidPermutation) return; // urutan tidak valid — abaikan, jangan korup state
+src/data/dashboardPersonalizationData.ts:  if (!visible && isMandatoryWidget(widgetId)) return; // guard: widget wajib terlindungi
+src/data/dashboardPersonalizationData.ts:  if (!cfg) return;
+src/data/dashboardPersonalizationData.ts:  if (!cfg) return;
+src/data/roomTimelineData.ts:  if (hasRoomCreatedEvent(input.chatId)) return; // idempotent
+src/data/transactionNotificationData.ts:  if (!rec) return;
+src/data/kebuntinganData.ts:  if (kbRows.length === 0) return;
+src/data/kebuntinganData.ts:  if (rows.length === 0) return;
+src/data/workspaceManagementData.ts:  if (!ws || ws.status === 'Arsip') return;
+src/data/workspaceManagementData.ts:  if (!ws || ws.status === 'Aktif') return;
+src/data/workspaceManagementData.ts:  if (!member || member.role === 'Owner') return;
+src/data/workspaceManagementData.ts:  if (!member || member.role === 'Owner') return;
+src/data/transferData.ts:    return;
+src/data/transferData.ts:    return;
+src/data/marketplaceWishlistData.ts:  if (_seeded.has(workspaceId)) return;
+src/data/marketplaceWishlistData.ts:  if (isInWishlist(workspaceId, listingUuid)) return;
+src/data/sapihData.ts:  if (rows.length === 0) return;
+src/data/transactionRoomData.ts:  if (!list) return;
+src/data/transportConfigData.ts:  if (!config?.marketplace) return;
+src/data/reproduksiProgramData.ts:  if (rows.length === 0) return; // nothing from DB — keep in-memory data
+src/data/produksiFormulaData.ts:  if (rows.length === 0) return; // keep seed / in-memory data intact
+src/data/transaksiEvidenceData.ts:  if (_seeded) return;
+src/data/transaksiEvidenceData.ts:  if (!rec) return;
+src/data/pemeriksaanKebuntinganData.ts:  if (rows.length === 0) return;
+src/data/profileNotificationData.ts:  if (NOTIFICATION_RECORD) return;
+src/data/profileNotificationData.ts:      return;
+src/data/profileNotificationData.ts:  if (!NOTIFICATION_RECORD) return;
+src/data/profileNotificationData.ts:  if (!NOTIFICATION_RECORD) return;
+src/data/profileNotificationData.ts:  if (!NOTIFICATION_RECORD) return;
+src/data/marketplaceTransaksiData.ts:  if (_seeded) return;
+src/data/marketplaceTransaksiData.ts:  if (listings.length === 0) return;
+src/data/marketplaceTransaksiData.ts:  if (rows.length === 0) return;
+src/data/batchData.ts:  if (!batch || batch.status !== 'Draft') return;
+src/data/batchData.ts:  if (!batch || batch.status !== 'Aktif') return;
+src/data/batchData.ts:  if (!batch || batch.status === 'Diarsipkan') return;
+src/data/batchData.ts:  if (!batch) return;
+src/data/batchData.ts:  if (idx < 0) return; // not found or already ended — guard history immutability
+src/data/batchData.ts:  if (!LIVESTOCK_DB[livestockId]) return;
+src/data/transaksiTransportData.ts:  if (_seeded) return;
+src/data/transaksiTransportData.ts:  if (selesaiTransaksi.length === 0) return;
+src/data/transaksiTransportData.ts:  if (selesaiTransaksi.length < 2) return;
+src/data/transaksiTransportData.ts:  if (!rec) return;
+src/data/transaksiTransportData.ts:  if (!rec) return;
+src/data/rssSourceData.ts:  if (!src) return;
+src/data/transactionOrchestrationData.ts:  if (!state) return;
+src/data/transaksiConversationData.ts:  if (_seeded) return;
+src/data/transaksiConversationData.ts:  if (!room) return;
+src/data/pelaksanaanReproduksiData.ts:  if (rows.length === 0) return;
+src/data/profileSubscriptionData.ts:  if (SUBSCRIPTION) return;
+src/data/profileSubscriptionData.ts:  if (!SUBSCRIPTION) return;
+src/data/pemberianPakanData.ts:  if (rows.length === 0) return;
+src/data/marketplaceNegosiasiData.ts:  if (_seeded) return;
+src/data/marketplaceNegosiasiData.ts:  if (listings.length === 0) return;
+src/data/marketplaceNegosiasiData.ts:  if (rows.length === 0) return;
+src/data/profileSecurityData.ts:  if (SECURITY) return;
+src/data/profileSecurityData.ts:  if (!SECURITY) return;
+src/data/profileSecurityData.ts:  if (!SECURITY) return;
+src/data/profileSecurityData.ts:  if (!SECURITY) return;
+src/data/profileSecurityData.ts:  if (!SECURITY) return;
+src/data/marketplaceListingData.ts:  if (rows.length === 0) return;
+src/data/marketplaceChatData.ts:  if (_seeded) return;
+src/data/marketplaceChatData.ts:  if (listings.length === 0) return;
+src/data/marketplaceChatData.ts:  if (!room) return;
+src/data/formulaData.ts:  if (rows.length === 0) return; // nothing from DB — keep seed / in-memory data
+src/data/transaksiEscrowData.ts:  if (_seeded) return;
+src/data/transaksiEscrowData.ts:  if (!rec || rec.status !== 'Waiting Payment') return;
+src/data/transaksiEscrowData.ts:  if (!rec || rec.status !== 'Holding Fund') return;
+src/data/transaksiEscrowData.ts:  if (!rec || rec.status !== 'Delivery') return;
+src/data/transaksiEscrowData.ts:  if (!rec) return;
+src/data/transaksiEscrowData.ts:  if (rec.status !== 'Delivery' && rec.status !== 'Waiting Confirmation') return;
+src/data/transaksiEscrowData.ts:  if (!rec || rec.status !== 'Dispute' || !rec.dispute) return;
+src/data/transaksiEscrowData.ts:  if (!rec) return;
+src/data/transaksiEscrowData.ts:  if (rec.status !== 'Waiting Transfer' && rec.status !== 'Waiting Confirmation') return;
+src/data/transaksiEscrowData.ts:  if (!rec || rec.status !== 'Waiting Receiver Confirmation') return;
+src/data/transaksiEscrowData.ts:  if (!rec) return;
+src/data/transaksiEscrowData.ts:  if (rec.status !== 'Waiting Payment' && rec.status !== 'Holding Fund') return;
+src/data/transaksiEscrowData.ts:  if (!rec) return;
+src/data/transaksiEscrowData.ts:  if (!rec) return;
+src/data/kelahiranData.ts:  if (kelahiranRows.length === 0 && anakRows.length === 0) return;
+src/data/jadwalPemberianPakanData.ts:  if (!record) return;
+src/data/jadwalPemberianPakanData.ts:  if (record.status === 'Selesai' || record.status === 'Dibatalkan') return;
+src/data/jadwalPemberianPakanData.ts:  if (!record) return;
+src/data/jadwalPemberianPakanData.ts:  if (record.status === 'Selesai' || record.status === 'Dibatalkan') return;
+src/data/produkKomersialLivingDB.ts:  if (!import.meta.env.DEV) return; // production: real auth only, localStorage has no effect
+src/contexts/WorkspaceContext.tsx:    if (authLoading) return;
+src/contexts/WorkspaceContext.tsx:      return;
+src/contexts/WorkspaceContext.tsx:        return;
+src/contexts/SubscriptionContext.tsx:      return;
+src/contexts/AuthContext.tsx:        if (event === 'INITIAL_SESSION') return;
+src/App.tsx:    if (authLoading) return;   // wait for auth to resolve before acting
+src/App.tsx:    if (!currentUser) return;  // guests: ProtectedRoute handles redirection
+src/utils/usePaginatedList.ts:    if (!hasMore) return;
+src/utils/usePaginatedList.ts:    if (!el) return;
+src/utils/masterObatImportExport.ts:    if (!k || typeof k !== 'object') { errors.push(`Kategori index ${i}: struktur rusak.`); return; }
+src/utils/masterObatImportExport.ts:    if (!isValidUuid(k.uuid)) { errors.push(`Kategori index ${i}: UUID tidak valid.`); return; }
+src/utils/masterObatImportExport.ts:    if (typeof k.slug !== 'string' || !k.slug) { errors.push(`Kategori "${k.nama ?? k.uuid}": slug tidak valid.`); return; }
+src/utils/masterObatImportExport.ts:    if (typeof k.nama !== 'string' || !k.nama.trim()) { errors.push(`Kategori ${k.uuid}: nama wajib diisi.`); return; }
+src/utils/masterObatImportExport.ts:    if (!s || typeof s !== 'object') { errors.push(`Sub Kategori index ${i}: struktur rusak.`); return; }
+src/utils/masterObatImportExport.ts:    if (!isValidUuid(s.uuid)) { errors.push(`Sub Kategori index ${i}: UUID tidak valid.`); return; }
+src/utils/masterObatImportExport.ts:    if (typeof s.nama !== 'string' || !s.nama.trim()) { errors.push(`Sub Kategori ${s.uuid}: nama wajib diisi.`); return; }
+src/utils/masterObatImportExport.ts:    if (!d || typeof d !== 'object') { errors.push(`Detail Obat index ${i}: struktur rusak.`); return; }
+src/utils/masterObatImportExport.ts:    if (!isValidUuid(d.uuid)) { errors.push(`Detail Obat index ${i}: UUID tidak valid.`); return; }
+src/utils/masterObatImportExport.ts:    if (typeof d.nama !== 'string' || !d.nama.trim()) { errors.push(`Detail Obat ${d.uuid}: nama wajib diisi.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (!b || typeof b !== 'object') { errors.push(`Brand index ${i}: struktur rusak.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (!isValidUuid(b.uuid)) { errors.push(`Brand index ${i}: UUID tidak valid.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (typeof b.nama !== 'string' || !b.nama.trim()) { errors.push(`Brand ${b.uuid}: nama wajib diisi.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (typeof b.slug !== 'string' || !b.slug.trim()) { errors.push(`Brand "${b.nama}": slug wajib diisi.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (!VALID_STATUS.has(b.status)) { errors.push(`Brand "${b.nama}": status tidak valid.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (!p || typeof p !== 'object') { errors.push(`Produk index ${i}: struktur rusak.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (!isValidUuid(p.uuid)) { errors.push(`Produk index ${i}: UUID tidak valid.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (typeof p.nama !== 'string' || !p.nama.trim()) { errors.push(`Produk ${p.uuid}: nama produk wajib diisi.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (typeof p.bentukSediaan !== 'string' || !p.bentukSediaan.trim()) { errors.push(`Produk "${p.nama}": bentuk sediaan wajib diisi.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (typeof p.kemasan !== 'string' || !p.kemasan.trim()) { errors.push(`Produk "${p.nama}": kemasan wajib diisi.`); return; }
+src/utils/produkKomersialObatImportExport.ts:    if (!VALID_STATUS.has(p.status)) { errors.push(`Produk "${p.nama}": status tidak valid.`); return; }
+src/components/dashboard/QuickAction.tsx:      return;
+src/components/dashboard/QuickAction.tsx:      return;
+src/components/marketplace/ChatHelpers.tsx:    if (!trimmed) return;
+src/components/marketplace/ChatTransport.tsx:    if (!canSubmit) return;
+src/components/marketplace/ChatTransport.tsx:    if (!nextStatus) return;
+src/components/marketplace/ChatTransport.tsx:    if (!trip) return;
+src/components/marketplace/ChatTransport.tsx:    if (!trip) return;
+src/components/marketplace/ChatParticipants.tsx:      return;
+src/components/marketplace/ChatEscrow.tsx:                    if (!problemReason.trim()) return;
+src/components/marketplace/ChatEscrow.tsx:    if (!company.trim()) return;
+src/components/marketplace/ChatEscrow.tsx:    if (!accountId) return;
+src/components/marketplace/ChatEscrow.tsx:    if (!canSubmit) return;
+src/components/marketplace/ChatEscrow.tsx:    if (requiresNote && !note.trim()) return;
+src/components/marketplace/ChatEscrow.tsx:    if (!refNumber.trim()) return;
+src/components/marketplace/ChatEscrow.tsx:    if (!canRefund) return;
+src/components/marketplace/ChatEscrow.tsx:          if (!reason.trim()) return;
+src/components/marketplace/ChatEscrow.tsx:          if (!canSubmit) return;
+src/components/marketplace/ChatEscrow.tsx:                  if (!actionNote.trim()) return;
+src/components/marketplace/ChatEscrow.tsx:            if (!canSubmit) return;
+src/components/marketplace/ChatEscrow.tsx:          if (!reason.trim()) return;
+src/components/marketplace/ChatQuotation.tsx:    if (!canSubmit) return;
+src/components/marketplace/ChatQuotation.tsx:          if (!canSubmit) return;
+src/components/marketplace/ChatQuotation.tsx:          if (!note.trim()) return;
+src/components/marketplace/ChatDealSheet.tsx:    if (!q || q <= 0) { setErrorMsg('Jumlah harus lebih dari 0.'); return; }
+src/components/marketplace/ChatDealSheet.tsx:    if (isNaN(p) || p < 0) { setErrorMsg('Harga satuan tidak valid.'); return; }
+src/components/marketplace/ChatDealSheet.tsx:    if (!deal) return;
+src/components/marketplace/ChatDealSheet.tsx:    if (!q || q <= 0) { setErrorMsg('Jumlah harus lebih dari 0.'); return; }
+src/components/marketplace/ChatDealSheet.tsx:    if (isNaN(p) || p < 0) { setErrorMsg('Harga satuan tidak valid.'); return; }
+src/components/marketplace/ChatDealSheet.tsx:    if (!deal) return;
+src/components/marketplace/ChatDealSheet.tsx:    if (!deal) return;
+src/components/marketplace/ChatDealSheet.tsx:    if (!deal) return;
+src/components/marketplace/ChatDealSheet.tsx:    if (!deal) return;
+src/components/marketplace/ChatDealSheet.tsx:    if (!deal) return;
+src/components/KtpFullscreenViewer.tsx:    if (!cardRef.current || pdfLoading) return;
+src/components/KtpFullscreenViewer.tsx:    if (prestasiList.length === 0) return;
+src/components/KtpFullscreenViewer.tsx:    if (terbaruList.length === 0) return;
+src/components/FotoViewer.tsx:      return;
+src/components/FotoViewer.tsx:        return;
+src/components/FotoViewer.tsx:        return;

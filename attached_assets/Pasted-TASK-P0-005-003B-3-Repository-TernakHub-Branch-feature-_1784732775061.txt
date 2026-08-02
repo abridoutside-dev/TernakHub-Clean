@@ -1,0 +1,204 @@
+TASK P0-005-003B-3
+
+Repository: TernakHub
+
+Branch:
+feature/production-readiness
+
+JANGAN membuat branch baru.
+
+==================================================
+BUG
+==================================================
+
+P0-005-003
+
+Gabungan:
+
+BUG-003
+Reports Module masih placeholder.
+
+BUG-004
+Backup Module masih disabled.
+
+==================================================
+TUJUAN
+==================================================
+
+Mengaktifkan fitur dasar Reports dan Backup agar tidak lagi berupa placeholder atau tombol disabled.
+
+Implementasi cukup menggunakan data yang memang sudah tersedia di aplikasi.
+
+JANGAN membuat backend baru.
+
+JANGAN membuat dummy data.
+
+==================================================
+IMPLEMENTASI
+==================================================
+
+========================
+A.
+REPORTS MODULE
+========================
+
+1.
+
+Hilangkan seluruh tombol disabled.
+
+2.
+
+Implementasikan:
+
+- Generate Laporan
+
+- Export CSV
+
+- Export JSON
+
+Gunakan data yang memang tersedia.
+
+Minimal mencakup:
+
+- Livestock
+
+- Stok Pakan
+
+- Formula Pakan
+
+- Produk Komersial
+
+Apabila suatu modul belum memiliki data, cukup tidak dimasukkan.
+
+Jangan membuat data palsu.
+
+3.
+
+Laporan menggunakan pola export yang sudah diperbaiki pada BUG-001.
+
+Gunakan helper yang sama.
+
+Jangan membuat implementasi export baru.
+
+========================
+B.
+BACKUP MODULE
+========================
+
+Aktifkan seluruh aksi:
+
+- Backup Manual
+
+- Backup Full System
+
+- Restore Backup
+
+- Export Backup
+
+Backup menggunakan snapshot JSON.
+
+Minimal mencakup seluruh data lokal/in-memory yang memang tersedia:
+
+- Livestock
+
+- Stock
+
+- Feed Formula
+
+- Master Pakan
+
+- Produk Komersial
+
+- Workspace Setting
+
+Restore cukup mendukung file backup yang dihasilkan sistem sendiri.
+
+Tidak perlu mendukung format lain.
+
+========================
+ATURAN
+========================
+
+Jangan membuat backend.
+
+Jangan upload ke cloud.
+
+Jangan memakai Supabase Storage.
+
+Semua berjalan lokal menggunakan file JSON.
+
+==================================================
+VERIFIKASI
+==================================================
+
+Reports:
+
+✓ Generate berhasil
+
+✓ CSV dapat diunduh
+
+✓ JSON dapat diunduh
+
+Backup:
+
+✓ Backup menghasilkan file JSON
+
+✓ Restore berhasil membaca file backup
+
+✓ Export Backup berhasil
+
+Kemudian:
+
+✓ TypeScript Check
+
+✓ Production Build
+
+==================================================
+JANGAN
+==================================================
+
+Jangan mengubah:
+
+- Marketplace
+
+- Subscription
+
+- Business Insight
+
+- Master Obat
+
+- Modul lain
+
+Fokus hanya BUG-003 + BUG-004.
+
+==================================================
+COMMIT
+==================================================
+
+P0-005-003B-3: Complete admin reports and backup module
+
+==================================================
+LAPORAN
+==================================================
+
+Berikan:
+
+1. Penyebab kedua bug.
+
+2. Cara implementasi Reports.
+
+3. Cara implementasi Backup.
+
+4. Data yang ikut di Reports.
+
+5. Data yang ikut di Backup.
+
+6. File yang berubah.
+
+7. Hasil TypeScript Check.
+
+8. Hasil Production Build.
+
+9. Commit hash.
+
+Setelah selesai, berhenti dan menunggu instruksi berikutnya.

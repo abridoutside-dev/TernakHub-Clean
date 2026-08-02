@@ -1,0 +1,271 @@
+TASK: LS-PHOTO-001 — Implement Official Livestock Photo Management
+
+PREREQUISITE
+
+LS-KTP-001 has been completed.
+
+Do NOT modify KTP layout anymore.
+
+Only implement the photo system that supplies data to the KTP.
+
+==========================================
+SCOPE
+==========================================
+
+Implement the official livestock photo management system for:
+
+- Di Kandang
+- Luar Kandang
+- Arsip
+
+Architecture must remain unchanged.
+
+==========================================
+PHOTO MODEL
+==========================================
+
+Each livestock has ONLY three official photo categories.
+
+1. FOTO IDENTITAS
+- Taken when born OR
+- First entered into farm (offline purchase)
+- Used by:
+  - Livestock List
+  - Profile
+  - KTP
+  - Marketplace
+- Exactly ONE active photo.
+
+Replacing:
+Old photo automatically moves to history.
+
+Never delete.
+
+==========================================
+
+2. FOTO PRESTASI
+
+Examples:
+
+- Kontes
+- Juara
+- Sertifikat
+- Pameran
+- Lelang
+- Event resmi
+
+Unlimited.
+
+Always append.
+
+Never replace previous records.
+
+Newest first.
+
+==========================================
+
+3. FOTO TERBARU
+
+Represents current livestock condition.
+
+Exactly ONE active photo.
+
+Replacing it:
+
+Previous photo moves into history.
+
+Never delete.
+
+==========================================
+PHOTO HISTORY
+==========================================
+
+Every replaced photo becomes immutable history.
+
+History stores:
+
+photo_uuid
+
+livestock_uuid
+
+photo_category
+
+taken_date
+
+uploaded_date
+
+uploaded_by
+
+reason
+
+notes
+
+replaced_by
+
+History cannot be edited.
+
+History cannot be deleted.
+
+==========================================
+AUDIT TRAIL
+==========================================
+
+Create immutable audit entries.
+
+Examples:
+
+Identity Photo Added
+
+Identity Photo Replaced
+
+Latest Photo Updated
+
+Prestasi Added
+
+Photo Archived
+
+Each audit contains:
+
+timestamp
+
+workspace
+
+user
+
+livestock_uuid
+
+photo_uuid
+
+action
+
+==========================================
+PROFILE PAGE
+==========================================
+
+Replace current gallery.
+
+Show only:
+
+Foto Identitas
+
+Foto Prestasi
+
+Foto Terbaru
+
+Each section displays:
+
+latest active image
+
+upload button
+
+replace button (where applicable)
+
+history button
+
+==========================================
+HISTORY PAGE
+==========================================
+
+Create:
+
+Riwayat Foto
+
+Grouped by category.
+
+Newest first.
+
+Read only.
+
+==========================================
+ACTIVE LIVESTOCK
+==========================================
+
+Upload enabled.
+
+Replace enabled.
+
+History enabled.
+
+==========================================
+OUTSIDE LIVESTOCK
+==========================================
+
+Same behavior as Active.
+
+Upload allowed.
+
+History allowed.
+
+==========================================
+ARCHIVED LIVESTOCK
+==========================================
+
+Everything visible.
+
+History visible.
+
+Upload disabled.
+
+Replace disabled.
+
+Delete disabled.
+
+==========================================
+KTP INTEGRATION
+==========================================
+
+KTP reads ONLY:
+
+Foto Identitas
+
+Foto Prestasi
+
+Foto Terbaru
+
+No placeholder.
+
+No gallery.
+
+==========================================
+RULES
+==========================================
+
+No redesign.
+
+No placeholder.
+
+No premium template.
+
+No fake history.
+
+No fake audit.
+
+No changes to KTP layout.
+
+No changes to Edit Livestock.
+
+No changes to other modules.
+
+TypeScript clean.
+
+Zero runtime errors.
+
+==========================================
+DELIVERABLES
+==========================================
+
+Generate:
+
+LS-PHOTO-001_REPORT.md
+
+Include:
+
+- Files modified
+- Audit implementation
+- History implementation
+- KTP integration
+- Active / Outside / Archive validation
+
+STOP after LS-PHOTO-001.
+
+Do NOT start LS-EDIT-001.

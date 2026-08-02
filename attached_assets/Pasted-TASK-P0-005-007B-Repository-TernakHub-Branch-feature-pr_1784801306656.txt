@@ -1,0 +1,109 @@
+TASK P0-005-007B
+
+Repository:
+TernakHub
+
+Branch:
+feature/production-readiness
+
+==================================================
+TUJUAN
+==================================================
+
+Selesaikan Temuan #7.
+
+Perubahan HANYA pada sumber data pemilihan Escrow.
+
+Jangan melakukan refactor arsitektur.
+
+==================================================
+IMPLEMENTASI
+==================================================
+
+Saat pengguna memilih peserta Escrow pada Marketplace:
+
+SEBELUM
+
+Sumber data berasal dari:
+
+- Workspace
+atau
+- Marketplace Listing
+
+SESUAIKAN MENJADI
+
+Sumber data berasal dari:
+
+Daftar Escrow Aktif (Active Escrow Directory).
+
+==================================================
+ATURAN
+==================================================
+
+1.
+
+Jangan mengambil data Escrow dari Workspace.
+
+2.
+
+Jangan mengambil data Escrow dari Listing Marketplace.
+
+3.
+
+Ambil hanya dari daftar Escrow yang berstatus aktif.
+
+Contoh field:
+
+- escrow_id
+- nama
+- logo
+- status aktif
+- wilayah layanan
+- kontak
+- metode layanan
+
+sesuai struktur data yang sudah ada.
+
+Jangan membuat struktur baru bila sudah tersedia.
+
+==================================================
+JANGAN
+==================================================
+
+❌ Jangan menghapus fitur Escrow.
+
+❌ Jangan mengubah alur transaksi Escrow.
+
+❌ Jangan mengubah Marketplace Listing.
+
+❌ Jangan mengubah Workspace.
+
+❌ Jangan mengubah AI.
+
+❌ Jangan mengubah Dokter/Klinik.
+
+Fokus hanya pada sumber data pemilihan Escrow.
+
+==================================================
+VALIDASI
+==================================================
+
+Pastikan:
+
+✓ Dropdown/Picker Escrow hanya menampilkan Escrow aktif.
+
+✓ Tidak ada Workspace yang muncul sebagai pilihan Escrow.
+
+✓ Tidak ada Listing Marketplace yang muncul sebagai pilihan Escrow.
+
+✓ Seluruh transaksi tetap berjalan normal.
+
+✓ TypeScript Check.
+
+✓ Production Build.
+
+==================================================
+COMMIT
+==================================================
+
+P0-005-007B: Use active escrow directory for escrow selection

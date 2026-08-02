@@ -1,0 +1,145 @@
+TASK: RP-010 — Reproduction History
+
+Use:
+
+docs/prompts/ROADMAP_TEMPLATE.md
+
+Read:
+
+docs/architecture/README.md
+
+Follow ONLY the applicable Constitution documents.
+
+==================================================
+ROADMAP
+==================================================
+
+Implement Reproduction History.
+
+This roadmap follows RP-009 (Weaning Management).
+
+==================================================
+OBJECTIVE
+==================================================
+
+Create a complete, immutable timeline of every reproduction event.
+
+This module becomes the official audit trail for all reproduction activities.
+
+==================================================
+DATA SOURCE
+==================================================
+
+Reuse data from:
+
+- RP-002 Program
+- RP-003 Execution
+- RP-004 Monitoring
+- RP-005 Pregnancy Examination
+- RP-006 Pregnancy
+- RP-007 Birth
+- RP-008 Offspring Registration
+- RP-009 Weaning
+
+Do NOT duplicate data.
+
+==================================================
+TIMELINE
+==================================================
+
+Display:
+
+Newest
+
+↓
+
+Oldest
+
+Each Timeline Card shows:
+
+- Event Icon
+- Event Type
+- Date & Time
+- Livestock
+- Program
+- Officer
+- Status
+- Short Description
+
+==================================================
+DETAIL
+==================================================
+
+Each Event Detail displays:
+
+- Full Event Information
+- Related Program
+- Related Livestock
+- Related Parent
+- Related Offspring (if available)
+- Attachments
+- Notes
+
+==================================================
+SEARCH
+==================================================
+
+Support:
+
+- Search
+- Event Type
+- Livestock
+- Program
+- Date Range
+- Officer
+- Status
+
+Reuse existing Search & Filter.
+
+==================================================
+EVENT TYPE
+==================================================
+
+Support all existing Event Types.
+
+Do not hardcode.
+
+Read dynamically from stored events.
+
+==================================================
+READ ONLY
+==================================================
+
+History is immutable.
+
+No Edit.
+
+No Delete.
+
+==================================================
+VALIDATION
+==================================================
+
+Verify:
+
+- Timeline order.
+- UUID integrity.
+- Related records exist.
+- No orphan events.
+- No duplicate events.
+
+==================================================
+OUTPUT
+==================================================
+
+Implement ONLY RP-010.
+
+Reuse existing Timeline.
+
+Reuse existing Search.
+
+Reuse existing Detail pattern.
+
+Do not redesign architecture.
+
+Do not modify unrelated modules.

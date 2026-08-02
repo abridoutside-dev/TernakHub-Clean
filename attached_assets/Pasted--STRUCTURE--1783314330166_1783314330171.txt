@@ -1,0 +1,159 @@
+=================================================
+STRUCTURE
+=================================================
+
+Header
+
+Quick Action
+
+Livestock Type
+
+Mode (Individual / Batch)
+
+Filter
+
+Search
+
+Active Livestock
+
+Pagination
+
+Outside Workspace
+
+Pagination
+
+Archive
+
+Horizontal Slider
+
+=================================================
+FILTER
+=================================================
+
+Bottom Sheet.
+
+Include:
+
+• Program
+
+• Age
+
+• Weight
+
+• Gender
+
+• Status
+
+(UI only)
+
+=================================================
+MULTI SELECT
+=================================================
+
+Support two methods:
+
+• Long Press livestock card.
+
+• "Select" button in the header.
+
+When selection mode is active:
+
+• Checkbox appears.
+
+• Total selected displayed.
+
+• Select All available.
+
+• Cancel selection.
+
+(UI only)
+
+=================================================
+ACTIVE LIVESTOCK
+=================================================
+
+Display ONLY livestock physically located inside this Workspace.
+
+=================================================
+OUTSIDE WORKSPACE
+=================================================
+
+Display livestock temporarily outside this Workspace.
+
+Examples:
+
+• Breeding Service
+
+• Veterinary
+
+• Contest
+
+• Transportation
+
+• Boarding Farm
+
+Support pagination.
+
+IMPORTANT
+
+A livestock displayed here MUST NOT appear in Active Livestock.
+
+If the livestock is shared with another Workspace:
+
+Display ownership information.
+
+Example:
+
+Owner :
+KayFarm
+
+Current Location :
+IntiFarm
+
+The livestock remains a single Digital Identity.
+
+Both Workspaces access the same livestock record according to their permissions.
+
+(UI only)
+
+=================================================
+ARCHIVE
+=================================================
+
+Display horizontal slider.
+
+Categories:
+
+• Sold
+
+• Dead
+
+• Donation
+
+Selecting "View All"
+
+opens
+
+Archive Livestock page.
+
+Archived livestock are read-only.
+
+Archived livestock never appear inside:
+
+• Active Livestock
+
+• Outside Workspace
+
+=================================================
+DATA RULE
+=================================================
+
+Livestock data can be edited.
+
+Livestock data CANNOT be permanently deleted.
+
+Every delete action becomes Archive.
+
+Digital Identity remains preserved forever.
+
+(UI only)

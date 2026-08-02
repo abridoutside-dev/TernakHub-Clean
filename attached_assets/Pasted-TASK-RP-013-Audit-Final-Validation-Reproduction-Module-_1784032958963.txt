@@ -1,0 +1,246 @@
+TASK: RP-013 — Audit & Final Validation Reproduction Module
+
+Use:
+
+docs/prompts/ROADMAP_TEMPLATE.md
+
+Read:
+
+docs/architecture/README.md
+
+Follow ONLY the applicable Constitution documents.
+
+==================================================
+ROADMAP
+==================================================
+
+Perform a complete end-to-end audit of the Reproduction Module.
+
+Do NOT implement new features.
+
+Do NOT redesign architecture.
+
+==================================================
+MODULES TO AUDIT
+==================================================
+
+Verify:
+
+✓ RP-001 Reproduction Module
+
+✓ RP-002 Reproduction Program
+
+✓ RP-003 Program Execution
+
+✓ RP-004 Monitoring
+
+✓ RP-005 Pregnancy Examination
+
+✓ RP-006 Pregnancy
+
+✓ RP-007 Birth
+
+✓ RP-008 Offspring Registration
+
+✓ RP-009 Weaning
+
+✓ RP-010 Reproduction History
+
+✓ RP-011 AI Insight
+
+✓ RP-012 Dashboard
+
+==================================================
+WORKFLOW VALIDATION
+==================================================
+
+Verify workflow:
+
+Program
+
+↓
+
+Execution
+
+↓
+
+Monitoring
+
+↓
+
+Pregnancy Examination
+
+↓
+
+Pregnancy
+
+↓
+
+Birth
+
+↓
+
+Offspring Registration
+
+↓
+
+Weaning
+
+↓
+
+History
+
+↓
+
+AI
+
+↓
+
+Dashboard
+
+Ensure navigation is complete.
+
+==================================================
+EVENT VALIDATION
+==================================================
+
+Verify:
+
+Every reproduction activity creates the correct Event.
+
+Timeline order:
+
+Newest
+
+↓
+
+Oldest
+
+No duplicate events.
+
+No orphan events.
+
+==================================================
+PROGRAM VALIDATION
+==================================================
+
+Verify:
+
+- Multiple males supported.
+- Multiple females supported.
+- Colony breeding supported.
+- Farm transfer breeding supported.
+- Artificial Insemination supported.
+- Extensible for future methods.
+
+==================================================
+PREGNANCY VALIDATION
+==================================================
+
+Verify:
+
+- Only valid examinations create Pregnancy.
+- One female cannot have multiple Active Pregnancies.
+- Due dates are valid.
+
+==================================================
+BIRTH VALIDATION
+==================================================
+
+Verify:
+
+- Multiple offspring supported.
+- Temporary Offspring created correctly.
+- No automatic Livestock creation.
+
+==================================================
+OFFSPRING VALIDATION
+==================================================
+
+Verify:
+
+- Registration uses existing Livestock service.
+- Parent relationships preserved.
+- UUID integrity preserved.
+- Duplicate registration prevented.
+
+==================================================
+WEANING VALIDATION
+==================================================
+
+Verify:
+
+- Only registered Livestock may be weaned.
+- Parent relationship preserved.
+- Birth relationship preserved.
+
+==================================================
+AI VALIDATION
+==================================================
+
+Verify:
+
+AI:
+
+- Reads only.
+- Generates summary.
+- Generates recommendations.
+- Generates warnings.
+- Generates predictions.
+
+AI never modifies data.
+
+==================================================
+DASHBOARD VALIDATION
+==================================================
+
+Verify:
+
+- Summary
+- AI Insight
+- Statistics
+- Active Programs
+- Upcoming Activities
+- Recent Events
+
+==================================================
+BUILD VALIDATION
+==================================================
+
+Verify:
+
+- TypeScript compile
+- Build success
+- Runtime success
+- No broken imports
+- No broken references
+- UUID integrity
+- No orphan records
+
+==================================================
+OUTPUT
+==================================================
+
+Generate Final Audit Report:
+
+- Critical Issues
+- Minor Issues
+- Workflow Status
+- Integration Status
+- Readiness Status
+
+Finally output ONLY:
+
+✅ READY FOR FINAL REVIEW
+
+or
+
+❌ NOT READY
+
+DO NOT commit source code changes.
+
+Commit documentation only if audit documentation is generated.
+
+DO NOT create Pull Request.
+
+DO NOT merge.

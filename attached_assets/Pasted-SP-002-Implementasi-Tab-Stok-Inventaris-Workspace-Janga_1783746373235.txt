@@ -1,0 +1,156 @@
+SP-002 — Implementasi Tab "Stok" (Inventaris Workspace)
+
+Jangan mengubah arsitektur aplikasi.
+
+Jangan mengubah Dashboard.
+
+Jangan mengubah Master Pakan.
+
+Jangan mengubah Produk Komersial.
+
+Jangan mengubah Formula.
+
+Jangan mengubah Livestock.
+
+Yang dikerjakan HANYA implementasi isi Tab "Stok".
+
+==================================================
+TUJUAN
+==================================================
+
+Tab "Stok" hanya berfungsi sebagai halaman inventaris.
+
+Seluruh data yang tampil merupakan pakan yang sudah dimiliki oleh Workspace.
+
+Tab ini BUKAN tempat menambah stok.
+
+Tab ini BUKAN katalog referensi.
+
+==================================================
+SUMBER DATA
+==================================================
+
+Data berasal dari stok Workspace yang sudah ada.
+
+Stok dapat berasal dari:
+
+• Tambah Stok Manual
+• Marketplace
+
+Proses tersebut tidak dikerjakan pada SP-002.
+
+==================================================
+LAYOUT
+==================================================
+
+Search
+
+↓
+
+Filter
+
+↓
+
+Daftar Inventaris
+
+==================================================
+SEARCH
+==================================================
+
+Cari berdasarkan:
+
+• Nama Pakan
+
+• Brand
+
+• Kategori
+
+==================================================
+FILTER
+==================================================
+
+Minimal:
+
+• Semua
+
+• Master Pakan
+
+• Produk Komersial
+
+• Stok Menipis
+
+==================================================
+DAFTAR INVENTARIS
+==================================================
+
+Setiap card menampilkan:
+
+• Thumbnail (placeholder)
+
+• Nama Pakan
+
+• Sumber
+  (Master Pakan / Produk Komersial)
+
+• Jumlah Stok
+
+• Satuan
+
+• Status
+  (Normal / Menipis / Habis)
+
+• Terakhir Diperbarui
+
+==================================================
+EMPTY STATE
+==================================================
+
+Jika stok kosong tampilkan:
+
+"Belum ada stok pakan."
+
+Tanpa tombol.
+
+Tanpa Quick Action.
+
+==================================================
+YANG TIDAK BOLEH
+==================================================
+
+❌ Jangan membuat tombol Tambah Stok.
+
+❌ Jangan membuat transaksi.
+
+❌ Jangan membuat stok masuk.
+
+❌ Jangan membuat stok keluar.
+
+❌ Jangan membuat halaman Tambah Stok.
+
+❌ Jangan mengubah Dashboard.
+
+❌ Jangan mengubah Master Pakan.
+
+❌ Jangan mengubah Produk Komersial.
+
+❌ Jangan mengubah Formula.
+
+❌ Jangan mengubah Livestock.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+✅ Tab Stok menampilkan inventaris Workspace.
+
+✅ Search berfungsi.
+
+✅ Filter berfungsi.
+
+✅ Empty State tersedia.
+
+✅ Tidak ada tombol Tambah Stok.
+
+✅ Tidak ada transaksi.
+
+✅ Siap dilanjutkan ke SP-003 (Tambah Stok melalui Dashboard).
