@@ -411,11 +411,12 @@ function AsalLahir({
   );
 }
 
-function AsalLainnya() {
+function AsalLainnya({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div style={{ marginTop: 14 }}>
       <FieldLabel htmlFor="keterangan-asal">Keterangan</FieldLabel>
-      <textarea id="keterangan-asal" placeholder="Jelaskan asal-usul ternak ini..." rows={3} />
+      <textarea id="keterangan-asal" placeholder="Jelaskan asal-usul ternak ini..." rows={3}
+        value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
@@ -794,6 +795,8 @@ export default function AddLivestock() {
   // ── Asal Dibeli — purchase details ───────────────────────────────────────────
   const [supplier,          setSupplier]          = useState('');
   const [originFarm,        setOriginFarm]        = useState('');
+  // ── Asal Lainnya — free-text origin description ──────────────────────────────
+  const [keteranganAsal,    setKeteranganAsal]    = useState('');
   const [purchaseDate,      setPurchaseDate]      = useState('');
   const [purchasePrice,     setPurchasePrice]     = useState('');
 
@@ -883,7 +886,7 @@ export default function AddLivestock() {
         breed_category:  tipe || null,
         cross_breed:     crossBreedFinal || null,
         supplier:        supplier.trim()      || null,
-        origin_farm:     originFarm.trim()    || null,
+        origin_farm:     (asal === 'Lainnya' ? keteranganAsal : originFarm).trim() || null,
         purchase_date:   purchaseDate         || null,
         purchase_price:  purchasePrice ? parseFloat(purchasePrice) : null,
         sibling_count:   siblingCount ? parseInt(siblingCount, 10) : null,
@@ -1181,7 +1184,9 @@ export default function AddLivestock() {
               </FieldGroup>
             )}
             {asal === 'Lainnya'             && (
-              <FieldGroup last><AsalLainnya /></FieldGroup>
+              <FieldGroup last>
+                <AsalLainnya value={keteranganAsal} onChange={setKeteranganAsal} />
+              </FieldGroup>
             )}
           </SectionCard>
 
