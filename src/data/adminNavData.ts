@@ -1,11 +1,27 @@
-// ─── Admin Navigation Data — ADM-002 ─────────────────────────────────────────
-// Single source of truth for sidebar nav tree and module configs.
+// ─── Admin Navigation Data — ADMIN-ARCH-001 ──────────────────────────────────
+// Single source of truth for the Admin Control Plane navigation.
+// Restructured into 14 platform domains; all previous modules preserved.
+
+// ─── Sync Status ─────────────────────────────────────────────────────────────
+
+/**
+ * Placeholder sync-status badge for each admin module.
+ *
+ *  synced          — Data is live from production source.
+ *  blocked         — Module exists but cannot sync (dependency / permission issue).
+ *  dummy           — Module uses seed / mock data only.
+ *  not_implemented — Module is a placeholder with no backing data.
+ */
+export type SyncStatus = 'synced' | 'blocked' | 'dummy' | 'not_implemented';
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 export interface AdminNavChild {
   key: string;
   label: string;
   path: string;
   icon?: string;
+  syncStatus?: SyncStatus;
 }
 
 export interface AdminNavItem {
@@ -15,7 +31,16 @@ export interface AdminNavItem {
   path: string;
   badge?: number;
   badgeColor?: string;
+  syncStatus?: SyncStatus;
   children?: AdminNavChild[];
+}
+
+/** A top-level domain grouping in the Admin Control Plane sidebar. */
+export interface AdminNavDomain {
+  key: string;
+  label: string;
+  icon: string;
+  items: AdminNavItem[];
 }
 
 export interface AdminModuleConfig {
@@ -34,235 +59,440 @@ export interface AdminSubSection {
   description: string;
 }
 
-// ─── Nav Tree ────────────────────────────────────────────────────────────────
+// ─── Blocked Modules Registry ─────────────────────────────────────────────────
 
-export const ADMIN_NAV_TREE: AdminNavItem[] = [
+/**
+ * Permanent "Blocked Modules" registry — permanent section in the Admin
+ * Control Plane sidebar.  Populate this list when modules are gated by
+ * external dependencies, missing integrations, or pending implementation.
+ * Do NOT populate dynamically — manual curation only.
+ */
+export interface BlockedModuleEntry {
+  key: string;
+  label: string;
+  domain: string;
+  reason: string;
+}
+
+export const BLOCKED_MODULES: BlockedModuleEntry[] = [
+  // Placeholder — add entries as blocked modules are identified.
+  // Example:
+  // {
+  //   key: 'transport',
+  //   label: 'Transport',
+  //   domain: 'Workspace Transport',
+  //   reason: 'Workspace Transport integration not yet implemented.',
+  // },
+];
+
+// ─── Domain Nav Tree ──────────────────────────────────────────────────────────
+
+export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
+
+  // ── 1. Platform Overview ───────────────────────────────────────────────────
   {
-    key: 'dashboard',
-    label: 'Dashboard',
+    key: 'domain-overview',
+    label: 'Platform Overview',
     icon: '📊',
-    path: '/admin',
-  },
-  {
-    key: 'activity',
-    label: 'Pusat Aktivitas',
-    icon: '📋',
-    path: '/admin/activity',
-  },
-  {
-    key: 'search',
-    label: 'Pencarian Global',
-    icon: '🔍',
-    path: '/admin/search',
-  },
-  {
-    key: 'users',
-    label: 'Pengguna',
-    icon: '👤',
-    path: '/admin/users',
-    children: [
-      { key: 'users-list',     label: 'Daftar Pengguna',  path: '/admin/users',          icon: '📋' },
-      { key: 'users-roles',    label: 'Peran & Izin',     path: '/admin/users/roles',    icon: '🔑' },
-      { key: 'users-activity', label: 'Log Aktivitas',    path: '/admin/users/activity', icon: '📜' },
+    items: [
+      {
+        key: 'dashboard',
+        label: 'Dashboard',
+        icon: '📊',
+        path: '/admin',
+        syncStatus: 'synced',
+      },
+      {
+        key: 'activity',
+        label: 'Pusat Aktivitas',
+        icon: '📋',
+        path: '/admin/activity',
+        syncStatus: 'not_implemented',
+      },
+      {
+        key: 'search',
+        label: 'Pencarian Global',
+        icon: '🔍',
+        path: '/admin/search',
+        syncStatus: 'not_implemented',
+      },
     ],
   },
+
+  // ── 2. User & Workspace ────────────────────────────────────────────────────
   {
-    key: 'workspaces',
-    label: 'Workspaces',
-    icon: '🏢',
-    path: '/admin/workspaces',
-    children: [
-      { key: 'ws-all',          label: 'Semua Workspace', path: '/admin/workspaces',              icon: '🗂️' },
-      { key: 'ws-plans',        label: 'Paket',           path: '/admin/workspaces/plans',        icon: '⭐' },
-      { key: 'ws-verification', label: 'Verifikasi',      path: '/admin/workspaces/verification', icon: '✅' },
+    key: 'domain-user-workspace',
+    label: 'User & Workspace',
+    icon: '👥',
+    items: [
+      {
+        key: 'users',
+        label: 'Pengguna',
+        icon: '👤',
+        path: '/admin/users',
+        syncStatus: 'synced',
+        children: [
+          { key: 'users-list',     label: 'Daftar Pengguna',  path: '/admin/users',          icon: '📋' },
+          { key: 'users-roles',    label: 'Peran & Izin',     path: '/admin/users/roles',    icon: '🔑' },
+          { key: 'users-activity', label: 'Log Aktivitas',    path: '/admin/users/activity', icon: '📜' },
+        ],
+      },
+      {
+        key: 'workspaces',
+        label: 'Workspaces',
+        icon: '🏢',
+        path: '/admin/workspaces',
+        syncStatus: 'synced',
+        children: [
+          { key: 'ws-all',          label: 'Semua Workspace', path: '/admin/workspaces',              icon: '🗂️' },
+          { key: 'ws-plans',        label: 'Paket',           path: '/admin/workspaces/plans',        icon: '⭐' },
+          { key: 'ws-verification', label: 'Verifikasi',      path: '/admin/workspaces/verification', icon: '✅' },
+        ],
+      },
+      {
+        key: 'relationships',
+        label: 'Hubungan',
+        icon: '🤝',
+        path: '/admin/relationships',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'rel-all',     label: 'Semua Hubungan', path: '/admin/relationships',         icon: '📋' },
+          { key: 'rel-active',  label: 'Aktif',           path: '/admin/relationships/active',  icon: '✅' },
+          { key: 'rel-pending', label: 'Menunggu',         path: '/admin/relationships/pending', icon: '⏳' },
+        ],
+      },
+      {
+        key: 'ownership-transfer',
+        label: 'Transfer Kepemilikan',
+        icon: '🔄',
+        path: '/admin/ownership-transfer',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'own-all',     label: 'Semua Permintaan', path: '/admin/ownership-transfer',         icon: '📋' },
+          { key: 'own-pending', label: 'Dalam Proses',     path: '/admin/ownership-transfer/pending', icon: '⏳' },
+          { key: 'own-done',    label: 'Selesai',           path: '/admin/ownership-transfer/done',    icon: '✅' },
+        ],
+      },
     ],
   },
+
+  // ── 3. Workspace Farm ──────────────────────────────────────────────────────
   {
-    key: 'marketplace',
-    label: 'Marketplace',
-    icon: '🛒',
-    path: '/admin/marketplace',
-    children: [
-      { key: 'mp-listings',     label: 'Listing',    path: '/admin/marketplace',              icon: '📦' },
-      { key: 'mp-transactions', label: 'Transaksi',  path: '/admin/marketplace/transactions', icon: '💳' },
-      { key: 'mp-reports',      label: 'Laporan',    path: '/admin/marketplace/reports',      icon: '🚩' },
-    ],
-  },
-  {
-    key: 'ownership-transfer',
-    label: 'Transfer Kepemilikan',
-    icon: '🔄',
-    path: '/admin/ownership-transfer',
-    children: [
-      { key: 'own-all',     label: 'Semua Permintaan', path: '/admin/ownership-transfer',         icon: '📋' },
-      { key: 'own-pending', label: 'Dalam Proses',     path: '/admin/ownership-transfer/pending', icon: '⏳' },
-      { key: 'own-done',    label: 'Selesai',           path: '/admin/ownership-transfer/done',    icon: '✅' },
-    ],
-  },
-  {
-    key: 'relationships',
-    label: 'Hubungan',
-    icon: '🤝',
-    path: '/admin/relationships',
-    children: [
-      { key: 'rel-all',     label: 'Semua Hubungan', path: '/admin/relationships',         icon: '📋' },
-      { key: 'rel-active',  label: 'Aktif',           path: '/admin/relationships/active',  icon: '✅' },
-      { key: 'rel-pending', label: 'Menunggu',         path: '/admin/relationships/pending', icon: '⏳' },
-    ],
-  },
-  {
-    key: 'escrow',
-    label: 'Escrow',
-    icon: '🔐',
-    path: '/admin/escrow',
-    children: [
-      { key: 'esc-list',    label: 'Semua Escrow',  path: '/admin/escrow',         icon: '📋' },
-      { key: 'esc-active',  label: 'Aktif',          path: '/admin/escrow/active',  icon: '⏳' },
-      { key: 'esc-dispute', label: 'Sengketa',       path: '/admin/escrow/dispute', icon: '⚠️' },
-    ],
-  },
-  {
-    key: 'master-escrow',
-    label: 'Master Escrow',
-    icon: '🛡️',
-    path: '/admin/master-escrow',
-    children: [
-      { key: 'me-providers', label: 'Penyedia Escrow', path: '/admin/master-escrow', icon: '🛡️' },
-    ],
-  },
-  {
-    key: 'livestock',
-    label: 'Livestock',
+    key: 'domain-farm',
+    label: 'Workspace Farm',
     icon: '🐄',
-    path: '/admin/livestock',
-    children: [
-      { key: 'ls-registry', label: 'Registri',        path: '/admin/livestock',          icon: '📋' },
-      { key: 'ls-health',   label: 'Rekam Kesehatan', path: '/admin/livestock/health',   icon: '🩺' },
-      { key: 'ls-breeding', label: 'Data Pembiakan',  path: '/admin/livestock/breeding', icon: '🔬' },
+    items: [
+      {
+        key: 'livestock',
+        label: 'Livestock',
+        icon: '🐄',
+        path: '/admin/livestock',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'ls-registry', label: 'Registri',        path: '/admin/livestock',          icon: '📋' },
+          { key: 'ls-health',   label: 'Rekam Kesehatan', path: '/admin/livestock/health',   icon: '🩺' },
+          { key: 'ls-breeding', label: 'Data Pembiakan',  path: '/admin/livestock/breeding', icon: '🔬' },
+        ],
+      },
+      {
+        key: 'lineage',
+        label: 'Silsilah Lintas WS',
+        icon: '🌳',
+        path: '/admin/lineage',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'lin-registry', label: 'Registri Silsilah',   path: '/admin/lineage',              icon: '📋' },
+          { key: 'lin-crossws',  label: 'Referensi Lintas WS', path: '/admin/lineage/cross-ws',     icon: '🌐' },
+          { key: 'lin-verify',   label: 'Antrian Verifikasi',  path: '/admin/lineage/verification', icon: '✅' },
+        ],
+      },
     ],
   },
+
+  // ── 4. Workspace Feed Store ────────────────────────────────────────────────
   {
-    key: 'lineage',
-    label: 'Silsilah Lintas WS',
-    icon: '🌳',
-    path: '/admin/lineage',
-    children: [
-      { key: 'lin-registry',  label: 'Registri Silsilah',   path: '/admin/lineage',              icon: '📋' },
-      { key: 'lin-crossws',   label: 'Referensi Lintas WS', path: '/admin/lineage/cross-ws',     icon: '🌐' },
-      { key: 'lin-verify',    label: 'Antrian Verifikasi',  path: '/admin/lineage/verification', icon: '✅' },
-    ],
-  },
-  {
-    key: 'feed',
-    label: 'Pakan',
+    key: 'domain-feed-store',
+    label: 'Workspace Feed Store',
     icon: '🌾',
-    path: '/admin/feed',
-    children: [
-      { key: 'fd-master', label: 'Data Master', path: '/admin/feed',             icon: '📚' },
-      { key: 'fd-stock',  label: 'Stok',        path: '/admin/feed/stock',       icon: '📦' },
-      { key: 'fd-cons',   label: 'Konsumsi',    path: '/admin/feed/consumption', icon: '📊' },
+    items: [
+      {
+        key: 'feed',
+        label: 'Pakan',
+        icon: '🌾',
+        path: '/admin/feed',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'fd-master', label: 'Data Master', path: '/admin/feed',             icon: '📚' },
+          { key: 'fd-stock',  label: 'Stok',        path: '/admin/feed/stock',       icon: '📦' },
+          { key: 'fd-cons',   label: 'Konsumsi',    path: '/admin/feed/consumption', icon: '📊' },
+        ],
+      },
     ],
   },
+
+  // ── 5. Workspace Drug Store ────────────────────────────────────────────────
   {
-    key: 'medicine',
-    label: 'Obat',
+    key: 'domain-drug-store',
+    label: 'Workspace Drug Store',
     icon: '💊',
-    path: '/admin/medicine',
-    children: [
-      { key: 'med-catalog', label: 'Katalog',          path: '/admin/medicine',       icon: '📚' },
-      { key: 'med-stock',   label: 'Stok',             path: '/admin/medicine/stock', icon: '📦' },
-      { key: 'med-usage',   label: 'Rekam Penggunaan', path: '/admin/medicine/usage', icon: '📋' },
+    items: [
+      {
+        key: 'medicine',
+        label: 'Obat',
+        icon: '💊',
+        path: '/admin/medicine',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'med-catalog', label: 'Katalog',          path: '/admin/medicine',       icon: '📚' },
+          { key: 'med-stock',   label: 'Stok',             path: '/admin/medicine/stock', icon: '📦' },
+          { key: 'med-usage',   label: 'Rekam Penggunaan', path: '/admin/medicine/usage', icon: '📋' },
+        ],
+      },
     ],
   },
+
+  // ── 6. Workspace Veterinary ────────────────────────────────────────────────
   {
-    key: 'subscription',
-    label: 'Langganan',
-    icon: '⭐',
-    path: '/admin/subscription',
-    children: [
-      { key: 'sub-plans',    label: 'Paket',         path: '/admin/subscription',          icon: '📋' },
-      { key: 'sub-billing',  label: 'Tagihan',       path: '/admin/subscription/billing',  icon: '💳' },
-      { key: 'sub-features', label: 'Matriks Fitur', path: '/admin/subscription/features', icon: '🔧' },
+    key: 'domain-veterinary',
+    label: 'Workspace Veterinary',
+    icon: '🩺',
+    items: [
+      // Placeholder — Workspace Veterinary modules will be added in a future task.
     ],
   },
+
+  // ── 7. Workspace Transport ────────────────────────────────────────────────
   {
-    key: 'trust',
-    label: 'Kepercayaan & Verifikasi',
-    icon: '✅',
-    path: '/admin/trust',
-    children: [
-      { key: 'tv-pending',  label: 'Antrian Menunggu', path: '/admin/trust',          icon: '⏳' },
-      { key: 'tv-approved', label: 'Disetujui',        path: '/admin/trust/approved', icon: '✅' },
-      { key: 'tv-rejected', label: 'Ditolak',          path: '/admin/trust/rejected', icon: '❌' },
+    key: 'domain-transport',
+    label: 'Workspace Transport',
+    icon: '🚛',
+    items: [
+      // Placeholder — Workspace Transport modules will be added in a future task.
     ],
   },
+
+  // ── 8. Marketplace & Commerce ─────────────────────────────────────────────
   {
-    key: 'announcements',
-    label: 'Pengumuman',
-    icon: '📢',
-    path: '/admin/announcements',
-    children: [
-      { key: 'ann-published',  label: 'Diterbitkan', path: '/admin/announcements',           icon: '✅' },
-      { key: 'ann-drafts',     label: 'Draf',        path: '/admin/announcements/drafts',    icon: '✏️' },
-      { key: 'ann-scheduled',  label: 'Terjadwal',   path: '/admin/announcements/scheduled', icon: '📅' },
+    key: 'domain-marketplace',
+    label: 'Marketplace & Commerce',
+    icon: '🛒',
+    items: [
+      {
+        key: 'marketplace',
+        label: 'Marketplace',
+        icon: '🛒',
+        path: '/admin/marketplace',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'mp-listings',     label: 'Listing',   path: '/admin/marketplace',              icon: '📦' },
+          { key: 'mp-transactions', label: 'Transaksi', path: '/admin/marketplace/transactions', icon: '💳' },
+          { key: 'mp-reports',      label: 'Laporan',   path: '/admin/marketplace/reports',      icon: '🚩' },
+        ],
+      },
+      {
+        key: 'escrow',
+        label: 'Escrow',
+        icon: '🔐',
+        path: '/admin/escrow',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'esc-list',    label: 'Semua Escrow', path: '/admin/escrow',         icon: '📋' },
+          { key: 'esc-active',  label: 'Aktif',         path: '/admin/escrow/active',  icon: '⏳' },
+          { key: 'esc-dispute', label: 'Sengketa',      path: '/admin/escrow/dispute', icon: '⚠️' },
+        ],
+      },
+      {
+        key: 'master-escrow',
+        label: 'Master Escrow',
+        icon: '🛡️',
+        path: '/admin/master-escrow',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'me-providers', label: 'Penyedia Escrow', path: '/admin/master-escrow', icon: '🛡️' },
+        ],
+      },
     ],
   },
+
+  // ── 9. Platform Services ───────────────────────────────────────────────────
   {
-    key: 'notifications',
-    label: 'Notifikasi',
-    icon: '🔔',
-    path: '/admin/notifications',
-    children: [
-      { key: 'notif-all',       label: 'Semua Notifikasi', path: '/admin/notifications',           icon: '📋' },
-      { key: 'notif-templates', label: 'Template',         path: '/admin/notifications/templates', icon: '📝' },
+    key: 'domain-platform-services',
+    label: 'Platform Services',
+    icon: '⚡',
+    items: [
+      {
+        key: 'subscription',
+        label: 'Langganan',
+        icon: '⭐',
+        path: '/admin/subscription',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'sub-plans',    label: 'Paket',         path: '/admin/subscription',          icon: '📋' },
+          { key: 'sub-billing',  label: 'Tagihan',       path: '/admin/subscription/billing',  icon: '💳' },
+          { key: 'sub-features', label: 'Matriks Fitur', path: '/admin/subscription/features', icon: '🔧' },
+        ],
+      },
+      {
+        key: 'announcements',
+        label: 'Pengumuman',
+        icon: '📢',
+        path: '/admin/announcements',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'ann-published', label: 'Diterbitkan', path: '/admin/announcements',           icon: '✅' },
+          { key: 'ann-drafts',    label: 'Draf',        path: '/admin/announcements/drafts',    icon: '✏️' },
+          { key: 'ann-scheduled', label: 'Terjadwal',   path: '/admin/announcements/scheduled', icon: '📅' },
+        ],
+      },
+      {
+        key: 'notifications',
+        label: 'Notifikasi',
+        icon: '🔔',
+        path: '/admin/notifications',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'notif-all',       label: 'Semua Notifikasi', path: '/admin/notifications',           icon: '📋' },
+          { key: 'notif-templates', label: 'Template',         path: '/admin/notifications/templates', icon: '📝' },
+        ],
+      },
+      {
+        key: 'news-event',
+        label: 'News & Event',
+        icon: '📰',
+        path: '/admin/news-event/review',
+        syncStatus: 'not_implemented',
+        children: [
+          { key: 'ne-review',      label: 'Review Konten',      path: '/admin/news-event/review', icon: '📝' },
+          { key: 'ne-rss-sources', label: 'Sumber RSS',         path: '/admin/rss/sources',       icon: '📡' },
+          { key: 'ne-rss-queue',   label: 'Antrian RSS',        path: '/admin/rss/queue',         icon: '📥' },
+          { key: 'ne-publication', label: 'Manajemen Publikasi', path: '/admin/publication',      icon: '📤' },
+        ],
+      },
     ],
   },
+
+  // ── 10. Master Data ────────────────────────────────────────────────────────
   {
-    key: 'reports',
-    label: 'Laporan',
-    icon: '🚩',
-    path: '/admin/reports',
-    children: [
-      { key: 'rpt-user',      label: 'Laporan Pengguna', path: '/admin/reports',          icon: '👤' },
-      { key: 'rpt-content',   label: 'Laporan Konten',   path: '/admin/reports/content',   icon: '📄' },
-      { key: 'rpt-financial', label: 'Keuangan',         path: '/admin/reports/financial', icon: '💰' },
-    ],
-  },
-  {
-    key: 'monitoring',
-    label: 'Pemantauan',
-    icon: '📡',
-    path: '/admin/monitoring',
-    children: [
-      { key: 'mon-health', label: 'Kesehatan Sistem', path: '/admin/monitoring',             icon: '❤️' },
-      { key: 'mon-errors', label: 'Log Kesalahan',    path: '/admin/monitoring/errors',      icon: '⚠️' },
-      { key: 'mon-perf',   label: 'Performa',         path: '/admin/monitoring/performance', icon: '⚡' },
-    ],
-  },
-  {
-    key: 'data_master',
-    label: 'Data Master',
+    key: 'domain-master-data',
+    label: 'Master Data',
     icon: '🗂️',
-    path: '/admin/data-master',
-    children: [
-      { key: 'dm-categories', label: 'Kategori',    path: '/admin/data-master',         icon: '📁' },
-      { key: 'dm-master',     label: 'Daftar Master', path: '/admin/data-master/master',  icon: '📋' },
-      { key: 'dm-imports',    label: 'Impor',        path: '/admin/data-master/imports', icon: '📥' },
+    items: [
+      {
+        key: 'data_master',
+        label: 'Data Master',
+        icon: '🗂️',
+        path: '/admin/data-master',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'dm-categories', label: 'Kategori',      path: '/admin/data-master',         icon: '📁' },
+          { key: 'dm-master',     label: 'Daftar Master', path: '/admin/data-master/master',  icon: '📋' },
+          { key: 'dm-imports',    label: 'Impor',         path: '/admin/data-master/imports', icon: '📥' },
+        ],
+      },
     ],
   },
+
+  // ── 11. Platform Configuration ─────────────────────────────────────────────
   {
-    key: 'settings',
-    label: 'Pengaturan',
-    icon: '⚙️',
-    path: '/admin/settings',
-    children: [
-      { key: 'set-general',  label: 'Umum',     path: '/admin/settings',          icon: '🔧' },
-      { key: 'set-security', label: 'Keamanan', path: '/admin/settings/security', icon: '🔒' },
-      { key: 'set-api',      label: 'API Keys', path: '/admin/settings/api',      icon: '🔑' },
-      { key: 'set-email',    label: 'Email',    path: '/admin/settings/email',    icon: '📧' },
+    key: 'domain-config',
+    label: 'Platform Configuration',
+    icon: '🔧',
+    items: [
+      {
+        key: 'settings',
+        label: 'Pengaturan',
+        icon: '⚙️',
+        path: '/admin/settings',
+        syncStatus: 'not_implemented',
+        children: [
+          { key: 'set-general',  label: 'Umum',     path: '/admin/settings',          icon: '🔧' },
+          { key: 'set-security', label: 'Keamanan', path: '/admin/settings/security', icon: '🔒' },
+          { key: 'set-api',      label: 'API Keys', path: '/admin/settings/api',      icon: '🔑' },
+          { key: 'set-email',    label: 'Email',    path: '/admin/settings/email',    icon: '📧' },
+        ],
+      },
+    ],
+  },
+
+  // ── 12. Monitoring ─────────────────────────────────────────────────────────
+  {
+    key: 'domain-monitoring',
+    label: 'Monitoring',
+    icon: '📡',
+    items: [
+      {
+        key: 'monitoring',
+        label: 'Pemantauan',
+        icon: '📡',
+        path: '/admin/monitoring',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'mon-health', label: 'Kesehatan Sistem', path: '/admin/monitoring',             icon: '❤️' },
+          { key: 'mon-errors', label: 'Log Kesalahan',    path: '/admin/monitoring/errors',      icon: '⚠️' },
+          { key: 'mon-perf',   label: 'Performa',         path: '/admin/monitoring/performance', icon: '⚡' },
+        ],
+      },
+    ],
+  },
+
+  // ── 13. Audit & Trust ─────────────────────────────────────────────────────
+  {
+    key: 'domain-audit-trust',
+    label: 'Audit & Trust',
+    icon: '🛡️',
+    items: [
+      {
+        key: 'trust',
+        label: 'Kepercayaan & Verifikasi',
+        icon: '✅',
+        path: '/admin/trust',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'tv-pending',  label: 'Antrian Menunggu', path: '/admin/trust',          icon: '⏳' },
+          { key: 'tv-approved', label: 'Disetujui',        path: '/admin/trust/approved', icon: '✅' },
+          { key: 'tv-rejected', label: 'Ditolak',          path: '/admin/trust/rejected', icon: '❌' },
+        ],
+      },
+      {
+        key: 'reports',
+        label: 'Laporan',
+        icon: '🚩',
+        path: '/admin/reports',
+        syncStatus: 'dummy',
+        children: [
+          { key: 'rpt-user',      label: 'Laporan Pengguna', path: '/admin/reports',           icon: '👤' },
+          { key: 'rpt-content',   label: 'Laporan Konten',   path: '/admin/reports/content',   icon: '📄' },
+          { key: 'rpt-financial', label: 'Keuangan',         path: '/admin/reports/financial', icon: '💰' },
+        ],
+      },
+      {
+        key: 'backup',
+        label: 'Backup & Restore',
+        icon: '💾',
+        path: '/admin/backup',
+        syncStatus: 'not_implemented',
+      },
+    ],
+  },
+
+  // ── 14. Developer ─────────────────────────────────────────────────────────
+  {
+    key: 'domain-developer',
+    label: 'Developer',
+    icon: '🛠️',
+    items: [
+      // Placeholder — Developer tools will be added in a future task.
     ],
   },
 ];
+
+// ─── Backward-compatible flat tree ───────────────────────────────────────────
+// Used by AdminTopBar for active-path resolution.  Do NOT use this for new
+// rendering code — use ADMIN_NAV_DOMAINS instead.
+
+export const ADMIN_NAV_TREE: AdminNavItem[] = ADMIN_NAV_DOMAINS.flatMap(
+  (domain) => domain.items,
+);
 
 // ─── Module Configs (used by AdminModuleShell) ────────────────────────────────
 
@@ -397,9 +627,9 @@ export const ADMIN_MODULE_CONFIGS: Record<string, AdminModuleConfig> = {
       'Admin dapat menerbitkan pemberitahuan pemeliharaan, pengumuman fitur, dan pembaruan regulasi, ' +
       'serta menjadwalkannya untuk publikasi mendatang dengan pengiriman bertarget.',
     subSections: [
-      { key: 'published',  icon: '✅', title: 'Diterbitkan', description: 'Semua pengumuman aktif yang saat ini terlihat oleh pengguna.' },
-      { key: 'drafts',     icon: '✏️', title: 'Draf',        description: 'Pengumuman yang sedang dikerjakan dan belum diterbitkan.' },
-      { key: 'scheduled',  icon: '📅', title: 'Terjadwal',   description: 'Pengumuman dalam antrian untuk publikasi mendatang dengan waktu pengiriman yang dikonfigurasi.' },
+      { key: 'published', icon: '✅', title: 'Diterbitkan', description: 'Semua pengumuman aktif yang saat ini terlihat oleh pengguna.' },
+      { key: 'drafts',    icon: '✏️', title: 'Draf',        description: 'Pengumuman yang sedang dikerjakan dan belum diterbitkan.' },
+      { key: 'scheduled', icon: '📅', title: 'Terjadwal',   description: 'Pengumuman dalam antrian untuk publikasi mendatang dengan waktu pengiriman yang dikonfigurasi.' },
     ],
   },
   notifications: {
@@ -456,9 +686,9 @@ export const ADMIN_MODULE_CONFIGS: Record<string, AdminModuleConfig> = {
       'katalog spesies, registri ras, taksonomi penyakit, data lokasi, dan tabel lookup lainnya ' +
       'yang direferensikan oleh semua modul tingkat workspace di seluruh platform.',
     subSections: [
-      { key: 'categories', icon: '📁', title: 'Kategori',    description: 'Kategori data tingkat atas: Spesies, Ras, Penyakit, Lokasi, dan lainnya.' },
+      { key: 'categories', icon: '📁', title: 'Kategori',      description: 'Kategori data tingkat atas: Spesies, Ras, Penyakit, Lokasi, dan lainnya.' },
       { key: 'master',     icon: '📋', title: 'Daftar Master', description: 'Kelola daftar lookup individual dengan kemampuan tambah, ubah, arsip.' },
-      { key: 'imports',    icon: '📥', title: 'Impor',        description: 'Pipeline impor massal untuk pengisian atau pembaruan data referensi master.' },
+      { key: 'imports',    icon: '📥', title: 'Impor',         description: 'Pipeline impor massal untuk pengisian atau pembaruan data referensi master.' },
     ],
   },
   settings: {
