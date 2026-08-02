@@ -1343,32 +1343,10 @@ export default function KesehatanHewan() {
 
   // AI Insight — recomputed when tick changes (MIN-003: consistent with Batch/Pakan pattern).
   const report = useMemo(() => generateInsights(), [tick]);
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
-        <span style={{ fontSize: 36 }}>⏳</span>
-        <div style={{ fontSize: 14, color: 'var(--color-muted)', fontWeight: 600 }}>Memuat data kesehatan hewan...</div>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div style={{ padding: '24px 16px', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
-        <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>⚠️</span>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>Gagal Memuat Data</div>
-        <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>{error}</div>
-        <button type="button" onClick={refresh}
-          style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          Coba Lagi
-        </button>
-      </div>
-    );
-  }
 
-  // KH-010: dashboard-wide empty state when there is no health data at all yet.
-  const hasAnyPemeriksaan = getPemeriksaanList().length > 0;
-
-  // Live data — read directly each render so mutations are always reflected
+  // Live data — read directly each render so mutations are always reflected.
+  // Must be declared before the isLoading/error guards so the useMemo calls
+  // that depend on them are not placed after a conditional return (Rules of Hooks).
   const ALL_INDIVIDU = buildIndividuList();
   const ALL_BATCH    = buildBatchList();
 
@@ -1406,6 +1384,31 @@ export default function KesehatanHewan() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, debouncedQuery, ALL_BATCH.length]);
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: 36 }}>⏳</span>
+        <div style={{ fontSize: 14, color: 'var(--color-muted)', fontWeight: 600 }}>Memuat data kesehatan hewan...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div style={{ padding: '24px 16px', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
+        <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>⚠️</span>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>Gagal Memuat Data</div>
+        <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>{error}</div>
+        <button type="button" onClick={refresh}
+          style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          Coba Lagi
+        </button>
+      </div>
+    );
+  }
+
+  // KH-010: dashboard-wide empty state when there is no health data at all yet.
+  const hasAnyPemeriksaan = getPemeriksaanList().length > 0;
 
   const activeFilterCount = [
     filters.jenis !== 'Semua Jenis',
