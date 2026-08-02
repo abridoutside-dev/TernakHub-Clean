@@ -186,6 +186,7 @@ import WorkspaceSettingsProfile from './pages/WorkspaceSettingsProfile';
 import WorkspacePublicProfile from './pages/WorkspacePublicProfile';
 import TransportWorkspace from './pages/TransportWorkspace';
 import VeterinaryWorkspace from './pages/VeterinaryWorkspace';
+import KlinikHewanWorkspace from './pages/KlinikHewanWorkspace';
 import FeedStoreWorkspaceRoute from './pages/workspaceDashboards/FeedStoreWorkspaceRoute';
 import DrugStoreWorkspaceRoute from './pages/workspaceDashboards/DrugStoreWorkspaceRoute';
 import FarmProfile from './pages/FarmProfile';
@@ -579,6 +580,7 @@ export default function App() {
       <Route path="/profile/support/contact"                element={<ProfileSupportContact />} />
       <Route path="/workspace/:id/transport"   element={<TransportWorkspace />} />
       <Route path="/workspace/:id/veterinary"  element={<VeterinaryWorkspace />} />
+      <Route path="/workspace/:id/clinic"      element={<KlinikHewanWorkspace />} />
       <Route path="/workspace/:id/feed-store"  element={<FeedStoreWorkspaceRoute />} />
       <Route path="/workspace/:id/drug-store"  element={<DrugStoreWorkspaceRoute />} />
       <Route path="/workspace/:id/farm-profile" element={<FarmProfile />} />

@@ -1095,8 +1095,11 @@ function getModuleLinks(id: string, jenis: string): WorkspaceModuleLink[] {
   if (jenis === 'Transporter') {
     links.push({ icon: '🚛', label: 'Layanan Transport', sublabel: 'Armada, driver & area layanan', path: `/workspace/${id}/transport` });
   }
-  if (jenis === 'Dokter Hewan' || jenis === 'Klinik Hewan') {
+  if (jenis === 'Dokter Hewan') {
     links.push({ icon: '🩺', label: 'Layanan Veteriner', sublabel: 'Dokter, layanan & jadwal', path: `/workspace/${id}/veterinary` });
+  }
+  if (jenis === 'Klinik Hewan') {
+    links.push({ icon: '🏥', label: 'Klinik Hewan', sublabel: 'Staf, layanan & informasi klinik', path: `/workspace/${id}/clinic` });
   }
   return links;
 }
