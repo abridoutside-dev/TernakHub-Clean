@@ -31,6 +31,7 @@ import {
   PLATFORM_STAT_DEFS,
   type SystemStatus,
 } from '../../data/adminDashboardData';
+import AdminControlPlane from './AdminControlPlane';
 
 // ─── Quick-action key → route ─────────────────────────────────────────────────
 
@@ -442,6 +443,7 @@ export default function AdminDashboard() {
           <RecentActivities loadedAt={data?.loadedAt ?? null} />
           <PlatformStatistics />
         </div>
+        <AdminControlPlane />
       </AdminLayout>
     </>
   );

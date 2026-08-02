@@ -96,6 +96,14 @@ export interface BlockedModuleEntry {
   label: string;
   domain: string;
   reason: string;
+  /** ISO date string — when the module became blocked */
+  blockedSince?: string;
+  /** Priority level for unblocking — placeholder */
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  /** Team or person responsible for unblocking — placeholder */
+  owner?: string;
+  /** External service or feature required before unblocking — placeholder */
+  expectedDependency?: string;
 }
 
 export const BLOCKED_MODULES: BlockedModuleEntry[] = [
