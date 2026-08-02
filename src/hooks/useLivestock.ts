@@ -23,10 +23,11 @@ import {
   repoGetAllBatchMembersByWorkspace,
   repoGetTransfersByWorkspace,
   repoGetExtendedMetadataByLivestockIds,
+  repoGetPedigreeLinksByLivestockIds,
 } from '../repositories/livestockRepository';
 
 // Legacy in-memory stores — populated here so existing code continues to work.
-import { LIVESTOCK_DB, type LivestockRecord } from '../data/livestockData';
+import { LIVESTOCK_DB, PEDIGREE_DB, addPedigreeLink, type LivestockRecord } from '../data/livestockData';
 import { EXTENDED_DB } from '../data/livestockEditData';
 import {
   LIVESTOCK_STATUS_DB,
@@ -248,8 +249,12 @@ export function useLivestock(): UseLivestockResult {
         repoGetTransfersByWorkspace(workspaceId),
       ]);
 
-      // Fetch extended metadata for all livestock in one query.
-      const extRows = await repoGetExtendedMetadataByLivestockIds(lRows.map((r) => r.id));
+      // Bulk-fetch extended metadata and pedigree links in parallel (both need lRows IDs).
+      const livestockIds = lRows.map((r) => r.id);
+      const [extRows, pedigreeLinks] = await Promise.all([
+        repoGetExtendedMetadataByLivestockIds(livestockIds),
+        repoGetPedigreeLinksByLivestockIds(livestockIds),
+      ]);
 
       if (abortRef.current) return; // workspace changed mid-flight
 
@@ -320,6 +325,27 @@ export function useLivestock(): UseLivestockResult {
       // ── Populate LIVESTOCK_DB ─────────────────────────────────────────────
       for (const k of Object.keys(LIVESTOCK_DB)) delete LIVESTOCK_DB[k];
       for (const r of records) LIVESTOCK_DB[r.id] = r;
+
+      // ── Populate PEDIGREE_DB from Supabase pedigree_links ─────────────────
+      // Must run after LIVESTOCK_DB is populated: addPedigreeLink calls
+      // getLivestock() internally to resolve names/icons for each relative.
+      // Group links by child (livestock_id), then call addPedigreeLink once
+      // per child so offspring lists on parent entries are also back-filled.
+      for (const k of Object.keys(PEDIGREE_DB)) delete PEDIGREE_DB[k];
+      const linksByChild = new Map<string, { damId: string | null; sireId: string | null }>();
+      for (const link of pedigreeLinks) {
+        const entry = linksByChild.get(link.livestock_id) ?? { damId: null, sireId: null };
+        if (link.role === 'Induk')    entry.damId  = link.relative_id;
+        if (link.role === 'Pejantan') entry.sireId = link.relative_id;
+        linksByChild.set(link.livestock_id, entry);
+      }
+      for (const [childId, { damId, sireId }] of linksByChild) {
+        try {
+          addPedigreeLink(childId, damId, sireId);
+        } catch {
+          // Skip malformed links (e.g. self-reference) without breaking load.
+        }
+      }
 
       // ── Populate LIVESTOCK_STATUS_DB ──────────────────────────────────────
       for (const k of Object.keys(LIVESTOCK_STATUS_DB)) delete LIVESTOCK_STATUS_DB[k];

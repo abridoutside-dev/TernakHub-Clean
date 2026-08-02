@@ -289,6 +289,23 @@ export async function repoGetPedigreeLinks(
 }
 
 /**
+ * Bulk-fetch all pedigree links where livestock_id is in the given list.
+ * Returns an empty array when `livestockIds` is empty.
+ */
+export async function repoGetPedigreeLinksByLivestockIds(
+  livestockIds: string[],
+): Promise<PedigreeLinkDbRow[]> {
+  if (livestockIds.length === 0) return [];
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('pedigree_links')
+    .select('*')
+    .in('livestock_id', livestockIds);
+  guard(error);
+  return (data ?? []) as PedigreeLinkDbRow[];
+}
+
+/**
  * Link a livestock to a parent.
  * role: 'Induk' (dam / ibu) | 'Pejantan' (sire / ayah)
  * Silently ignores duplicate links (unique constraint violation).
