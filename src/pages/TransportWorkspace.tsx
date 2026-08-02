@@ -36,6 +36,7 @@ import {
 } from '../data/transportWorkspaceData';
 
 import TransportHeader from '../components/workspace/TransportHeader';
+import TransportSummary from '../components/workspace/TransportSummary';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -705,45 +706,7 @@ export default function TransportWorkspace() {
         <TransportHeader meta={meta} roleLabel={rl} />
 
         {/* ─── 2. SUMMARY CARDS ──────────────────────────────────────────── */}
-        <div style={{
-          background: 'var(--color-surface)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--color-border)',
-          padding: 16,
-          marginBottom: 20,
-        }}>
-          <SectionHeader title="Statistik Operasional" />
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <StatCard
-              icon="🚛"
-              value={summary.totalKendaraan}
-              label="Total Kendaraan"
-              sub={`${summary.kendaraanTersedia} tersedia`}
-            />
-            <StatCard
-              icon="👨‍✈️"
-              value={summary.driverAktif}
-              label="Driver Aktif"
-              sub={`dari ${summary.totalDriver} total`}
-            />
-            <StatCard
-              icon="🏁"
-              value={summary.pengirimanSelesai}
-              label="Pengiriman Selesai"
-            />
-            <StatCard
-              icon="⏳"
-              value={summary.pengirimanPending}
-              label="Dalam Proses"
-            />
-            <StatCard
-              icon="🗺️"
-              value={summary.totalWilayahLayanan}
-              label="Area Layanan"
-              sub="wilayah"
-            />
-          </div>
-        </div>
+        <TransportSummary summary={summary} />
 
         {/* ─── 3. FLEET ──────────────────────────────────────────────────── */}
         <div style={{
