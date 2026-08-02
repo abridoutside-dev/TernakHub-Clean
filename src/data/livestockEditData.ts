@@ -99,7 +99,8 @@ function safeSave(key: string, value: unknown): void {
 }
 
 // Extended metadata — keyed by livestock ID
-const EXTENDED_DB: Record<string, LivestockExtendedMetadata> =
+// Exported so useLivestock can hydrate it from Supabase on workspace load.
+export const EXTENDED_DB: Record<string, LivestockExtendedMetadata> =
   safeLoad(EXTENDED_KEY, {});
 
 // Edit history — keyed by livestock ID, each value is an append-only array

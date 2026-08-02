@@ -169,6 +169,23 @@ export async function repoGetLivestockExtended(
 }
 
 /**
+ * Bulk-fetch all extended metadata rows for a given set of livestock IDs.
+ * Returns an empty array when `livestockIds` is empty.
+ */
+export async function repoGetExtendedMetadataByLivestockIds(
+  livestockIds: string[],
+): Promise<LivestockExtendedMetadataDbRow[]> {
+  if (livestockIds.length === 0) return [];
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('livestock_extended_metadata')
+    .select('*')
+    .in('livestock_id', livestockIds);
+  guard(error);
+  return (data ?? []) as LivestockExtendedMetadataDbRow[];
+}
+
+/**
  * Upsert the extended metadata for a livestock.
  * Uses ON CONFLICT (livestock_id) to merge safely.
  */

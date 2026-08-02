@@ -22,10 +22,12 @@ import {
   repoGetActiveBatchMembersByWorkspace,
   repoGetAllBatchMembersByWorkspace,
   repoGetTransfersByWorkspace,
+  repoGetExtendedMetadataByLivestockIds,
 } from '../repositories/livestockRepository';
 
 // Legacy in-memory stores — populated here so existing code continues to work.
 import { LIVESTOCK_DB, type LivestockRecord } from '../data/livestockData';
+import { EXTENDED_DB } from '../data/livestockEditData';
 import {
   LIVESTOCK_STATUS_DB,
   OUTSIDE_LIVESTOCK_DB,
@@ -237,6 +239,7 @@ export function useLivestock(): UseLivestockResult {
       // mRows (active only) → used for per-livestock active-batch card + member counts.
       // allMRows (all members) → used for MEMBERSHIP_DB so getBatchMemberships() returns
       //   full history (join + leave) after hard refresh, not just current-session members.
+      // extRows → bulk-fetched after lRows IDs are known; populates EXTENDED_DB.
       const [lRows, bRows, mRows, allMRows, tRows] = await Promise.all([
         repoGetLivestockByWorkspace(workspaceId),
         repoGetBatchesByWorkspace(workspaceId),
@@ -244,6 +247,9 @@ export function useLivestock(): UseLivestockResult {
         repoGetAllBatchMembersByWorkspace(workspaceId),
         repoGetTransfersByWorkspace(workspaceId),
       ]);
+
+      // Fetch extended metadata for all livestock in one query.
+      const extRows = await repoGetExtendedMetadataByLivestockIds(lRows.map((r) => r.id));
 
       if (abortRef.current) return; // workspace changed mid-flight
 
@@ -288,6 +294,28 @@ export function useLivestock(): UseLivestockResult {
           : null;
         return toLivestockRecord(row, abatch);
       });
+
+      // ── Populate EXTENDED_DB from Supabase rows ───────────────────────────
+      // Supabase is the source of truth; localStorage is only a write-through
+      // cache. We overwrite any stale localStorage entries with fresh DB data.
+      for (const row of extRows) {
+        EXTENDED_DB[row.livestock_id] = {
+          earTag:        row.ear_tag,
+          internalCode:  row.internal_code,
+          notes:         row.notes,
+          breedCategory: row.breed_category,
+          crossBreed:    row.cross_breed,
+          color:         row.color,
+          horn:          row.horn,
+          tail:          row.tail,
+          specialMarks:  row.special_marks,
+          purchaseDate:  row.purchase_date,
+          purchasePrice: row.purchase_price != null ? String(row.purchase_price) : null,
+          supplier:      row.supplier,
+          originFarm:    row.origin_farm,
+          siblingCount:  row.sibling_count != null ? String(row.sibling_count) : null,
+        };
+      }
 
       // ── Populate LIVESTOCK_DB ─────────────────────────────────────────────
       for (const k of Object.keys(LIVESTOCK_DB)) delete LIVESTOCK_DB[k];
