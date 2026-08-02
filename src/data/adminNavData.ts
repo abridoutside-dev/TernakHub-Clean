@@ -1,18 +1,36 @@
-// ─── Admin Navigation Data — ADMIN-ARCH-001 ──────────────────────────────────
+// ─── Admin Navigation Data — ADMIN-ARCH-002 ──────────────────────────────────
 // Single source of truth for the Admin Control Plane navigation.
-// Restructured into 14 platform domains; all previous modules preserved.
+// 14 platform domains — every production module assigned to exactly one domain.
+// All previous modules preserved for backward compatibility.
 
 // ─── Sync Status ─────────────────────────────────────────────────────────────
 
 /**
- * Placeholder sync-status badge for each admin module.
- *
- *  synced          — Data is live from production source.
- *  blocked         — Module exists but cannot sync (dependency / permission issue).
- *  dummy           — Module uses seed / mock data only.
- *  not_implemented — Module is a placeholder with no backing data.
+ * Placeholder sync-status for each admin module.
+ *  synced          — Live from production source.
+ *  blocked         — Cannot sync (dependency / permission issue).
+ *  dummy           — Seed / mock data only.
+ *  not_implemented — Placeholder; no backing data yet.
  */
 export type SyncStatus = 'synced' | 'blocked' | 'dummy' | 'not_implemented';
+
+// ─── Module Health ────────────────────────────────────────────────────────────
+
+/**
+ * Placeholder health status for each admin module.
+ * Will be wired to real monitoring signals in a future task.
+ */
+export type ModuleHealth = 'healthy' | 'degraded' | 'down' | 'unknown';
+
+// ─── Module Blocker ───────────────────────────────────────────────────────────
+
+/**
+ * Placeholder blocker record — populated when a module is gated.
+ */
+export interface ModuleBlocker {
+  reason: string;
+  blockedSince?: string;   // ISO date string
+}
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -31,7 +49,14 @@ export interface AdminNavItem {
   path: string;
   badge?: number;
   badgeColor?: string;
+  /** Sync status placeholder — see SyncStatus */
   syncStatus?: SyncStatus;
+  /** Health status placeholder — not yet connected to monitoring */
+  health?: ModuleHealth;
+  /** Statistics placeholder — key/value pairs, not yet populated */
+  statistics?: Record<string, number | string | null>;
+  /** Blocker placeholder — populated when module is gated */
+  blocker?: ModuleBlocker;
   children?: AdminNavChild[];
 }
 
@@ -48,7 +73,7 @@ export interface AdminModuleConfig {
   icon: string;
   title: string;
   description: string;
-  purpose: string;              // one-paragraph future purpose
+  purpose: string;
   subSections: AdminSubSection[];
 }
 
@@ -62,10 +87,9 @@ export interface AdminSubSection {
 // ─── Blocked Modules Registry ─────────────────────────────────────────────────
 
 /**
- * Permanent "Blocked Modules" registry — permanent section in the Admin
- * Control Plane sidebar.  Populate this list when modules are gated by
- * external dependencies, missing integrations, or pending implementation.
- * Do NOT populate dynamically — manual curation only.
+ * Permanent "Blocked Modules" registry.
+ * Populate manually when modules are gated by missing deps or integrations.
+ * Do NOT populate dynamically.
  */
 export interface BlockedModuleEntry {
   key: string;
@@ -76,13 +100,6 @@ export interface BlockedModuleEntry {
 
 export const BLOCKED_MODULES: BlockedModuleEntry[] = [
   // Placeholder — add entries as blocked modules are identified.
-  // Example:
-  // {
-  //   key: 'transport',
-  //   label: 'Transport',
-  //   domain: 'Workspace Transport',
-  //   reason: 'Workspace Transport integration not yet implemented.',
-  // },
 ];
 
 // ─── Domain Nav Tree ──────────────────────────────────────────────────────────
@@ -101,20 +118,47 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         icon: '📊',
         path: '/admin',
         syncStatus: 'synced',
+        health: 'healthy',
+      },
+      {
+        key: 'platform-health',
+        label: 'Platform Health',
+        icon: '❤️',
+        path: '/admin/platform-health',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'platform-stats',
+        label: 'Global Statistics',
+        icon: '📈',
+        path: '/admin/platform-stats',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'quick-actions',
+        label: 'Quick Actions',
+        icon: '⚡',
+        path: '/admin/quick-actions',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
       {
         key: 'activity',
-        label: 'Pusat Aktivitas',
+        label: 'Recent Activity',
         icon: '📋',
         path: '/admin/activity',
         syncStatus: 'not_implemented',
+        health: 'unknown',
       },
       {
         key: 'search',
-        label: 'Pencarian Global',
+        label: 'Global Search',
         icon: '🔍',
         path: '/admin/search',
         syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -127,10 +171,11 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     items: [
       {
         key: 'users',
-        label: 'Pengguna',
+        label: 'Users',
         icon: '👤',
         path: '/admin/users',
         syncStatus: 'synced',
+        health: 'healthy',
         children: [
           { key: 'users-list',     label: 'Daftar Pengguna',  path: '/admin/users',          icon: '📋' },
           { key: 'users-roles',    label: 'Peran & Izin',     path: '/admin/users/roles',    icon: '🔑' },
@@ -138,11 +183,20 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         ],
       },
       {
+        key: 'user-profiles',
+        label: 'User Profiles',
+        icon: '🪪',
+        path: '/admin/users/profiles',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
         key: 'workspaces',
         label: 'Workspaces',
         icon: '🏢',
         path: '/admin/workspaces',
         syncStatus: 'synced',
+        health: 'healthy',
         children: [
           { key: 'ws-all',          label: 'Semua Workspace', path: '/admin/workspaces',              icon: '🗂️' },
           { key: 'ws-plans',        label: 'Paket',           path: '/admin/workspaces/plans',        icon: '⭐' },
@@ -150,11 +204,28 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         ],
       },
       {
+        key: 'ws-members',
+        label: 'Workspace Members',
+        icon: '👥',
+        path: '/admin/workspaces/members',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ws-roles',
+        label: 'Workspace Roles',
+        icon: '🔑',
+        path: '/admin/workspaces/roles',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
         key: 'relationships',
-        label: 'Hubungan',
+        label: 'Workspace Relationships',
         icon: '🤝',
         path: '/admin/relationships',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'rel-all',     label: 'Semua Hubungan', path: '/admin/relationships',         icon: '📋' },
           { key: 'rel-active',  label: 'Aktif',           path: '/admin/relationships/active',  icon: '✅' },
@@ -163,15 +234,38 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
       },
       {
         key: 'ownership-transfer',
-        label: 'Transfer Kepemilikan',
+        label: 'Ownership Transfer',
         icon: '🔄',
         path: '/admin/ownership-transfer',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'own-all',     label: 'Semua Permintaan', path: '/admin/ownership-transfer',         icon: '📋' },
           { key: 'own-pending', label: 'Dalam Proses',     path: '/admin/ownership-transfer/pending', icon: '⏳' },
           { key: 'own-done',    label: 'Selesai',           path: '/admin/ownership-transfer/done',    icon: '✅' },
         ],
+      },
+      {
+        // Moved from Platform Services — every workspace's subscription context
+        key: 'subscription',
+        label: 'Subscription',
+        icon: '⭐',
+        path: '/admin/subscription',
+        syncStatus: 'dummy',
+        health: 'unknown',
+        children: [
+          { key: 'sub-plans',    label: 'Paket',         path: '/admin/subscription',          icon: '📋' },
+          { key: 'sub-billing',  label: 'Tagihan',       path: '/admin/subscription/billing',  icon: '💳' },
+          { key: 'sub-features', label: 'Matriks Fitur', path: '/admin/subscription/features', icon: '🔧' },
+        ],
+      },
+      {
+        key: 'uw-trust',
+        label: 'Trust & Verification',
+        icon: '🛡️',
+        path: '/admin/trust',
+        syncStatus: 'dummy',
+        health: 'unknown',
       },
     ],
   },
@@ -183,11 +277,20 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '🐄',
     items: [
       {
+        key: 'farm-dashboard',
+        label: 'Dashboard',
+        icon: '📊',
+        path: '/admin/farm/dashboard',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
         key: 'livestock',
         label: 'Livestock',
         icon: '🐄',
         path: '/admin/livestock',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'ls-registry', label: 'Registri',        path: '/admin/livestock',          icon: '📋' },
           { key: 'ls-health',   label: 'Rekam Kesehatan', path: '/admin/livestock/health',   icon: '🩺' },
@@ -196,15 +299,112 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
       },
       {
         key: 'lineage',
-        label: 'Silsilah Lintas WS',
+        label: 'Cross Workspace Lineage',
         icon: '🌳',
         path: '/admin/lineage',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'lin-registry', label: 'Registri Silsilah',   path: '/admin/lineage',              icon: '📋' },
           { key: 'lin-crossws',  label: 'Referensi Lintas WS', path: '/admin/lineage/cross-ws',     icon: '🌐' },
           { key: 'lin-verify',   label: 'Antrian Verifikasi',  path: '/admin/lineage/verification', icon: '✅' },
         ],
+      },
+      {
+        key: 'farm-batch',
+        label: 'Batch',
+        icon: '📦',
+        path: '/admin/farm/batch',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-bobot',
+        label: 'Catat Bobot',
+        icon: '⚖️',
+        path: '/admin/farm/catat-bobot',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-pemberian-pakan',
+        label: 'Pemberian Pakan',
+        icon: '🌾',
+        path: '/admin/farm/pemberian-pakan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-stok-pakan',
+        label: 'Stok Pakan',
+        icon: '🏪',
+        path: '/admin/farm/stok-pakan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-master-pakan',
+        label: 'Master Pakan',
+        icon: '📚',
+        path: '/admin/farm/master-pakan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-formula-pakan',
+        label: 'Formula Pakan',
+        icon: '🧪',
+        path: '/admin/farm/formula-pakan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-stok-obat',
+        label: 'Stok Obat',
+        icon: '💊',
+        path: '/admin/farm/stok-obat',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-master-obat',
+        label: 'Master Obat',
+        icon: '📋',
+        path: '/admin/farm/master-obat',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-kesehatan',
+        label: 'Kesehatan Hewan',
+        icon: '🩺',
+        path: '/admin/farm/kesehatan-hewan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-reproduksi',
+        label: 'Reproduksi',
+        icon: '🔬',
+        path: '/admin/farm/reproduksi',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-mutasi',
+        label: 'Mutasi',
+        icon: '🔀',
+        path: '/admin/farm/mutasi',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'farm-ai',
+        label: 'AI Insight',
+        icon: '🤖',
+        path: '/admin/farm/ai-insight',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -216,16 +416,74 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '🌾',
     items: [
       {
+        key: 'fs-dashboard',
+        label: 'Dashboard',
+        icon: '📊',
+        path: '/admin/feed-store/dashboard',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'fs-produk',
+        label: 'Produk',
+        icon: '📦',
+        path: '/admin/feed-store/produk',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        // Existing feed module kept for backward compat — maps to Stock/Master data
         key: 'feed',
-        label: 'Pakan',
+        label: 'Stock',
         icon: '🌾',
         path: '/admin/feed',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'fd-master', label: 'Data Master', path: '/admin/feed',             icon: '📚' },
           { key: 'fd-stock',  label: 'Stok',        path: '/admin/feed/stock',       icon: '📦' },
           { key: 'fd-cons',   label: 'Konsumsi',    path: '/admin/feed/consumption', icon: '📊' },
         ],
+      },
+      {
+        key: 'fs-purchase',
+        label: 'Purchase',
+        icon: '🛒',
+        path: '/admin/feed-store/purchase',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'fs-sales',
+        label: 'Sales',
+        icon: '💰',
+        path: '/admin/feed-store/sales',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'fs-transactions',
+        label: 'Transactions',
+        icon: '💳',
+        path: '/admin/feed-store/transactions',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'fs-reports',
+        label: 'Reports',
+        icon: '📊',
+        path: '/admin/feed-store/reports',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'fs-ai',
+        label: 'AI Insight',
+        icon: '🤖',
+        path: '/admin/feed-store/ai-insight',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -237,16 +495,74 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '💊',
     items: [
       {
+        key: 'ds-dashboard',
+        label: 'Dashboard',
+        icon: '📊',
+        path: '/admin/drug-store/dashboard',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ds-produk',
+        label: 'Produk',
+        icon: '📦',
+        path: '/admin/drug-store/produk',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        // Existing medicine module kept for backward compat
         key: 'medicine',
-        label: 'Obat',
+        label: 'Stock',
         icon: '💊',
         path: '/admin/medicine',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'med-catalog', label: 'Katalog',          path: '/admin/medicine',       icon: '📚' },
           { key: 'med-stock',   label: 'Stok',             path: '/admin/medicine/stock', icon: '📦' },
           { key: 'med-usage',   label: 'Rekam Penggunaan', path: '/admin/medicine/usage', icon: '📋' },
         ],
+      },
+      {
+        key: 'ds-purchase',
+        label: 'Purchase',
+        icon: '🛒',
+        path: '/admin/drug-store/purchase',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ds-sales',
+        label: 'Sales',
+        icon: '💰',
+        path: '/admin/drug-store/sales',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ds-transactions',
+        label: 'Transactions',
+        icon: '💳',
+        path: '/admin/drug-store/transactions',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ds-reports',
+        label: 'Reports',
+        icon: '📊',
+        path: '/admin/drug-store/reports',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ds-ai',
+        label: 'AI Insight',
+        icon: '🤖',
+        path: '/admin/drug-store/ai-insight',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -257,17 +573,143 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     label: 'Workspace Veterinary',
     icon: '🩺',
     items: [
-      // Placeholder — Workspace Veterinary modules will be added in a future task.
+      {
+        key: 'vet-dashboard',
+        label: 'Dashboard',
+        icon: '📊',
+        path: '/admin/veterinary/dashboard',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-appointment',
+        label: 'Appointment',
+        icon: '📅',
+        path: '/admin/veterinary/appointment',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-examination',
+        label: 'Examination',
+        icon: '🔬',
+        path: '/admin/veterinary/examination',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-treatment',
+        label: 'Treatment',
+        icon: '💉',
+        path: '/admin/veterinary/treatment',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-prescription',
+        label: 'Prescription',
+        icon: '📝',
+        path: '/admin/veterinary/prescription',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-medical-record',
+        label: 'Medical Record',
+        icon: '📋',
+        path: '/admin/veterinary/medical-record',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-reports',
+        label: 'Reports',
+        icon: '📊',
+        path: '/admin/veterinary/reports',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'vet-ai',
+        label: 'AI Insight',
+        icon: '🤖',
+        path: '/admin/veterinary/ai-insight',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
     ],
   },
 
-  // ── 7. Workspace Transport ────────────────────────────────────────────────
+  // ── 7. Workspace Transport ─────────────────────────────────────────────────
   {
     key: 'domain-transport',
     label: 'Workspace Transport',
     icon: '🚛',
     items: [
-      // Placeholder — Workspace Transport modules will be added in a future task.
+      {
+        key: 'trans-dashboard',
+        label: 'Dashboard',
+        icon: '📊',
+        path: '/admin/transport/dashboard',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-vehicles',
+        label: 'Vehicles',
+        icon: '🚚',
+        path: '/admin/transport/vehicles',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-drivers',
+        label: 'Drivers',
+        icon: '👷',
+        path: '/admin/transport/drivers',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-delivery',
+        label: 'Delivery',
+        icon: '📦',
+        path: '/admin/transport/delivery',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-route',
+        label: 'Route',
+        icon: '🗺️',
+        path: '/admin/transport/route',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-schedule',
+        label: 'Schedule',
+        icon: '📅',
+        path: '/admin/transport/schedule',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-reports',
+        label: 'Reports',
+        icon: '📊',
+        path: '/admin/transport/reports',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'trans-ai',
+        label: 'AI Insight',
+        icon: '🤖',
+        path: '/admin/transport/ai-insight',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
     ],
   },
 
@@ -283,6 +725,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         icon: '🛒',
         path: '/admin/marketplace',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'mp-listings',     label: 'Listing',   path: '/admin/marketplace',              icon: '📦' },
           { key: 'mp-transactions', label: 'Transaksi', path: '/admin/marketplace/transactions', icon: '💳' },
@@ -290,11 +733,20 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         ],
       },
       {
+        key: 'mp-listings-standalone',
+        label: 'Listings',
+        icon: '📦',
+        path: '/admin/marketplace/listings',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
         key: 'escrow',
         label: 'Escrow',
         icon: '🔐',
         path: '/admin/escrow',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'esc-list',    label: 'Semua Escrow', path: '/admin/escrow',         icon: '📋' },
           { key: 'esc-active',  label: 'Aktif',         path: '/admin/escrow/active',  icon: '⏳' },
@@ -307,9 +759,42 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         icon: '🛡️',
         path: '/admin/master-escrow',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'me-providers', label: 'Penyedia Escrow', path: '/admin/master-escrow', icon: '🛡️' },
         ],
+      },
+      {
+        key: 'mp-chat',
+        label: 'Chat',
+        icon: '💬',
+        path: '/admin/marketplace/chat',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mp-quotation',
+        label: 'Quotation',
+        icon: '📄',
+        path: '/admin/marketplace/quotation',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mp-deal-sheet',
+        label: 'Deal Sheet',
+        icon: '🤝',
+        path: '/admin/marketplace/deal-sheet',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mp-analytics',
+        label: 'Marketplace Analytics',
+        icon: '📈',
+        path: '/admin/marketplace/analytics',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -321,51 +806,81 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '⚡',
     items: [
       {
-        key: 'subscription',
-        label: 'Langganan',
-        icon: '⭐',
-        path: '/admin/subscription',
-        syncStatus: 'dummy',
+        key: 'news-event',
+        label: 'News & Event',
+        icon: '📰',
+        path: '/admin/news-event/review',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
         children: [
-          { key: 'sub-plans',    label: 'Paket',         path: '/admin/subscription',          icon: '📋' },
-          { key: 'sub-billing',  label: 'Tagihan',       path: '/admin/subscription/billing',  icon: '💳' },
-          { key: 'sub-features', label: 'Matriks Fitur', path: '/admin/subscription/features', icon: '🔧' },
+          { key: 'ne-review',      label: 'Review Konten',       path: '/admin/news-event/review', icon: '📝' },
+          { key: 'ne-rss-sources', label: 'Sumber RSS',          path: '/admin/rss/sources',       icon: '📡' },
+          { key: 'ne-rss-queue',   label: 'Antrian RSS',         path: '/admin/rss/queue',         icon: '📥' },
+          { key: 'ne-publication', label: 'Manajemen Publikasi', path: '/admin/publication',       icon: '📤' },
         ],
       },
       {
-        key: 'announcements',
-        label: 'Pengumuman',
-        icon: '📢',
-        path: '/admin/announcements',
-        syncStatus: 'dummy',
-        children: [
-          { key: 'ann-published', label: 'Diterbitkan', path: '/admin/announcements',           icon: '✅' },
-          { key: 'ann-drafts',    label: 'Draf',        path: '/admin/announcements/drafts',    icon: '✏️' },
-          { key: 'ann-scheduled', label: 'Terjadwal',   path: '/admin/announcements/scheduled', icon: '📅' },
-        ],
+        key: 'ps-publication',
+        label: 'Publication',
+        icon: '📤',
+        path: '/admin/publication',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
       {
         key: 'notifications',
-        label: 'Notifikasi',
+        label: 'Notification',
         icon: '🔔',
         path: '/admin/notifications',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'notif-all',       label: 'Semua Notifikasi', path: '/admin/notifications',           icon: '📋' },
           { key: 'notif-templates', label: 'Template',         path: '/admin/notifications/templates', icon: '📝' },
         ],
       },
       {
-        key: 'news-event',
-        label: 'News & Event',
-        icon: '📰',
-        path: '/admin/news-event/review',
+        key: 'ps-rss',
+        label: 'RSS',
+        icon: '📡',
+        path: '/admin/rss/sources',
         syncStatus: 'not_implemented',
+        health: 'unknown',
         children: [
-          { key: 'ne-review',      label: 'Review Konten',      path: '/admin/news-event/review', icon: '📝' },
-          { key: 'ne-rss-sources', label: 'Sumber RSS',         path: '/admin/rss/sources',       icon: '📡' },
-          { key: 'ne-rss-queue',   label: 'Antrian RSS',        path: '/admin/rss/queue',         icon: '📥' },
-          { key: 'ne-publication', label: 'Manajemen Publikasi', path: '/admin/publication',      icon: '📤' },
+          { key: 'rss-sources', label: 'Sumber RSS',  path: '/admin/rss/sources', icon: '📡' },
+          { key: 'rss-queue',   label: 'Antrian RSS', path: '/admin/rss/queue',   icon: '📥' },
+        ],
+      },
+      {
+        // Admin tool for managing/indexing global search — different from the
+        // Platform Overview "Global Search" which is a navigation shortcut.
+        key: 'ps-global-search',
+        label: 'Global Search',
+        icon: '🔍',
+        path: '/admin/services/search',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'ps-ai-global',
+        label: 'AI Insight Global',
+        icon: '🤖',
+        path: '/admin/services/ai-global',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        // Kept for backward compat — not in ADMIN-ARCH-002 spec but route exists
+        key: 'announcements',
+        label: 'Pengumuman',
+        icon: '📢',
+        path: '/admin/announcements',
+        syncStatus: 'dummy',
+        health: 'unknown',
+        children: [
+          { key: 'ann-published', label: 'Diterbitkan', path: '/admin/announcements',           icon: '✅' },
+          { key: 'ann-drafts',    label: 'Draf',        path: '/admin/announcements/drafts',    icon: '✏️' },
+          { key: 'ann-scheduled', label: 'Terjadwal',   path: '/admin/announcements/scheduled', icon: '📅' },
         ],
       },
     ],
@@ -378,16 +893,94 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '🗂️',
     items: [
       {
+        // Existing data_master module kept for backward compat
         key: 'data_master',
         label: 'Data Master',
         icon: '🗂️',
         path: '/admin/data-master',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'dm-categories', label: 'Kategori',      path: '/admin/data-master',         icon: '📁' },
           { key: 'dm-master',     label: 'Daftar Master', path: '/admin/data-master/master',  icon: '📋' },
           { key: 'dm-imports',    label: 'Impor',         path: '/admin/data-master/imports', icon: '📥' },
         ],
+      },
+      {
+        key: 'md-jenis-ternak',
+        label: 'Jenis Ternak',
+        icon: '🐄',
+        path: '/admin/master/jenis-ternak',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'md-ras',
+        label: 'Ras',
+        icon: '🧬',
+        path: '/admin/master/ras',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        // Note: "Master Pakan" also appears in Workspace Farm — different scope.
+        // Farm = workspace-level feed master; here = platform-wide reference data.
+        key: 'md-master-pakan',
+        label: 'Master Pakan',
+        icon: '🌾',
+        path: '/admin/master/pakan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        // Note: "Master Obat" also appears in Workspace Farm — different scope.
+        // Farm = workspace-level drug master; here = platform-wide reference data.
+        key: 'md-master-obat',
+        label: 'Master Obat',
+        icon: '💊',
+        path: '/admin/master/obat',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'md-penyakit',
+        label: 'Penyakit',
+        icon: '🦠',
+        path: '/admin/master/penyakit',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'md-wilayah',
+        label: 'Wilayah',
+        icon: '🗺️',
+        path: '/admin/master/wilayah',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'md-kategori',
+        label: 'Kategori',
+        icon: '📁',
+        path: '/admin/master/kategori',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'md-satuan',
+        label: 'Satuan',
+        icon: '📏',
+        path: '/admin/master/satuan',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'md-referensi',
+        label: 'Referensi',
+        icon: '📖',
+        path: '/admin/master/referensi',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -399,17 +992,123 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '🔧',
     items: [
       {
+        // Existing settings module — children expanded for backward compat
         key: 'settings',
-        label: 'Pengaturan',
+        label: 'General',
         icon: '⚙️',
         path: '/admin/settings',
         syncStatus: 'not_implemented',
+        health: 'unknown',
         children: [
           { key: 'set-general',  label: 'Umum',     path: '/admin/settings',          icon: '🔧' },
           { key: 'set-security', label: 'Keamanan', path: '/admin/settings/security', icon: '🔒' },
           { key: 'set-api',      label: 'API Keys', path: '/admin/settings/api',      icon: '🔑' },
           { key: 'set-email',    label: 'Email',    path: '/admin/settings/email',    icon: '📧' },
         ],
+      },
+      {
+        key: 'cfg-authentication',
+        label: 'Authentication',
+        icon: '🔐',
+        path: '/admin/config/authentication',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-authorization',
+        label: 'Authorization',
+        icon: '🔑',
+        path: '/admin/config/authorization',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-ws-defaults',
+        label: 'Workspace Defaults',
+        icon: '🏢',
+        path: '/admin/config/workspace-defaults',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-feature-flags',
+        label: 'Feature Flags',
+        icon: '🚩',
+        path: '/admin/config/feature-flags',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-marketplace-rules',
+        label: 'Marketplace Rules',
+        icon: '🛒',
+        path: '/admin/config/marketplace-rules',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-escrow-rules',
+        label: 'Escrow Rules',
+        icon: '🔐',
+        path: '/admin/config/escrow-rules',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-subscription-rules',
+        label: 'Subscription Rules',
+        icon: '⭐',
+        path: '/admin/config/subscription-rules',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-trust-rules',
+        label: 'Trust Rules',
+        icon: '🛡️',
+        path: '/admin/config/trust-rules',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-notification-rules',
+        label: 'Notification Rules',
+        icon: '🔔',
+        path: '/admin/config/notification-rules',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-ai-settings',
+        label: 'AI Settings',
+        icon: '🤖',
+        path: '/admin/config/ai-settings',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-email',
+        label: 'Email',
+        icon: '📧',
+        path: '/admin/config/email',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-storage',
+        label: 'Storage',
+        icon: '🗄️',
+        path: '/admin/config/storage',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'cfg-security',
+        label: 'Security',
+        icon: '🔒',
+        path: '/admin/config/security',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -421,16 +1120,66 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '📡',
     items: [
       {
+        // Existing monitoring module — expanded with new children
         key: 'monitoring',
-        label: 'Pemantauan',
+        label: 'Platform Monitoring',
         icon: '📡',
         path: '/admin/monitoring',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'mon-health', label: 'Kesehatan Sistem', path: '/admin/monitoring',             icon: '❤️' },
           { key: 'mon-errors', label: 'Log Kesalahan',    path: '/admin/monitoring/errors',      icon: '⚠️' },
           { key: 'mon-perf',   label: 'Performa',         path: '/admin/monitoring/performance', icon: '⚡' },
         ],
+      },
+      {
+        key: 'mon-db-health',
+        label: 'Database Health',
+        icon: '🗄️',
+        path: '/admin/monitoring/database',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mon-api-health',
+        label: 'API Health',
+        icon: '🔌',
+        path: '/admin/monitoring/api',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mon-queue',
+        label: 'Queue',
+        icon: '📬',
+        path: '/admin/monitoring/queue',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mon-scheduler',
+        label: 'Scheduler',
+        icon: '⏰',
+        path: '/admin/monitoring/scheduler',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mon-storage',
+        label: 'Storage',
+        icon: '🗄️',
+        path: '/admin/monitoring/storage',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'mon-performance',
+        label: 'Performance',
+        icon: '⚡',
+        path: '/admin/monitoring/performance',
+        syncStatus: 'dummy',
+        health: 'unknown',
       },
     ],
   },
@@ -442,11 +1191,20 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     icon: '🛡️',
     items: [
       {
+        key: 'audit-trail',
+        label: 'Audit Trail',
+        icon: '📜',
+        path: '/admin/audit-trail',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
         key: 'trust',
-        label: 'Kepercayaan & Verifikasi',
+        label: 'Trust',
         icon: '✅',
         path: '/admin/trust',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'tv-pending',  label: 'Antrian Menunggu', path: '/admin/trust',          icon: '⏳' },
           { key: 'tv-approved', label: 'Disetujui',        path: '/admin/trust/approved', icon: '✅' },
@@ -454,11 +1212,20 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         ],
       },
       {
+        key: 'verification',
+        label: 'Verification',
+        icon: '🔍',
+        path: '/admin/trust/verification',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
         key: 'reports',
-        label: 'Laporan',
+        label: 'Reports',
         icon: '🚩',
         path: '/admin/reports',
         syncStatus: 'dummy',
+        health: 'unknown',
         children: [
           { key: 'rpt-user',      label: 'Laporan Pengguna', path: '/admin/reports',           icon: '👤' },
           { key: 'rpt-content',   label: 'Laporan Konten',   path: '/admin/reports/content',   icon: '📄' },
@@ -467,10 +1234,19 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
       },
       {
         key: 'backup',
-        label: 'Backup & Restore',
+        label: 'Backup',
         icon: '💾',
         path: '/admin/backup',
         syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'restore',
+        label: 'Restore',
+        icon: '♻️',
+        path: '/admin/restore',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
       },
     ],
   },
@@ -481,14 +1257,77 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     label: 'Developer',
     icon: '🛠️',
     items: [
-      // Placeholder — Developer tools will be added in a future task.
+      {
+        key: 'dev-migration',
+        label: 'Migration',
+        icon: '🔄',
+        path: '/admin/developer/migration',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-database',
+        label: 'Database',
+        icon: '🗄️',
+        path: '/admin/developer/database',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-logs',
+        label: 'Logs',
+        icon: '📋',
+        path: '/admin/developer/logs',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-api',
+        label: 'API',
+        icon: '🔌',
+        path: '/admin/developer/api',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-queue',
+        label: 'Queue',
+        icon: '📬',
+        path: '/admin/developer/queue',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-scheduler',
+        label: 'Scheduler',
+        icon: '⏰',
+        path: '/admin/developer/scheduler',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-jobs',
+        label: 'Jobs',
+        icon: '⚙️',
+        path: '/admin/developer/jobs',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
+      {
+        key: 'dev-debug',
+        label: 'Debug',
+        icon: '🐛',
+        path: '/admin/developer/debug',
+        syncStatus: 'not_implemented',
+        health: 'unknown',
+      },
     ],
   },
 ];
 
 // ─── Backward-compatible flat tree ───────────────────────────────────────────
-// Used by AdminTopBar for active-path resolution.  Do NOT use this for new
-// rendering code — use ADMIN_NAV_DOMAINS instead.
+// Used by AdminTopBar for active-path resolution.
+// Do NOT use for new rendering code — use ADMIN_NAV_DOMAINS instead.
 
 export const ADMIN_NAV_TREE: AdminNavItem[] = ADMIN_NAV_DOMAINS.flatMap(
   (domain) => domain.items,
