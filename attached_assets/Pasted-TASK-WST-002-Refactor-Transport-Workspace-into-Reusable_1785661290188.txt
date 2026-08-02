@@ -1,0 +1,115 @@
+TASK: WST-002 — Refactor Transport Workspace into Reusable UI Components
+
+IMPORTANT
+
+This is a refactoring task ONLY.
+
+DO NOT change:
+- application architecture
+- routing
+- permissions
+- business logic
+- transport data
+- state flow
+- hooks
+- modal behavior
+- UI appearance
+- inline styles
+
+The application must behave exactly the same.
+
+====================================================
+
+GOAL
+
+Reduce the size of:
+
+src/pages/TransportWorkspace.tsx
+
+by extracting reusable PRESENTATIONAL components.
+
+====================================================
+
+Create these components:
+
+src/components/workspace/TransportHeader.tsx
+
+src/components/workspace/TransportSummary.tsx
+
+src/components/workspace/TransportVehicleSection.tsx
+
+src/components/workspace/TransportDriverSection.tsx
+
+src/components/workspace/TransportDeliverySection.tsx
+
+====================================================
+
+RULES
+
+Each component:
+
+- receives data via props
+- receives callbacks via props
+- contains NO business logic
+- contains NO data loading
+- contains NO state management
+- contains NO transport registry imports
+- contains NO routing logic
+
+TransportWorkspace.tsx remains responsible for:
+
+- useState
+- useEffect
+- filtering
+- mutations
+- registry access
+- modal state
+- permissions
+- data loading
+
+====================================================
+
+DO NOT CREATE
+
+- custom hooks
+- context
+- utility files
+- helper files
+- style files
+- CSS modules
+- new architecture
+
+====================================================
+
+KEEP
+
+- existing inline styles
+- existing JSX structure
+- existing icons
+- existing spacing
+- existing colors
+- existing wording
+
+====================================================
+
+SUCCESS CRITERIA
+
+After refactoring:
+
+- UI is visually identical.
+- No functionality changes.
+- No TypeScript errors.
+- No ESLint errors.
+- Build succeeds.
+- TransportWorkspace.tsx becomes significantly smaller.
+
+====================================================
+
+OUTPUT
+
+Provide:
+
+1. Files created
+2. Files modified
+3. Approximate line reduction in TransportWorkspace.tsx
+4. Confirmation that behavior remains unchanged.
