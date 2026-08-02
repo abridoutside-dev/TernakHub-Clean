@@ -34,18 +34,20 @@ export const STATUS_CONFIG: Record<SystemStatus, { color: string; bg: string; do
 };
 
 // ─── Platform stat definitions ───────────────────────────────────────────────
-// Each entry maps to a Supabase table that will be COUNT-queried at runtime.
-// If the table does not yet exist, the count defaults to 0.
+// ADMIN-SYNC-002: Each entry maps to a real Supabase table (COUNT-queried at
+// runtime). Only tables confirmed in migrations are listed here.
+// null count → table unavailable → "Backend belum tersedia" empty state.
 
 export const PLATFORM_STAT_DEFS: PlatformStat[] = [
-  { key: 'users',         label: 'Total Pengguna',           icon: '👤', color: '#3b82f6', table: 'profiles'            },
-  { key: 'workspaces',    label: 'Total Workspace',          icon: '🏢', color: '#8b5cf6', table: 'workspaces'          },
-  { key: 'livestock',     label: 'Total Ternak',             icon: '🐄', color: '#10b981', table: 'livestock'           },
-  { key: 'listings',      label: 'Listing Marketplace',      icon: '🛒', color: '#f59e0b', table: 'marketplace_listings'},
-  { key: 'transactions',  label: 'Total Transaksi',          icon: '💳', color: '#ef4444', table: 'transactions'        },
-  { key: 'subscriptions', label: 'Langganan Aktif',          icon: '⭐', color: '#f97316', table: 'subscriptions'       },
-  { key: 'reports',       label: 'Total Laporan',            icon: '🚩', color: '#dc2626', table: 'reports'             },
-  { key: 'verifications', label: 'Verifikasi Menunggu',      icon: '✅', color: '#0891b2', table: 'trust_verifications' },
+  { key: 'users',        label: 'Total Pengguna',         icon: '👤', color: '#3b82f6', table: 'user_profiles'       },
+  { key: 'workspaces',   label: 'Total Workspace',        icon: '🏢', color: '#8b5cf6', table: 'workspaces'          },
+  { key: 'livestock',    label: 'Total Ternak',           icon: '🐄', color: '#10b981', table: 'livestock'           },
+  { key: 'batches',      label: 'Total Batch',            icon: '📦', color: '#06b6d4', table: 'batches'             },
+  { key: 'listings',     label: 'Listing Marketplace',   icon: '🛒', color: '#f59e0b', table: 'marketplace_listings'},
+  { key: 'feed_stock',   label: 'Stok Pakan',            icon: '🌾', color: '#84cc16', table: 'stok_inventaris'      },
+  { key: 'med_stock',    label: 'Stok Obat',             icon: '💊', color: '#a855f7', table: 'stok_obat'           },
+  { key: 'news',         label: 'Berita & Event',        icon: '📰', color: '#ec4899', table: 'news_publications'   },
+  { key: 'verifications',label: 'Verifikasi Menunggu',   icon: '✅', color: '#0891b2', table: 'trust_verifications' },
 ];
 
 // ─── Quick Actions — navigation only, no badges ───────────────────────────────

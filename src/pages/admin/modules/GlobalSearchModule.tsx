@@ -11,7 +11,8 @@ import {
   SEARCH_ENTITY_TYPE_UUID,
   type SearchResult,
 } from '../../../services/globalSearchService';
-import { seedSearchIndex } from '../../../services/searchIndexSeeder';
+// seedSearchIndex removed — ADMIN-SYNC-002: search must not pre-populate from
+// in-memory dummy stores. Index is empty until real modules wire Supabase data.
 
 type SearchCategory = 'All' | 'Workspaces' | 'Listings' | 'Livestock' | 'Transactions' | 'Obat' | 'Penyakit' | 'Berita';
 
@@ -62,10 +63,9 @@ export default function GlobalSearchModule() {
 
   const debouncedQuery = useDebounce(query, 300);
 
-  // Ensure index is populated
-  useEffect(() => {
-    seedSearchIndex();
-  }, []);
+  // Search index is not pre-seeded — real modules wire Supabase data into the
+  // index when their repositories are implemented. Empty results are correct
+  // until modules are connected. (ADMIN-SYNC-002)
 
   // Run search on debounced query change
   useEffect(() => {

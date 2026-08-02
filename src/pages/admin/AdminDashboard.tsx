@@ -352,7 +352,7 @@ function RecentActivities({ loadedAt }: { loadedAt: Date | null }) {
       {/* Empty state — no activity_log table yet */}
       <div style={{ padding: '40px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <div style={{ fontSize: 36 }}>📋</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#64748b' }}>Belum ada aktivitas tercatat</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#64748b' }}>Belum tersedia</div>
         <div style={{ fontSize: 12.5, color: '#94a3b8', maxWidth: 280, lineHeight: 1.55 }}>
           Tabel <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>activity_log</code> belum tersedia di Supabase.
         </div>

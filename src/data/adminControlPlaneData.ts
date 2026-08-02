@@ -1,7 +1,8 @@
-// ─── Admin Control Plane Data — ADMIN-ARCH-003 ───────────────────────────────
+// ─── Admin Control Plane Data — ADMIN-ARCH-003 / ADMIN-SYNC-002 ─────────────
 // Defines every domain's Control Center: widgets, health, sync status,
-// statistics, blockers, and last-sync placeholders.
-// All values are PLACEHOLDERS — not connected to production data.
+// statistics, blockers, and last-sync timestamps.
+// ADMIN-SYNC-002: BLOCKED_MODULES_PANEL is now auto-computed from widget
+// syncStatus (blocked | dummy | not_implemented). No manual entries.
 
 import type { SyncStatus, ModuleHealth } from './adminNavData';
 
@@ -58,28 +59,12 @@ export interface BlockedModuleRecord {
   expectedDependency: string | null;
 }
 
-/**
- * Permanent Blocked Modules panel data.
- * Populate manually — do NOT drive from dynamic queries.
- */
-export const BLOCKED_MODULES_PANEL: BlockedModuleRecord[] = [
-  // Placeholder — no blocked modules identified yet.
-  // Example entry:
-  // {
-  //   key: 'transport',
-  //   label: 'Workspace Transport',
-  //   domain: 'Workspace Transport',
-  //   reason: 'Transport integration not yet implemented.',
-  //   blockedSince: null,
-  //   priority: 'medium',
-  //   owner: null,
-  //   expectedDependency: 'Transport service API',
-  // },
-];
+// ─── Widget status helpers ────────────────────────────────────────────────────
 
-// ─── Placeholder helpers ──────────────────────────────────────────────────────
+// ISO date when ADMIN-SYNC-002 was applied — used as lastSync for verified LIVE widgets.
+const SYNC_DATE = '2026-08-02T00:00:00.000Z';
 
-/** All-unknown placeholder status — used for not-yet-connected widgets. */
+/** Not yet implemented — no data source wired. */
 const NI: WidgetStatus = {
   health: 'unknown',
   syncStatus: 'not_implemented',
@@ -88,7 +73,7 @@ const NI: WidgetStatus = {
   lastSync: null,
 };
 
-/** Dummy-data status — module exists with seed data. */
+/** In-memory / placeholder data — not yet synced to Supabase production. */
 const DUM: WidgetStatus = {
   health: 'unknown',
   syncStatus: 'dummy',
@@ -97,13 +82,13 @@ const DUM: WidgetStatus = {
   lastSync: null,
 };
 
-/** Live/synced status — module connected to production. */
+/** Live — connected to real Supabase production data. */
 const LIVE: WidgetStatus = {
   health: 'healthy',
   syncStatus: 'synced',
   statistics: {},
   blocker: null,
-  lastSync: null,
+  lastSync: SYNC_DATE,
 };
 
 /** Build a DomainWidget with a given status (defaults to NI). */
@@ -116,6 +101,8 @@ function w(key: string, label: string, icon: string, status: WidgetStatus = NI):
 export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
 
   // ── 1. Platform Overview ───────────────────────────────────────────────────
+  // ADMIN-SYNC-002: po-health = live DB ping; po-stats = live Supabase counts;
+  // po-quick = all 10 routes implemented; po-activity/po-search/po-alerts = NI.
   {
     domainKey: 'domain-overview',
     label: 'Platform Overview',
@@ -123,12 +110,12 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     description: 'Platform-wide health, global statistics, and activity at a glance.',
     primaryPath: '/admin',
     widgets: [
-      w('po-health',     'Platform Health',    '❤️',  LIVE),
-      w('po-stats',      'Global Statistics',  '📈'),
-      w('po-activity',   'Recent Activities',  '📋'),
-      w('po-search',     'Global Search',      '🔍'),
-      w('po-quick',      'Quick Actions',      '⚡'),
-      w('po-alerts',     'Platform Alerts',    '🚨'),
+      w('po-health',   'Platform Health',   '❤️', LIVE),
+      w('po-stats',    'Global Statistics', '📈', LIVE),
+      w('po-quick',    'Quick Actions',     '⚡', LIVE),
+      w('po-activity', 'Recent Activities', '📋'),
+      w('po-search',   'Global Search',     '🔍'),
+      w('po-alerts',   'Platform Alerts',   '🚨'),
     ],
   },
 
@@ -364,3 +351,49 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     ],
   },
 ];
+
+// ─── Blocked Modules — auto-computed (ADMIN-SYNC-002) ────────────────────────
+//
+// Derived from DOMAIN_CONTROL_CENTERS at module-init time.
+// Includes every widget whose syncStatus is blocked | dummy | not_implemented.
+// No manual entries — remove this logic only when all widgets reach 'synced'.
+//
+// Priority mapping:
+//   blocked         → high   (hard dependency missing)
+//   dummy           → medium (placeholder data, not production-ready)
+//   not_implemented → low    (backlog, no active blocker)
+
+function _computeBlockedModules(): BlockedModuleRecord[] {
+  const PRIORITY: Record<string, BlockedModuleRecord['priority']> = {
+    blocked:         'high',
+    dummy:           'medium',
+    not_implemented: 'low',
+  };
+  const REASON: Record<string, string> = {
+    blocked:         'Blocked — unresolved dependency',
+    dummy:           'Uses placeholder data — not synced to Supabase production',
+    not_implemented: 'Not yet implemented',
+  };
+
+  const records: BlockedModuleRecord[] = [];
+  for (const domain of DOMAIN_CONTROL_CENTERS) {
+    for (const widget of domain.widgets) {
+      const { syncStatus, blocker } = widget.status;
+      if (syncStatus === 'blocked' || syncStatus === 'dummy' || syncStatus === 'not_implemented') {
+        records.push({
+          key:                widget.key,
+          label:              widget.label,
+          domain:             domain.label,
+          reason:             REASON[syncStatus],
+          blockedSince:       blocker?.blockedSince ?? null,
+          priority:           PRIORITY[syncStatus],
+          owner:              null,
+          expectedDependency: blocker?.reason ?? null,
+        });
+      }
+    }
+  }
+  return records;
+}
+
+export const BLOCKED_MODULES_PANEL: BlockedModuleRecord[] = _computeBlockedModules();
