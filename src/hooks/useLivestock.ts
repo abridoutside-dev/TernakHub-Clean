@@ -125,6 +125,7 @@ function toLivestockRecord(
     ras:                row.breed ?? '—',
     kelamin:            row.sex ?? 'Jantan',
     birthDate:          isoToIndonesianDate(row.birth_date),
+    birthDateIso:       row.birth_date ?? null,
     birthDateEstimated: row.birth_date_estimated,
     age,
     ageMonths,

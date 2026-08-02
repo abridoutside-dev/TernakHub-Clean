@@ -18,6 +18,10 @@ export type LivestockRecord = {
   ras: string;
   kelamin: string;
   birthDate: string;
+  /** Raw ISO date string (YYYY-MM-DD) from Supabase — preserved so edit forms
+   *  can round-trip without converting through the display label.
+   *  Optional: only set when the record was hydrated from Supabase. */
+  birthDateIso?: string | null;
   birthDateEstimated: boolean;
   age: string;
   /** Approximate age in months — used for filtering. */

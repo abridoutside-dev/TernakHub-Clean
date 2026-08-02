@@ -162,12 +162,11 @@ export default function EditLivestock() {
   const [program,       setProgram]       = useState(lv.program);
 
   // Birth
-  const [birthDate,          setBirthDate]          = useState(() => {
-    // Convert Indonesian date label to ISO if possible; keep raw if already ISO
-    const d = lv.birthDate;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-    return ''; // non-ISO: leave blank so user fills it in
-  });
+  const [birthDate,          setBirthDate]          = useState(
+    // birthDateIso is the raw YYYY-MM-DD string preserved from Supabase.
+    // Fall back to empty string only when genuinely absent (new animals with no date).
+    lv.birthDateIso ?? '',
+  );
   const [birthDateEstimated, setBirthDateEstimated] = useState(lv.birthDateEstimated);
   const [birthWeight,        setBirthWeight]        = useState(() => {
     const w = parseFloat(lv.birthWeight);
