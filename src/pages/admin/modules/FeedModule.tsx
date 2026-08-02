@@ -1,11 +1,12 @@
-// ─── Admin Feed — P0-005-018B ─────────────────────────────────────────────────
-// Wired to adminFeedData.ts (full list, live filter, real stats).
+// ─── Admin Feed — P0-005-018B / ADMIN-SYNC-001 ───────────────────────────────
+// ADMIN-SYNC-001: Switched from dummy adminFeedData seed list to live Supabase
+// query on `stok_inventaris` table (same source as production feed module).
+// RLS: admin sees feed stock from workspaces they belong to.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import AdminLayout from '../layout/AdminLayout';
+import { supabase } from '../../../lib/supabase';
 import {
-  ADMIN_FEED_LIST,
-  FEED_PLATFORM_STATS,
   FEED_TYPE_CONFIG,
   FEED_STOCK_STATUS_CONFIG,
   filterFeed,
@@ -13,6 +14,97 @@ import {
   type FeedType,
   type FeedStockStatus,
 } from '../../../data/adminFeedData';
+
+// ─── Supabase row shape (stok_inventaris) ────────────────────────────────────
+
+interface StokInventarisRow {
+  id: string;
+  workspace_id: string;
+  source_type: string;
+  item_name: string;
+  quantity: number;
+  unit?: string | null;
+  min_stock?: number | null;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  workspaces?: {
+    name?: string | null;
+    type?: string | null;
+    owner_id?: string | null;
+    owner_name?: string | null;
+    plan?: string | null;
+  } | null;
+}
+
+function deriveFeedStockStatus(row: StokInventarisRow): FeedStockStatus {
+  if (row.status === 'Habis' || row.quantity === 0) return 'Habis';
+  if (row.min_stock != null && row.quantity <= row.min_stock) return 'Rendah';
+  return 'Tersedia';
+}
+
+function deriveFeedType(sourceType: string): FeedType {
+  if (sourceType === 'Produk Komersial') return 'Pakan Komersial';
+  if (sourceType === 'Formula') return 'Formula';
+  return 'Master Pakan';
+}
+
+const FEED_EMOJI_MAP: Record<FeedType, string> = {
+  'Master Pakan': '🌿',
+  'Pakan Komersial': '📦',
+  'Formula': '🧪',
+};
+const FEED_COLOR_MAP: Record<FeedType, string> = {
+  'Master Pakan': '#dcfce7',
+  'Pakan Komersial': '#dbeafe',
+  'Formula': '#fef9c3',
+};
+
+function adaptStokInventaris(row: StokInventarisRow): AdminFeedRecord {
+  const type = deriveFeedType(row.source_type);
+  const stockStatus = deriveFeedStockStatus(row);
+  const ws = row.workspaces;
+
+  return {
+    id: row.id,
+    name: row.item_name,
+    type,
+    category: 'Konsentrat' as AdminFeedRecord['category'],
+    stockStatus,
+    stockQty: row.quantity,
+    stockUnit: row.unit ?? 'kg',
+    minStock: row.min_stock ?? 0,
+    photoColor: FEED_COLOR_MAP[type],
+    photoEmoji: FEED_EMOJI_MAP[type],
+    tdn: null,
+    proteinKasar: null,
+    workspaceId: row.workspace_id,
+    workspaceName: ws?.name ?? '—',
+    workspaceType: ws?.type ?? '—',
+    workspacePlan: ws?.plan ?? '—',
+    workspaceLocation: '—',
+    ownerId: ws?.owner_id ?? '—',
+    ownerName: ws?.owner_name ?? '—',
+    ownerAvatarInitials: (ws?.owner_name ?? 'U?').substring(0, 2).toUpperCase(),
+    ownerAvatarColor: '#3b82f6',
+    brand: null,
+    manufacturer: null,
+    batchNumber: null,
+    registrationNo: null,
+    formulaIngredients: null,
+    formulaYield: null,
+    formulaLastProduced: null,
+    registeredAt: new Date(row.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+    updatedAt: new Date(row.updated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+    timeline: [],
+    notes: row.notes ?? null,
+  };
+}
+
+function SkeletonBox({ width = '100%', height = 20 }: { width?: string | number; height?: number }) {
+  return <div style={{ width, height, borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'adm-shimmer 1.4s infinite' }} />;
+}
 
 const PAGE_SIZE = 20;
 
@@ -106,17 +198,56 @@ function FeedDrawer({ record, onClose }: { record: AdminFeedRecord; onClose: () 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FeedModule() {
+  const [rows, setRows]       = useState<AdminFeedRecord[]>([]);
+  const [totalCount, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FeedType | 'All'>('All');
   const [filterStatus, setFilterStatus] = useState<FeedStockStatus | 'All'>('All');
   const [selected, setSelected] = useState<AdminFeedRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filtered = useMemo(() => filterFeed(ADMIN_FEED_LIST, {
+  // ── Load from Supabase ────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const [countResult, dataResult] = await Promise.all([
+          supabase.from('stok_inventaris').select('*', { count: 'exact', head: true }),
+          supabase.from('stok_inventaris')
+            .select('*, workspaces(name, type, owner_id, owner_name, plan)')
+            .order('created_at', { ascending: false })
+            .limit(500),
+        ]);
+        if (cancelled) return;
+        if (dataResult.error) { setError(dataResult.error.message); setLoading(false); return; }
+        setTotal(countResult.count ?? 0);
+        setRows((dataResult.data ?? []).map(adaptStokInventaris));
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Computed platform stats from live data
+  const platformStats = useMemo(() => ({
+    totalRecords: rows.length,
+    inStock:   rows.filter(r => r.stockStatus === 'Tersedia').length,
+    lowStock:  rows.filter(r => r.stockStatus === 'Rendah').length,
+    outOfStock: rows.filter(r => r.stockStatus === 'Habis').length,
+  }), [rows]);
+
+  const filtered = useMemo(() => filterFeed(rows, {
     keyword: search || undefined,
     type: filterType !== 'All' ? filterType : 'All',
     stockStatus: filterStatus !== 'All' ? filterStatus : 'All',
-  }), [search, filterType, filterStatus]);
+  }), [rows, search, filterType, filterStatus]);
 
   const hasFilter = search || filterType !== 'All' || filterStatus !== 'All';
   const resetFilters = () => { setSearch(''); setFilterType('All'); setFilterStatus('All'); setCurrentPage(1); };
@@ -128,6 +259,7 @@ export default function FeedModule() {
 
   return (
     <AdminLayout>
+      <style>{`@keyframes adm-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -136,15 +268,32 @@ export default function FeedModule() {
           </div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a', letterSpacing: -0.3 }}>🌾 Manajemen Pakan</h1>
           <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#64748b' }}>
-            Ringkasan pakan &amp; stok seluruh platform — {ADMIN_FEED_LIST.length} catatan ditampilkan.
+            Ringkasan stok pakan seluruh platform — data langsung dari Supabase{' '}
+            <code style={{ fontSize: 12, background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>stok_inventaris</code> table.
           </p>
         </div>
 
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: '#b91c1c', fontSize: 13 }}>
+            ⚠️ Gagal memuat data: {error}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
-          <StatCard label="Total Item Pakan" value={FEED_PLATFORM_STATS.totalRecords.toLocaleString('id-ID')} icon="🌾" color="#3b82f6" />
-          <StatCard label="Tersedia"         value={FEED_PLATFORM_STATS.inStock.toLocaleString('id-ID')} icon="✅" color="#10b981" />
-          <StatCard label="Stok Rendah"      value={FEED_PLATFORM_STATS.lowStock.toLocaleString('id-ID')} icon="⚠️" color="#f59e0b" />
-          <StatCard label="Habis"            value={FEED_PLATFORM_STATS.outOfStock.toLocaleString('id-ID')} icon="❌" color="#ef4444" />
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #f1f5f9' }}>
+                <SkeletonBox height={28} />
+              </div>
+            ))
+          ) : (
+            <>
+              <StatCard label="Total Item Pakan" value={totalCount.toLocaleString('id-ID')} icon="🌾" color="#3b82f6" />
+              <StatCard label="Tersedia"         value={platformStats.inStock.toLocaleString('id-ID')} icon="✅" color="#10b981" />
+              <StatCard label="Stok Rendah"      value={platformStats.lowStock.toLocaleString('id-ID')} icon="⚠️" color="#f59e0b" />
+              <StatCard label="Habis"            value={platformStats.outOfStock.toLocaleString('id-ID')} icon="❌" color="#ef4444" />
+            </>
+          )}
         </div>
 
         <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid #f1f5f9', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -180,9 +329,13 @@ export default function FeedModule() {
 
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f1f5f9', overflow: 'hidden', marginBottom: 32 }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Daftar Pakan (Seluruh Platform)</span>
-            <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f1f5f9', color: '#64748b' }}>{filtered.length}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#94a3b8' }}>Klik baris untuk detail</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Daftar Stok Pakan (Seluruh Platform)</span>
+            <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f1f5f9', color: '#64748b' }}>
+              {loading ? '…' : `${filtered.length} dari ${totalCount}`}
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#94a3b8' }}>
+              {loading ? 'Memuat dari Supabase…' : 'Data dari Supabase · Klik baris untuk detail'}
+            </span>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -194,11 +347,17 @@ export default function FeedModule() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}><td colSpan={8} style={{ padding: '12px 14px' }}><SkeletonBox height={18} /></td></tr>
+                  ))
+                ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                       <div style={{ fontSize: 32, marginBottom: 8 }}>🌾</div>
-                      <div style={{ fontWeight: 600, color: '#64748b' }}>Tidak ada hasil yang cocok</div>
+                      <div style={{ fontWeight: 600, color: '#64748b' }}>
+                        {rows.length === 0 ? 'Belum ada stok pakan di Supabase.' : 'Tidak ada hasil yang cocok'}
+                      </div>
                       {hasFilter && <button onClick={resetFilters} style={{ marginTop: 8, padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Hapus Filter</button>}
                     </td>
                   </tr>

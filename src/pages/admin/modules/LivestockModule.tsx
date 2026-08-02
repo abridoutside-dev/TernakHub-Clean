@@ -1,11 +1,13 @@
-// ─── Admin Livestock — ADMIN-003 / P0-005-018B ───────────────────────────────
-// Wired to adminLivestockData.ts (full list, live filter, real stats).
+// ─── Admin Livestock — ADMIN-003 / P0-005-018B / ADMIN-SYNC-001 ──────────────
+// ADMIN-SYNC-001: Switched from dummy adminLivestockData seed list to live
+// Supabase query on the `livestock` table (same source as production module).
+// RLS: admin sees livestock from workspaces they belong to.
+// Empty state shown when no data is accessible.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import AdminLayout from '../layout/AdminLayout';
+import { supabase } from '../../../lib/supabase';
 import {
-  ADMIN_LIVESTOCK_LIST,
-  LIVESTOCK_PLATFORM_STATS,
   LIVESTOCK_STATUS_CONFIG,
   LIVESTOCK_SPECIES_CONFIG,
   filterLivestock,
@@ -13,6 +15,101 @@ import {
   type LivestockAdminStatus,
   type LivestockSpecies,
 } from '../../../data/adminLivestockData';
+
+// ─── Supabase row shape ───────────────────────────────────────────────────────
+
+interface LivestockRow {
+  id: string;
+  workspace_id: string;
+  name?: string | null;
+  species: string;
+  breed?: string | null;
+  sex?: string | null;
+  birth_date?: string | null;
+  current_weight_kg?: number | null;
+  health_status: string;
+  location_status: string;
+  archive_reason?: string | null;
+  archived_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  workspaces?: {
+    name?: string | null;
+    type?: string | null;
+    owner_id?: string | null;
+    owner_name?: string | null;
+    owner_email?: string | null;
+    plan?: string | null;
+  } | null;
+}
+
+const VALID_SPECIES: LivestockSpecies[] = ['Domba', 'Kambing', 'Sapi', 'Kerbau', 'Kuda'];
+const AVATAR_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'];
+
+function adaptLivestock(row: LivestockRow): AdminLivestockRecord {
+  let status: LivestockAdminStatus = 'Aktif';
+  if (row.location_status === 'Arsip') {
+    if (row.archive_reason === 'Terjual') status = 'Terjual';
+    else if (row.archive_reason === 'Mati') status = 'Mati';
+    else status = 'Arsip';
+  }
+
+  const species: LivestockSpecies = VALID_SPECIES.includes(row.species as LivestockSpecies)
+    ? (row.species as LivestockSpecies)
+    : 'Sapi';
+
+  const sc = LIVESTOCK_SPECIES_CONFIG[species] ?? LIVESTOCK_SPECIES_CONFIG['Sapi'];
+  const ws = row.workspaces;
+
+  let age = '—';
+  if (row.birth_date) {
+    const months = Math.floor((Date.now() - new Date(row.birth_date).getTime()) / (1000 * 60 * 60 * 24 * 30.5));
+    age = months < 24 ? `${months} bln` : `${Math.floor(months / 12)} thn`;
+  }
+
+  const displayName = row.name ?? `${species}-${row.id.substring(0, 6)}`;
+  const avatarColor = AVATAR_COLORS[row.id.charCodeAt(0) % AVATAR_COLORS.length];
+
+  return {
+    id: row.id,
+    name: displayName,
+    species,
+    breed: row.breed ?? '—',
+    gender: (row.sex === 'Jantan' || row.sex === 'Betina' ? row.sex : 'Jantan') as 'Jantan' | 'Betina',
+    age,
+    birthDate: row.birth_date ?? '—',
+    weight: row.current_weight_kg != null ? `${row.current_weight_kg} kg` : '—',
+    color: '—',
+    status,
+    healthStatus: row.health_status ?? '—',
+    vaccinated: false,
+    lastCheckup: null,
+    treatmentCount: 0,
+    photoColor: sc.bg ?? '#f1f5f9',
+    photoEmoji: sc.icon ?? '🐄',
+    ownerId: ws?.owner_id ?? '—',
+    ownerName: ws?.owner_name ?? '—',
+    ownerEmail: ws?.owner_email ?? '—',
+    ownerPhone: '—',
+    ownerAvatarInitials: displayName.substring(0, 2).toUpperCase(),
+    ownerAvatarColor: avatarColor,
+    workspaceId: row.workspace_id,
+    workspaceName: ws?.name ?? '—',
+    workspaceType: ws?.type ?? '—',
+    workspacePlan: ws?.plan ?? '—',
+    workspaceLocation: '—',
+    registeredAt: new Date(row.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+    updatedAt: new Date(row.updated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+    timeline: [],
+    archiveReason: row.archive_reason ?? null,
+    archiveDate: row.archived_at ? new Date(row.archived_at).toLocaleDateString('id-ID') : null,
+    notes: null,
+  };
+}
+
+function SkeletonBox({ width = '100%', height = 20 }: { width?: string | number; height?: number }) {
+  return <div style={{ width, height, borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'adm-shimmer 1.4s infinite' }} />;
+}
 
 const PAGE_SIZE = 20;
 
@@ -117,19 +214,57 @@ function LivestockDrawer({ record, onClose }: { record: AdminLivestockRecord; on
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LivestockModule() {
+  const [rows, setRows]       = useState<AdminLivestockRecord[]>([]);
+  const [totalCount, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<LivestockAdminStatus | 'All'>('All');
   const [filterSpecies, setFilterSpecies] = useState<LivestockSpecies | 'All'>('All');
   const [selected, setSelected] = useState<AdminLivestockRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const uniqueWorkspaces = useMemo(() => new Set(ADMIN_LIVESTOCK_LIST.map(r => r.workspaceId)).size, []);
+  // ── Load from Supabase ────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const [countResult, dataResult] = await Promise.all([
+          supabase.from('livestock').select('*', { count: 'exact', head: true }),
+          supabase.from('livestock')
+            .select('*, workspaces(name, type, owner_id, owner_name, owner_email, plan)')
+            .order('created_at', { ascending: false })
+            .limit(500),
+        ]);
+        if (cancelled) return;
+        if (dataResult.error) { setError(dataResult.error.message); setLoading(false); return; }
+        setTotal(countResult.count ?? 0);
+        setRows((dataResult.data ?? []).map(adaptLivestock));
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-  const filtered = useMemo(() => filterLivestock(ADMIN_LIVESTOCK_LIST, {
+  const uniqueWorkspaces = useMemo(() => new Set(rows.map(r => r.workspaceId)).size, [rows]);
+
+  // Computed platform stats from live data
+  const platformStats = useMemo(() => ({
+    total:  rows.length,
+    active: rows.filter(r => r.status === 'Aktif').length,
+    sold:   rows.filter(r => r.status === 'Terjual').length,
+  }), [rows]);
+
+  const filtered = useMemo(() => filterLivestock(rows, {
     keyword: search || undefined,
     species: filterSpecies !== 'All' ? filterSpecies : 'All',
     status:  filterStatus  !== 'All' ? filterStatus  : 'All',
-  }), [search, filterStatus, filterSpecies]);
+  }), [rows, search, filterStatus, filterSpecies]);
 
   const hasFilter = search || filterStatus !== 'All' || filterSpecies !== 'All';
   const resetFilters = () => { setSearch(''); setFilterStatus('All'); setFilterSpecies('All'); setCurrentPage(1); };
@@ -141,6 +276,7 @@ export default function LivestockModule() {
 
   return (
     <AdminLayout>
+      <style>{`@keyframes adm-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -149,15 +285,32 @@ export default function LivestockModule() {
           </div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a', letterSpacing: -0.3 }}>🐄 Ikhtisar Ternak</h1>
           <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#64748b' }}>
-            Data ternak seluruh platform — {ADMIN_LIVESTOCK_LIST.length.toLocaleString('id-ID')} catatan ditampilkan.
+            Data ternak seluruh platform — data langsung dari Supabase{' '}
+            <code style={{ fontSize: 12, background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>livestock</code> table.
           </p>
         </div>
 
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: '#b91c1c', fontSize: 13 }}>
+            ⚠️ Gagal memuat data: {error}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
-          <StatCard label="Total Ternak"   value={LIVESTOCK_PLATFORM_STATS.total.toLocaleString('id-ID')} icon="🐄" color="#3b82f6" />
-          <StatCard label="Aktif"          value={LIVESTOCK_PLATFORM_STATS.active.toLocaleString('id-ID')} icon="✅" color="#10b981" />
-          <StatCard label="Terjual"        value={LIVESTOCK_PLATFORM_STATS.sold.toLocaleString('id-ID')} icon="💰" color="#f59e0b" />
-          <StatCard label="Workspace"      value={uniqueWorkspaces.toLocaleString('id-ID')} icon="🏢" color="#8b5cf6" />
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #f1f5f9' }}>
+                <SkeletonBox height={28} />
+              </div>
+            ))
+          ) : (
+            <>
+              <StatCard label="Total Ternak" value={totalCount.toLocaleString('id-ID')} icon="🐄" color="#3b82f6" />
+              <StatCard label="Aktif"        value={platformStats.active.toLocaleString('id-ID')} icon="✅" color="#10b981" />
+              <StatCard label="Terjual"      value={platformStats.sold.toLocaleString('id-ID')} icon="💰" color="#f59e0b" />
+              <StatCard label="Workspace"    value={uniqueWorkspaces.toLocaleString('id-ID')} icon="🏢" color="#8b5cf6" />
+            </>
+          )}
         </div>
 
         <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid #f1f5f9', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -199,8 +352,12 @@ export default function LivestockModule() {
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f1f5f9', overflow: 'hidden', marginBottom: 32 }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Daftar Ternak (Seluruh Platform)</span>
-            <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f1f5f9', color: '#64748b' }}>{filtered.length}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#94a3b8' }}>Klik baris untuk detail</span>
+            <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f1f5f9', color: '#64748b' }}>
+              {loading ? '…' : `${filtered.length} dari ${totalCount}`}
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#94a3b8' }}>
+              {loading ? 'Memuat dari Supabase…' : 'Data dari Supabase · Klik baris untuk detail'}
+            </span>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -212,11 +369,17 @@ export default function LivestockModule() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}><td colSpan={8} style={{ padding: '12px 14px' }}><SkeletonBox height={18} /></td></tr>
+                  ))
+                ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                       <div style={{ fontSize: 32, marginBottom: 8 }}>🐄</div>
-                      <div style={{ fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Tidak ada hasil yang cocok</div>
+                      <div style={{ fontWeight: 600, color: '#64748b', marginBottom: 4 }}>
+                        {rows.length === 0 ? 'Belum ada ternak terdaftar di Supabase.' : 'Tidak ada hasil yang cocok'}
+                      </div>
                       {hasFilter && (
                         <button onClick={resetFilters} style={{ marginTop: 8, padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Hapus Filter</button>
                       )}

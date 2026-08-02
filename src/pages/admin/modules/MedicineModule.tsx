@@ -1,11 +1,12 @@
-// ─── Admin Medicine — P0-005-018B ─────────────────────────────────────────────
-// Wired to adminMedicineData.ts (full list, live filter, real stats).
+// ─── Admin Medicine — P0-005-018B / ADMIN-SYNC-001 ───────────────────────────
+// ADMIN-SYNC-001: Switched from dummy adminMedicineData seed list to live
+// Supabase query on `stok_obat` table (same source as production medicine module).
+// RLS: admin sees medicine stock from workspaces they belong to.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import AdminLayout from '../layout/AdminLayout';
+import { supabase } from '../../../lib/supabase';
 import {
-  ADMIN_MEDICINE_LIST,
-  MEDICINE_PLATFORM_STATS,
   MED_TYPE_CONFIG,
   MED_STOCK_STATUS_CONFIG,
   filterMedicine,
@@ -13,6 +14,88 @@ import {
   type MedType,
   type MedStockStatus,
 } from '../../../data/adminMedicineData';
+
+// ─── Supabase row shape (stok_obat) ──────────────────────────────────────────
+
+interface StokObatRow {
+  id: string;
+  workspace_id: string;
+  drug_name: string;
+  quantity: number;
+  unit: string;
+  min_stock?: number | null;
+  expiry_date?: string | null;
+  batch_number?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  workspaces?: {
+    name?: string | null;
+    type?: string | null;
+    owner_id?: string | null;
+    owner_name?: string | null;
+    plan?: string | null;
+  } | null;
+}
+
+function deriveMedStockStatus(row: StokObatRow): MedStockStatus {
+  if (row.status === 'Kadaluarsa') return 'Expired';
+  if (row.status === 'Habis' || row.quantity === 0) return 'Habis';
+  if (row.min_stock != null && row.quantity <= row.min_stock) return 'Rendah';
+  return 'Tersedia';
+}
+
+function adaptStokObat(row: StokObatRow): AdminMedRecord {
+  const stockStatus = deriveMedStockStatus(row);
+  const ws = row.workspaces;
+
+  // Determine expiry date status for display
+  const isExpired = row.expiry_date
+    ? new Date(row.expiry_date) < new Date()
+    : false;
+
+  return {
+    id: row.id,
+    name: row.drug_name,
+    type: 'Produk Komersial' as MedType,
+    category: 'Antibiotik' as AdminMedRecord['category'],
+    stockStatus: isExpired ? 'Expired' : stockStatus,
+    stockQty: row.quantity,
+    stockUnit: row.unit,
+    minStock: row.min_stock ?? 0,
+    expiryDate: row.expiry_date ?? null,
+    batchNumber: row.batch_number ?? null,
+    photoColor: '#fef3c7',
+    photoEmoji: '💊',
+    indication: '—',
+    dosage: '—',
+    species: [],
+    brand: null,
+    manufacturer: null,
+    registrationNo: null,
+    treatmentsThisMonth: 0,
+    totalTreatments: 0,
+    lastUsed: null,
+    workspaceId: row.workspace_id,
+    workspaceName: ws?.name ?? '—',
+    workspaceType: ws?.type ?? '—',
+    workspacePlan: ws?.plan ?? '—',
+    workspaceLocation: '—',
+    ownerId: ws?.owner_id ?? '—',
+    ownerName: ws?.owner_name ?? '—',
+    ownerAvatarInitials: (ws?.owner_name ?? 'U?').substring(0, 2).toUpperCase(),
+    ownerAvatarColor: '#8b5cf6',
+    registeredAt: new Date(row.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+    updatedAt: new Date(row.updated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+    timeline: [],
+    notes: row.notes ?? null,
+  };
+}
+
+function SkeletonBox({ width = '100%', height = 20 }: { width?: string | number; height?: number }) {
+  return <div style={{ width, height, borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'adm-shimmer 1.4s infinite' }} />;
+}
 
 const PAGE_SIZE = 20;
 
@@ -110,17 +193,56 @@ function MedDrawer({ record, onClose }: { record: AdminMedRecord; onClose: () =>
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MedicineModule() {
+  const [rows, setRows]        = useState<AdminMedRecord[]>([]);
+  const [totalCount, setTotal] = useState(0);
+  const [loading, setLoading]  = useState(true);
+  const [error, setError]      = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<MedType | 'All'>('All');
   const [filterStatus, setFilterStatus] = useState<MedStockStatus | 'All'>('All');
   const [selected, setSelected] = useState<AdminMedRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filtered = useMemo(() => filterMedicine(ADMIN_MEDICINE_LIST, {
+  // ── Load from Supabase ────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const [countResult, dataResult] = await Promise.all([
+          supabase.from('stok_obat').select('*', { count: 'exact', head: true }),
+          supabase.from('stok_obat')
+            .select('*, workspaces(name, type, owner_id, owner_name, plan)')
+            .order('created_at', { ascending: false })
+            .limit(500),
+        ]);
+        if (cancelled) return;
+        if (dataResult.error) { setError(dataResult.error.message); setLoading(false); return; }
+        setTotal(countResult.count ?? 0);
+        setRows((dataResult.data ?? []).map(adaptStokObat));
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Computed platform stats from live data
+  const platformStats = useMemo(() => ({
+    total:    rows.length,
+    inStock:  rows.filter(r => r.stockStatus === 'Tersedia').length,
+    lowStock: rows.filter(r => r.stockStatus === 'Rendah').length,
+    expired:  rows.filter(r => r.stockStatus === 'Expired').length,
+  }), [rows]);
+
+  const filtered = useMemo(() => filterMedicine(rows, {
     keyword: search || undefined,
     type: filterType !== 'All' ? filterType : 'All',
     stockStatus: filterStatus !== 'All' ? filterStatus : 'All',
-  }), [search, filterType, filterStatus]);
+  }), [rows, search, filterType, filterStatus]);
 
   const hasFilter = search || filterType !== 'All' || filterStatus !== 'All';
   const resetFilters = () => { setSearch(''); setFilterType('All'); setFilterStatus('All'); setCurrentPage(1); };
@@ -132,6 +254,7 @@ export default function MedicineModule() {
 
   return (
     <AdminLayout>
+      <style>{`@keyframes adm-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -140,15 +263,32 @@ export default function MedicineModule() {
           </div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a', letterSpacing: -0.3 }}>💊 Manajemen Obat</h1>
           <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#64748b' }}>
-            Ringkasan obat &amp; stok seluruh platform — {ADMIN_MEDICINE_LIST.length} catatan ditampilkan.
+            Ringkasan stok obat seluruh platform — data langsung dari Supabase{' '}
+            <code style={{ fontSize: 12, background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>stok_obat</code> table.
           </p>
         </div>
 
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: '#b91c1c', fontSize: 13 }}>
+            ⚠️ Gagal memuat data: {error}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
-          <StatCard label="Total Item Obat" value={MEDICINE_PLATFORM_STATS.total.toLocaleString('id-ID')} icon="💊" color="#3b82f6" />
-          <StatCard label="Tersedia"        value={MEDICINE_PLATFORM_STATS.inStock.toLocaleString('id-ID')} icon="✅" color="#10b981" />
-          <StatCard label="Stok Rendah"     value={MEDICINE_PLATFORM_STATS.lowStock.toLocaleString('id-ID')} icon="⚠️" color="#f59e0b" />
-          <StatCard label="Kedaluwarsa"     value={MEDICINE_PLATFORM_STATS.expired.toLocaleString('id-ID')} icon="🚫" color="#ef4444" />
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #f1f5f9' }}>
+                <SkeletonBox height={28} />
+              </div>
+            ))
+          ) : (
+            <>
+              <StatCard label="Total Item Obat" value={totalCount.toLocaleString('id-ID')} icon="💊" color="#3b82f6" />
+              <StatCard label="Tersedia"        value={platformStats.inStock.toLocaleString('id-ID')} icon="✅" color="#10b981" />
+              <StatCard label="Stok Rendah"     value={platformStats.lowStock.toLocaleString('id-ID')} icon="⚠️" color="#f59e0b" />
+              <StatCard label="Kedaluwarsa"     value={platformStats.expired.toLocaleString('id-ID')} icon="🚫" color="#ef4444" />
+            </>
+          )}
         </div>
 
         <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid #f1f5f9', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -184,9 +324,13 @@ export default function MedicineModule() {
 
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f1f5f9', overflow: 'hidden', marginBottom: 32 }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Daftar Obat (Seluruh Platform)</span>
-            <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f1f5f9', color: '#64748b' }}>{filtered.length}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#94a3b8' }}>Klik baris untuk detail</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Daftar Stok Obat (Seluruh Platform)</span>
+            <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f1f5f9', color: '#64748b' }}>
+              {loading ? '…' : `${filtered.length} dari ${totalCount}`}
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#94a3b8' }}>
+              {loading ? 'Memuat dari Supabase…' : 'Data dari Supabase · Klik baris untuk detail'}
+            </span>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -198,11 +342,17 @@ export default function MedicineModule() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}><td colSpan={8} style={{ padding: '12px 14px' }}><SkeletonBox height={18} /></td></tr>
+                  ))
+                ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                       <div style={{ fontSize: 32, marginBottom: 8 }}>💊</div>
-                      <div style={{ fontWeight: 600, color: '#64748b' }}>Tidak ada hasil yang cocok</div>
+                      <div style={{ fontWeight: 600, color: '#64748b' }}>
+                        {rows.length === 0 ? 'Belum ada stok obat di Supabase.' : 'Tidak ada hasil yang cocok'}
+                      </div>
                       {hasFilter && <button onClick={resetFilters} style={{ marginTop: 8, padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Hapus Filter</button>}
                     </td>
                   </tr>
