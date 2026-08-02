@@ -522,7 +522,7 @@ export default function ProfileWorkspace() {
   const { currentUser } = useAuth();
   const { workspaces, activeWorkspace, saveWorkspace, refreshWorkspaces } = useWorkspace();
 
-  const currentUserId = currentUser?.id ?? '00000000-0000-0000-0000-000000000001';
+  const currentUserId = currentUser?.id ?? '';
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [editTarget,    setEditTarget]    = useState<WorkspaceActionTarget | null>(null);

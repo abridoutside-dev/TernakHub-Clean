@@ -612,7 +612,7 @@ export default function WorkspaceSettingsMembers() {
   const canInvite = can('memberManagement', 'create');
   const canUpdate = can('memberManagement', 'update');
   const canRemove = can('memberManagement', 'delete');
-  const currentUserId = currentUser?.id ?? '00000000-0000-0000-0000-000000000001';
+  const currentUserId = currentUser?.id ?? '';
 
   // ── Reactive member list ───────────────────────────────────────────────────
   const [tick, setTick] = useState(0);

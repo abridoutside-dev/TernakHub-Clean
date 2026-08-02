@@ -597,7 +597,7 @@ export default function ProfileWorkspaceMembers() {
   const ws = workspaces.find((w) => w.workspace_uuid === id) ?? null;
   if (!ws) return <NotFound navigate={navigate} />;
 
-  const currentUserId = currentUser?.id ?? '00000000-0000-0000-0000-000000000001';
+  const currentUserId = currentUser?.id ?? '';
 
   // Permission resolver — NO hardcoded role checks anywhere below.
   const { can } = useWorkspacePermission(id);

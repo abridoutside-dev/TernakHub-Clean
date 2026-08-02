@@ -271,7 +271,7 @@ export default function WorkspaceSelect() {
   // re-fetch race during navigation).
   const { workspaces, activeWorkspace, isLoading: wsLoading, wsError, setActiveWorkspaceUuid, refreshWorkspaces } = useWorkspace();
 
-  const currentUserId = currentUser?.id ?? '00000000-0000-0000-0000-000000000001';
+  const currentUserId = currentUser?.id ?? '';
 
   // ── FLOW-001F: Auto-navigate when exactly 1 non-blocked workspace ─────────
   // Requirement: WorkspaceSelect should only be shown when the user has

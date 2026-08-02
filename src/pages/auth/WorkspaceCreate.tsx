@@ -280,7 +280,12 @@ export default function WorkspaceCreate() {
 
     setSaving(true);
     try {
-      const ownerUuid = currentUser?.id ?? '00000000-0000-0000-0000-000000000001';
+      if (!currentUser?.id) {
+        setGlobalError('Sesi autentikasi tidak ditemukan. Silakan login kembali.');
+        setSaving(false);
+        return;
+      }
+      const ownerUuid = currentUser.id;
 
       const result = await createWorkspace({
         workspace_type:   wsType,
