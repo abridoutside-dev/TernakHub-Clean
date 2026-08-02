@@ -11,7 +11,7 @@
 // ─── Enum value types ─────────────────────────────────────────────────────────
 
 export type DbSex = 'Jantan' | 'Betina';
-export type DbHealthStatus = 'Sehat' | 'Sakit' | 'Pemantauan';
+export type DbHealthStatus = 'Sehat' | 'Sakit' | 'Dalam Perawatan' | 'Karantina' | 'Pemantauan';
 export type DbLocationStatus = 'Di Kandang' | 'Luar Kandang' | 'Arsip';
 export type DbArchiveReason = 'Mati' | 'Terjual' | 'Hibah';
 export type DbBatchStatus = 'Aktif' | 'Selesai' | 'Diarsipkan';

@@ -343,8 +343,10 @@ export default function EditLivestock() {
 
       // ── Supabase persist via service (primary SSOT) ──────────────────────
       const healthDb: DbHealthStatus =
-        healthStatus === 'Sehat' ? 'Sehat'
-        : healthStatus === 'Sakit' ? 'Sakit'
+        healthStatus === 'Sehat'           ? 'Sehat'
+        : healthStatus === 'Sakit'         ? 'Sakit'
+        : healthStatus === 'Dalam Perawatan' ? 'Dalam Perawatan'
+        : healthStatus === 'Karantina'     ? 'Karantina'
         : 'Pemantauan';
       const sexDb: DbSex | null =
         kelamin === 'Jantan' ? 'Jantan'
