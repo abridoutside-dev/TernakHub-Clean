@@ -5013,6 +5013,25 @@ export default function Reproduksi() {
   // SAPIH_DB) from Supabase so hard-refresh navigations get live data.
   useReproduksi();
   const { activeWorkspace } = useWorkspace();
+  const [mode,        setMode]        = useState<Mode>('individu');
+  const [query,       setQuery]       = useState('');
+  const [filters,     setFilters]     = useState<Filters>(DEFAULT_FILTERS);
+  const [filterOpen,  setFilterOpen]  = useState(false);
+
+  // In-memory PROGRAM_REPRODUKSI_DB mutations don't trigger React re-renders on
+  // their own — bump `tick` after every add/update/cancel (mirrors batch-mutations-pattern).
+  const [tick, setTick] = useState(0);
+  const [formSheet,   setFormSheet]   = useState<FormSheetState>(null);
+  const [detailProgram, setDetailProgram] = useState<ReproduksiProgramRecord | null>(null);
+
+  // Monitoring (RP-004) — global search & filter state + create/detail sheets.
+  const [monitoringFilters, setMonitoringFilters] = useState<MonitoringFilters>(emptyMonitoringFilters());
+  const [monitoringFormCtx, setMonitoringFormCtx] = useState<MonitoringFormContext | null>(null);
+  const [monitoringDetail, setMonitoringDetail] = useState<{ monitoring: MonitoringRecord; program: ReproduksiProgramRecord } | null>(null);
+
+  // Riwayat Reproduksi (RP-010) — global read-only search & filter state + detail sheet.
+  const [riwayatFilters, setRiwayatFilters] = useState<RiwayatFilters>(emptyRiwayatFilters());
+  const [riwayatDetail, setRiwayatDetail] = useState<ReproduksiHistoryEntry | null>(null);
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
@@ -5034,26 +5053,6 @@ export default function Reproduksi() {
       </div>
     );
   }
-
-  const [mode,        setMode]        = useState<Mode>('individu');
-  const [query,       setQuery]       = useState('');
-  const [filters,     setFilters]     = useState<Filters>(DEFAULT_FILTERS);
-  const [filterOpen,  setFilterOpen]  = useState(false);
-
-  // In-memory PROGRAM_REPRODUKSI_DB mutations don't trigger React re-renders on
-  // their own — bump `tick` after every add/update/cancel (mirrors batch-mutations-pattern).
-  const [tick, setTick] = useState(0);
-  const [formSheet,   setFormSheet]   = useState<FormSheetState>(null);
-  const [detailProgram, setDetailProgram] = useState<ReproduksiProgramRecord | null>(null);
-
-  // Monitoring (RP-004) — global search & filter state + create/detail sheets.
-  const [monitoringFilters, setMonitoringFilters] = useState<MonitoringFilters>(emptyMonitoringFilters());
-  const [monitoringFormCtx, setMonitoringFormCtx] = useState<MonitoringFormContext | null>(null);
-  const [monitoringDetail, setMonitoringDetail] = useState<{ monitoring: MonitoringRecord; program: ReproduksiProgramRecord } | null>(null);
-
-  // Riwayat Reproduksi (RP-010) — global read-only search & filter state + detail sheet.
-  const [riwayatFilters, setRiwayatFilters] = useState<RiwayatFilters>(emptyRiwayatFilters());
-  const [riwayatDetail, setRiwayatDetail] = useState<ReproduksiHistoryEntry | null>(null);
 
   const programs = getProgramList();
   // Exclude archived livestock — archived animals cannot participate in a new breeding program.

@@ -1831,27 +1831,6 @@ export default function PemberianPakan() {
   const { isLoading, error, refresh } = useLivestock();
   // Populates RAW_INVENTARIS from Supabase so inventory picker works on hard refresh.
   useStokInventaris();
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
-        <span style={{ fontSize: 36 }}>⏳</span>
-        <div style={{ fontSize: 14, color: 'var(--color-muted)', fontWeight: 600 }}>Memuat data pakan ternak...</div>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div style={{ padding: '24px 16px', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
-        <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>⚠️</span>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>Gagal Memuat Data</div>
-        <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>{error}</div>
-        <button type="button" onClick={refresh}
-          style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          Coba Lagi
-        </button>
-      </div>
-    );
-  }
   const [tab,         setTab]         = useState<Tab>('dashboard');
   const [mode,        setMode]        = useState<Mode>('individu');
   const [query,       setQuery]       = useState('');
@@ -1930,6 +1909,27 @@ export default function PemberianPakan() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, query, ALL_BATCH.length]);
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: 36 }}>⏳</span>
+        <div style={{ fontSize: 14, color: 'var(--color-muted)', fontWeight: 600 }}>Memuat data pakan ternak...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div style={{ padding: '24px 16px', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
+        <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>⚠️</span>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>Gagal Memuat Data</div>
+        <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>{error}</div>
+        <button type="button" onClick={refresh}
+          style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          Coba Lagi
+        </button>
+      </div>
+    );
+  }
 
   const currentList = mode === 'individu' ? filteredIndividu : filteredBatch;
 

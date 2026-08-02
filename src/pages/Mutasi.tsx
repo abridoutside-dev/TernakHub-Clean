@@ -690,6 +690,14 @@ export default function Mutasi() {
   // Populates LIVESTOCK_DB and BATCH_DB from Supabase so deep-link /
   // hard-refresh navigations get live data instead of an empty in-memory store.
   const { isLoading, error, refresh } = useLivestock();
+  const [mode,       setMode]       = useState<Mode>('individu');
+  const [query,      setQuery]      = useState('');
+  const [filters,    setFilters]    = useState<Filters>(DEFAULT_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [notice,     setNotice]     = useState<string | null>(null);
+  const [showForm,   setShowForm]   = useState(false);
+  const [tick,       setTick]       = useState(0);
+  const bump = () => setTick((t) => t + 1);
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
@@ -711,15 +719,6 @@ export default function Mutasi() {
       </div>
     );
   }
-
-  const [mode,       setMode]       = useState<Mode>('individu');
-  const [query,      setQuery]      = useState('');
-  const [filters,    setFilters]    = useState<Filters>(DEFAULT_FILTERS);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [notice,     setNotice]     = useState<string | null>(null);
-  const [showForm,   setShowForm]   = useState(false);
-  const [tick,       setTick]       = useState(0);
-  const bump = () => setTick((t) => t + 1);
 
   // Adapted lists for shared FilterSheet option builders
   const ALL_INDIVIDU: FilterableIndividu[] = Object.values(LIVESTOCK_DB)

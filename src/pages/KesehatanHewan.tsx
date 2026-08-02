@@ -1328,6 +1328,21 @@ export default function KesehatanHewan() {
   // m-004 fix: populate PEMERIKSAAN_DB from Supabase so computeRingkasan()
   // returns correct counts on hard-refresh instead of reading an empty store.
   useHealth();
+  const [tick,        setTick]        = useState(0);        // MIN-003: forces AI re-evaluation
+  const [mode,        setMode]        = useState<Mode>('individu');
+  const [query,       setQuery]       = useState('');
+  const debouncedQuery                = useDebounce(query, 300);
+  const [filters,     setFilters]     = useState<Filters>(DEFAULT_FILTERS);
+  const [filterOpen,  setFilterOpen]  = useState(false);
+
+  // KH-010: Quick Action anchors for sections without a dedicated list route.
+  const kontrolAnchorRef     = useRef<HTMLDivElement>(null);
+  const kasusAktifAnchorRef  = useRef<HTMLDivElement>(null);
+  const scrollToRef = (ref: React.RefObject<HTMLDivElement>) =>
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // AI Insight — recomputed when tick changes (MIN-003: consistent with Batch/Pakan pattern).
+  const report = useMemo(() => generateInsights(), [tick]);
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12 }}>
@@ -1350,24 +1365,8 @@ export default function KesehatanHewan() {
     );
   }
 
-  const [tick,        setTick]        = useState(0);        // MIN-003: forces AI re-evaluation
-  const [mode,        setMode]        = useState<Mode>('individu');
-  const [query,       setQuery]       = useState('');
-  const debouncedQuery                = useDebounce(query, 300);
-  const [filters,     setFilters]     = useState<Filters>(DEFAULT_FILTERS);
-  const [filterOpen,  setFilterOpen]  = useState(false);
-
-  // KH-010: Quick Action anchors for sections without a dedicated list route.
-  const kontrolAnchorRef     = useRef<HTMLDivElement>(null);
-  const kasusAktifAnchorRef  = useRef<HTMLDivElement>(null);
-  const scrollToRef = (ref: React.RefObject<HTMLDivElement>) =>
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
   // KH-010: dashboard-wide empty state when there is no health data at all yet.
   const hasAnyPemeriksaan = getPemeriksaanList().length > 0;
-
-  // AI Insight — recomputed when tick changes (MIN-003: consistent with Batch/Pakan pattern).
-  const report = useMemo(() => generateInsights(), [tick]);
 
   // Live data — read directly each render so mutations are always reflected
   const ALL_INDIVIDU = buildIndividuList();
