@@ -185,6 +185,7 @@ export interface LivestockExtendedMetadataCreateInput {
 
 export interface LivestockPatchInput {
   name?: string | null;
+  species?: string | null;
   breed?: string | null;
   sex?: DbSex | null;
   birth_date?: string | null;
