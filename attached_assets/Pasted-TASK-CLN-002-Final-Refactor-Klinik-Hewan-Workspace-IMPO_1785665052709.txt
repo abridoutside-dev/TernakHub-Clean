@@ -1,0 +1,143 @@
+TASK: CLN-002 — Final Refactor Klinik Hewan Workspace
+
+IMPORTANT
+
+This is a refactoring task only.
+
+DO NOT change application architecture.
+
+DO NOT modify routing.
+
+DO NOT modify business logic.
+
+DO NOT modify permissions.
+
+DO NOT modify clinic registry.
+
+DO NOT modify clinic data.
+
+DO NOT modify workflow.
+
+DO NOT modify UI appearance.
+
+DO NOT change inline styles unless required by extraction.
+
+The application must remain 100% identical.
+
+====================================================
+
+TARGET
+
+Refactor the entire Klinik Hewan Workspace page using the same architecture already implemented for:
+
+- Feed Store Workspace
+- Drug Store Workspace
+- Transport Workspace
+- Dokter Hewan Workspace
+
+====================================================
+
+Create reusable components under:
+
+src/components/workspace/
+
+Extract every major presentation section, including but not limited to:
+
+- ClinicHeader
+- ClinicSummary
+- ClinicServiceSection
+- ClinicScheduleSection
+- ClinicStaffSection
+- ClinicPatientSection
+- ClinicActionBar
+- ClinicFilterSection
+
+Extract every modal into its own component.
+
+====================================================
+
+The Clinic Workspace page must remain responsible only for:
+
+- page state
+- hooks
+- permissions
+- registry access
+- filtering
+- mutations
+- modal state
+- orchestration
+
+Presentation must be moved into reusable components.
+
+====================================================
+
+Each extracted component:
+
+- receives data via props
+- receives callbacks via props
+- contains NO business logic
+- contains NO data loading
+- contains NO registry access
+- contains NO routing logic
+- contains NO state management
+
+====================================================
+
+DO NOT CREATE
+
+- new architecture
+- new hooks
+- new contexts
+- new utilities
+- CSS modules
+- styled-components
+- Tailwind
+- new dependencies
+
+====================================================
+
+KEEP
+
+Current UI exactly identical.
+
+Current behavior exactly identical.
+
+Current styling exactly identical.
+
+====================================================
+
+AFTER REFACTOR
+
+Remove:
+
+- duplicated code
+- dead code
+- unused imports
+- obsolete variables
+
+====================================================
+
+VERIFY
+
+Before finishing:
+
+- npm run build passes
+- no TypeScript errors
+- no ESLint errors
+- no broken imports
+- no unused components
+
+====================================================
+
+OUTPUT
+
+Provide:
+
+1. Files created
+2. Files modified
+3. Total line reduction
+4. Build status
+5. ESLint status
+6. TypeScript status
+
+Complete the entire Clinic Workspace refactor in one implementation.
