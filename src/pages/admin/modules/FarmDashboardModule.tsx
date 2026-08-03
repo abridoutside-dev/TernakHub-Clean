@@ -280,7 +280,7 @@ export default function FarmDashboardModule() {
         </div>
 
         <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 16px', fontSize: 12.5, color: '#78350f' }}>
-          ℹ️ Modul <strong>Master Obat</strong>, <strong>AI Insight Farm</strong>, dan <strong>Riwayat Aktivitas Farm</strong> belum tersedia (tidak ada backend yang diperlukan). Lihat Blocked Modules Panel di Control Plane.
+          ℹ️ Modul <strong>Master Obat</strong>, <strong>AI Insight Farm</strong>, dan <strong>Riwayat Aktivitas Farm</strong> belum tersedia karena backend yang diperlukan belum ada. Lihat Blocked Modules Panel di Control Plane untuk detail dependency dan priority.
         </div>
       </div>
     </AdminLayout>

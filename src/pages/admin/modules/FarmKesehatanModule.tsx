@@ -212,17 +212,17 @@ export default function FarmKesehatanModule() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
-                  {tab === 'checkups'
+                  {(tab === 'checkups'
                     ? ['Ternak', 'Workspace', 'Status Kesehatan', 'Pemeriksa', 'Tanggal Periksa', 'Follow-up', 'Dibuat']
                     : ['Ternak', 'Workspace', 'Tipe Treatment', 'Obat', 'Dokter Hewan', 'Tanggal', 'Dibuat']
-                  }.map(h => (
+                  ).map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11.5, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_el, i) => (
                     <tr key={i}><td colSpan={7} style={{ padding: '12px 14px' }}><SkeletonBox height={18} /></td></tr>
                   ))
                 ) : currentList.length === 0 ? (

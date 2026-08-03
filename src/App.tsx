@@ -237,6 +237,8 @@ import FarmFormulaPakanModule from './pages/admin/modules/FarmFormulaPakanModule
 import FarmKesehatanModule from './pages/admin/modules/FarmKesehatanModule';
 import FarmReproduksiModule from './pages/admin/modules/FarmReproduksiModule';
 import FarmMutasiModule from './pages/admin/modules/FarmMutasiModule';
+import FarmStokPakanModule from './pages/admin/modules/FarmStokPakanModule';
+import FarmStokObatModule from './pages/admin/modules/FarmStokObatModule';
 import { UsersRolesPage, UsersActivityPage } from './pages/admin/modules/UsersSubPages';
 import { WorkspacesPlansPage, WorkspacesVerificationPage, BlockedWorkspacesPage, PendingRequestsPage } from './pages/admin/modules/WorkspacesSubPages';
 import { MarketplaceTransactionsPage, MarketplaceReportsPage } from './pages/admin/modules/MarketplaceSubPages';
@@ -660,10 +662,10 @@ export default function App() {
         <Route path="/admin/farm/batch"           element={<FarmBatchModule />} />
         <Route path="/admin/farm/catat-bobot"     element={<FarmCatatBobotModule />} />
         <Route path="/admin/farm/pemberian-pakan" element={<FarmPemberianPakanModule />} />
-        <Route path="/admin/farm/stok-pakan"      element={<FeedModule />} />
+        <Route path="/admin/farm/stok-pakan"      element={<FarmStokPakanModule />} />
         <Route path="/admin/farm/master-pakan"    element={<FarmMasterPakanModule />} />
         <Route path="/admin/farm/formula-pakan"   element={<FarmFormulaPakanModule />} />
-        <Route path="/admin/farm/stok-obat"       element={<MedicineModule />} />
+        <Route path="/admin/farm/stok-obat"       element={<FarmStokObatModule />} />
         <Route path="/admin/farm/kesehatan-hewan" element={<FarmKesehatanModule />} />
         <Route path="/admin/farm/reproduksi"      element={<FarmReproduksiModule />} />
         <Route path="/admin/farm/mutasi"          element={<FarmMutasiModule />} />

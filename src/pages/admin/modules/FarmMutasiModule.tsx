@@ -202,17 +202,17 @@ export default function FarmMutasiModule() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
-                  {tab === 'transfers'
+                  {(tab === 'transfers'
                     ? ['Ternak', 'Workspace', 'Tipe Transfer', 'Dari', 'Ke', 'Tanggal', 'Dibuat']
                     : ['Workspace', 'Tipe Mutasi', 'Status', 'Alasan', 'Tanggal Efektif', 'Dibuat']
-                  }.map(h => (
+                  ).map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11.5, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_el, i) => (
                     <tr key={i}><td colSpan={7} style={{ padding: '12px 14px' }}><SkeletonBox height={18} /></td></tr>
                   ))
                 ) : currentList.length === 0 ? (
