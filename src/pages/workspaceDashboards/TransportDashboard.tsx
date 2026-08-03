@@ -130,7 +130,7 @@ function RingkasanCard({ data }: { data: DashboardData }) {
   return (
     <WorkspaceCard style={{ marginBottom: 14 }}>
       <WorkspaceSectionTitle title="Ringkasan Operasional" action="Live" accentColor={COLORS.primary} />
-      <WorkspaceStatGrid stats={items} />
+      <WorkspaceStatGrid items={items} />
       {data.txCount === 0 && data.listingCount === 0 && (
         <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
           Belum ada listing atau transaksi tercatat. Buat listing layanan untuk memulai.
@@ -383,8 +383,8 @@ export default function TransportDashboard(): React.ReactElement {
       {/* ── Quick Actions ───────────────────────────────────────────────── */}
       <WorkspaceQuickActions
         actions={config.quickActions}
-        accentColor={COLORS.primary}
         workspaceId={workspaceId}
+        colors={{ bg: COLORS.actionBg, border: COLORS.actionBorder, text: COLORS.actionText, accent: COLORS.primary }}
       />
 
       {/* ── Ringkasan ───────────────────────────────────────────────────── */}

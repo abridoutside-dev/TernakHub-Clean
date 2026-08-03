@@ -745,6 +745,7 @@ export default function App() {
         <Route path="/admin/settings/email"    element={<SettingsModule />} />
 
         {/* Transport domain — ADMIN-SYNC-008 */}
+        <Route path="/admin/transport"            element={<Navigate to="/admin/transport/dashboard" replace />} />
         <Route path="/admin/transport/dashboard"  element={<TransportModule />} />
         <Route path="/admin/transport/vehicles"   element={<TransportVehiclesAdmin />} />
         <Route path="/admin/transport/drivers"    element={<TransportDriversAdmin />} />

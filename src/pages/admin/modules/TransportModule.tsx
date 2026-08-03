@@ -15,7 +15,7 @@
 //   Laporan          → LIVE (aggregate dari marketplace data)
 //   AI Insight       → NOT_IMPLEMENTED (AI backend belum tersedia)
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';

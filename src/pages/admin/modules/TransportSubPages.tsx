@@ -287,7 +287,7 @@ export function TransportDeliveryAdmin() {
             { label: 'Selesai',         value: stats?.selesai    ?? 0, icon: '✅', color: '#16a34a' },
             { label: 'Diproses',        value: stats?.diproses   ?? 0, icon: '🔄', color: '#f59e0b' },
             { label: 'Dibatalkan',      value: stats?.dibatalkan ?? 0, icon: '❌', color: '#dc2626' },
-          ].map(({ label, value, icon, color }) => (
+          ].map(({ label, value, icon }) => (
             <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 11, color: '#64748b' }}>{label}</span>

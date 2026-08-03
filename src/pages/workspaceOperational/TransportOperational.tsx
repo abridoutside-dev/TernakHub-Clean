@@ -324,25 +324,26 @@ export default function TransportOperational(): React.ReactElement {
 
       {/* ── Page Header ─────────────────────────────────────────────────── */}
       <WorkspacePageHeader
+        icon="🚚"
+        label="WORKSPACE TRANSPORT"
         title={workspaceName}
         subtitle={data?.workspace?.description ?? 'Layanan Transportasi Ternak & Logistik'}
-        icon="🚚"
         accentColor={COLORS.primary}
-        badge={{ label: 'Live', color: COLORS.text, bg: COLORS.bg }}
+        iconBg={COLORS.bg}
       />
 
       {/* ── Quick Actions ───────────────────────────────────────────────── */}
       <WorkspaceQuickActions
         actions={dashboardConfig.quickActions}
-        accentColor={COLORS.primary}
         workspaceId={workspaceId}
+        colors={{ bg: COLORS.bg, border: COLORS.border, text: COLORS.text, accent: COLORS.primary }}
       />
 
       {/* ── Stats Operasional ───────────────────────────────────────────── */}
       {data && (
         <WorkspaceCard style={{ marginBottom: 14 }}>
           <WorkspaceSectionTitle title="Statistik Operasional" action="Live" accentColor={COLORS.primary} />
-          <WorkspaceStatGrid stats={stats} />
+          <WorkspaceStatGrid items={stats} />
         </WorkspaceCard>
       )}
 

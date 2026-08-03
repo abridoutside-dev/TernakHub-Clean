@@ -689,7 +689,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Vehicles',
         icon: '🚚',
         path: '/admin/transport/vehicles',
-        syncStatus: 'not_implemented',
+        syncStatus: 'blocked',
         health: 'unknown',
       },
       {
@@ -697,7 +697,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Drivers',
         icon: '👷',
         path: '/admin/transport/drivers',
-        syncStatus: 'not_implemented',
+        syncStatus: 'blocked',
         health: 'unknown',
       },
       {
@@ -705,7 +705,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Route',
         icon: '🗺️',
         path: '/admin/transport/route',
-        syncStatus: 'not_implemented',
+        syncStatus: 'blocked',
         health: 'unknown',
       },
       {
@@ -713,7 +713,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Schedule',
         icon: '📅',
         path: '/admin/transport/schedule',
-        syncStatus: 'not_implemented',
+        syncStatus: 'blocked',
         health: 'unknown',
       },
       // not_implemented — no AI backend
