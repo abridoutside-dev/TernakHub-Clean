@@ -188,6 +188,18 @@ import TransportWorkspace from './pages/TransportWorkspace';
 import VeterinaryWorkspace from './pages/VeterinaryWorkspace';
 import KlinikHewanWorkspace from './pages/KlinikHewanWorkspace';
 import FeedStoreWorkspaceRoute from './pages/workspaceDashboards/FeedStoreWorkspaceRoute';
+import FeedStoreSupplierList   from './pages/feedStore/FeedStoreSupplierList';
+import FeedStoreSupplierForm   from './pages/feedStore/FeedStoreSupplierForm';
+import FeedStoreSupplierDetail from './pages/feedStore/FeedStoreSupplierDetail';
+import FeedStoreCustomerList   from './pages/feedStore/FeedStoreCustomerList';
+import FeedStoreCustomerForm   from './pages/feedStore/FeedStoreCustomerForm';
+import FeedStoreCustomerDetail from './pages/feedStore/FeedStoreCustomerDetail';
+import FeedStoreOrderList      from './pages/feedStore/FeedStoreOrderList';
+import FeedStoreOrderForm      from './pages/feedStore/FeedStoreOrderForm';
+import FeedStoreOrderDetail    from './pages/feedStore/FeedStoreOrderDetail';
+import FeedStoreSalesList      from './pages/feedStore/FeedStoreSalesList';
+import FeedStoreSalesForm      from './pages/feedStore/FeedStoreSalesForm';
+import FeedStoreSalesDetail    from './pages/feedStore/FeedStoreSalesDetail';
 import DrugStoreWorkspaceRoute from './pages/workspaceDashboards/DrugStoreWorkspaceRoute';
 import FarmProfile from './pages/FarmProfile';
 import WorkspaceSettingsMembers from './pages/WorkspaceSettingsMembers';
@@ -594,6 +606,22 @@ export default function App() {
       <Route path="/workspace/:id/veterinary"  element={<VeterinaryWorkspace />} />
       <Route path="/workspace/:id/clinic"      element={<KlinikHewanWorkspace />} />
       <Route path="/workspace/:id/feed-store"  element={<FeedStoreWorkspaceRoute />} />
+      <Route path="/workspace/:id/feed-store/suppliers"            element={<FeedStoreSupplierList />} />
+      <Route path="/workspace/:id/feed-store/suppliers/new"        element={<FeedStoreSupplierForm />} />
+      <Route path="/workspace/:id/feed-store/suppliers/:sid"       element={<FeedStoreSupplierDetail />} />
+      <Route path="/workspace/:id/feed-store/suppliers/:sid/edit"  element={<FeedStoreSupplierForm />} />
+      <Route path="/workspace/:id/feed-store/customers"            element={<FeedStoreCustomerList />} />
+      <Route path="/workspace/:id/feed-store/customers/new"        element={<FeedStoreCustomerForm />} />
+      <Route path="/workspace/:id/feed-store/customers/:cid"       element={<FeedStoreCustomerDetail />} />
+      <Route path="/workspace/:id/feed-store/customers/:cid/edit"  element={<FeedStoreCustomerForm />} />
+      <Route path="/workspace/:id/feed-store/orders"               element={<FeedStoreOrderList />} />
+      <Route path="/workspace/:id/feed-store/orders/new"           element={<FeedStoreOrderForm />} />
+      <Route path="/workspace/:id/feed-store/orders/:oid"          element={<FeedStoreOrderDetail />} />
+      <Route path="/workspace/:id/feed-store/orders/:oid/edit"     element={<FeedStoreOrderForm />} />
+      <Route path="/workspace/:id/feed-store/sales"                element={<FeedStoreSalesList />} />
+      <Route path="/workspace/:id/feed-store/sales/new"            element={<FeedStoreSalesForm />} />
+      <Route path="/workspace/:id/feed-store/sales/:sid"           element={<FeedStoreSalesDetail />} />
+      <Route path="/workspace/:id/feed-store/sales/:sid/edit"      element={<FeedStoreSalesForm />} />
       <Route path="/workspace/:id/drug-store"  element={<DrugStoreWorkspaceRoute />} />
       <Route path="/workspace/:id/farm-profile" element={<FarmProfile />} />
       </Route>

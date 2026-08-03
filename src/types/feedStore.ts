@@ -166,6 +166,53 @@ export interface FeedStoreSalesCreateInput {
   created_by?: string | null;
 }
 
+// ─── Update Inputs ────────────────────────────────────────────────────────────
+
+export interface FeedStoreSupplierUpdateInput {
+  name?: string;
+  contact_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  province?: string | null;
+  city?: string | null;
+  status?: string;
+  notes?: string | null;
+}
+
+export interface FeedStoreCustomerUpdateInput {
+  name?: string;
+  contact_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  province?: string | null;
+  city?: string | null;
+  customer_type?: string | null;
+  status?: string;
+  notes?: string | null;
+}
+
+export interface FeedStoreOrderUpdateInput {
+  order_number?: string | null;
+  status?: FeedStoreOrderStatus;
+  total_amount?: number;
+  order_date?: string;
+  notes?: string | null;
+  supplier_id?: string | null;
+  customer_id?: string | null;
+}
+
+export interface FeedStoreSalesUpdateInput {
+  sale_date?: string;
+  total_amount?: number;
+  payment_method?: string | null;
+  status?: string;
+  notes?: string | null;
+  customer_id?: string | null;
+  order_id?: string | null;
+}
+
 // ─── Aggregates (computed in hook) ────────────────────────────────────────────
 
 export interface FeedStoreSalesSummary {

@@ -47,6 +47,13 @@ function guard(error: { message: string; code?: string } | null): void {
   if (error) throw new FeedStoreRepoError(error.message, error.code);
 }
 
+import type {
+  FeedStoreSupplierUpdateInput,
+  FeedStoreCustomerUpdateInput,
+  FeedStoreOrderUpdateInput,
+  FeedStoreSalesUpdateInput,
+} from '../types/feedStore';
+
 // ─── feed_store_suppliers ─────────────────────────────────────────────────────
 
 /**
@@ -113,6 +120,36 @@ export async function repoInsertSupplier(
   return data as FeedStoreSupplierDbRow;
 }
 
+/**
+ * Update supplier.
+ */
+export async function repoUpdateSupplier(
+  id: string,
+  input: FeedStoreSupplierUpdateInput,
+): Promise<FeedStoreSupplierDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_suppliers')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as FeedStoreSupplierDbRow;
+}
+
+/**
+ * Hapus supplier.
+ */
+export async function repoDeleteSupplier(id: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('feed_store_suppliers')
+    .delete()
+    .eq('id', id);
+  guard(error);
+}
+
 // ─── feed_store_customers ─────────────────────────────────────────────────────
 
 /**
@@ -177,6 +214,36 @@ export async function repoInsertCustomer(
     .single();
   guard(error);
   return data as FeedStoreCustomerDbRow;
+}
+
+/**
+ * Update pelanggan.
+ */
+export async function repoUpdateCustomer(
+  id: string,
+  input: FeedStoreCustomerUpdateInput,
+): Promise<FeedStoreCustomerDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_customers')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as FeedStoreCustomerDbRow;
+}
+
+/**
+ * Hapus pelanggan.
+ */
+export async function repoDeleteCustomer(id: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('feed_store_customers')
+    .delete()
+    .eq('id', id);
+  guard(error);
 }
 
 // ─── feed_store_orders ────────────────────────────────────────────────────────
@@ -279,6 +346,20 @@ export async function repoGetYesterdayPenjualanTotal(
 }
 
 /**
+ * Order by ID.
+ */
+export async function repoGetOrderById(id: string): Promise<FeedStoreOrderDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_orders')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  guard(error);
+  return data as FeedStoreOrderDbRow | null;
+}
+
+/**
  * Insert order baru.
  */
 export async function repoInsertOrder(
@@ -292,6 +373,36 @@ export async function repoInsertOrder(
     .single();
   guard(error);
   return data as FeedStoreOrderDbRow;
+}
+
+/**
+ * Update order.
+ */
+export async function repoUpdateOrder(
+  id: string,
+  input: FeedStoreOrderUpdateInput,
+): Promise<FeedStoreOrderDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_orders')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as FeedStoreOrderDbRow;
+}
+
+/**
+ * Hapus order.
+ */
+export async function repoDeleteOrder(id: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('feed_store_orders')
+    .delete()
+    .eq('id', id);
+  guard(error);
 }
 
 // ─── feed_store_order_items ───────────────────────────────────────────────────
@@ -374,6 +485,20 @@ export async function repoGetSalesAggregate(
 }
 
 /**
+ * Sale by ID.
+ */
+export async function repoGetSaleById(id: string): Promise<FeedStoreSalesDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_sales')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  guard(error);
+  return data as FeedStoreSalesDbRow | null;
+}
+
+/**
  * Insert catatan penjualan.
  */
 export async function repoInsertSale(
@@ -387,4 +512,34 @@ export async function repoInsertSale(
     .single();
   guard(error);
   return data as FeedStoreSalesDbRow;
+}
+
+/**
+ * Update catatan penjualan.
+ */
+export async function repoUpdateSale(
+  id: string,
+  input: FeedStoreSalesUpdateInput,
+): Promise<FeedStoreSalesDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_sales')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as FeedStoreSalesDbRow;
+}
+
+/**
+ * Hapus catatan penjualan.
+ */
+export async function repoDeleteSale(id: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('feed_store_sales')
+    .delete()
+    .eq('id', id);
+  guard(error);
 }
