@@ -343,6 +343,10 @@ function CredentialField({
   onChange: (v: string) => void;
 }) {
   const [replacing, setReplacing] = useState(false);
+  // Local draft state so the controlled input always reflects what the user
+  // is actually typing/pasting. Without this, `value={replacing ? '' : value}`
+  // resets the DOM input to '' on every render, swallowing keystrokes and paste.
+  const [draft, setDraft] = useState('');
   const masked = isMasked(value);
 
   if (masked && !replacing) {
@@ -352,7 +356,7 @@ function CredentialField({
         <div style={{ display: 'flex', gap: 8 }}>
           <input style={{ ...fieldStyleRO, flex: 1 }} readOnly value={CREDENTIAL_MASKED} />
           <button
-            onClick={() => setReplacing(true)}
+            onClick={() => { setDraft(''); setReplacing(true); }}
             style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             Ganti
@@ -369,14 +373,20 @@ function CredentialField({
         <input
           style={{ ...fieldStyle, flex: 1 }}
           type="password"
-          value={replacing ? '' : value}
+          // Use local draft when replacing so React doesn't reset the DOM input
+          // value to '' on every render, which blocks typing and paste events.
+          value={replacing ? draft : value}
           placeholder={replacing ? 'Masukkan nilai baru…' : ''}
-          autoComplete="off"
-          onChange={e => onChange(e.target.value)}
+          autoComplete="new-password"
+          onChange={e => {
+            const v = e.target.value;
+            setDraft(v);
+            onChange(v);
+          }}
         />
         {replacing && (
           <button
-            onClick={() => { setReplacing(false); onChange(CREDENTIAL_MASKED); }}
+            onClick={() => { setReplacing(false); setDraft(''); onChange(CREDENTIAL_MASKED); }}
             style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: 12, cursor: 'pointer' }}
           >
             Batal
