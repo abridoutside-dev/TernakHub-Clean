@@ -41,6 +41,8 @@ export interface SystemServicesHealth {
   api:              ServiceCheck;
   environment:      ServiceCheck;
   platform_version: ServiceCheck;
+  message_queue:    ServiceCheck;
+  ai_service:       ServiceCheck;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -250,6 +252,30 @@ function checkPlatformVersion(): ServiceCheck {
   };
 }
 
+// ─── Check 6: Message Queue (not_implemented — queue worker not built) ────────
+
+function checkMessageQueue(): ServiceCheck {
+  return {
+    name:       'Message Queue',
+    status:     'not_implemented',
+    latency_ms: null,
+    message:    'Queue worker belum diimplementasikan di platform',
+    checked_at: new Date().toISOString(),
+  };
+}
+
+// ─── Check 7: AI Service (not_implemented — AI backend not integrated) ────────
+
+function checkAIService(): ServiceCheck {
+  return {
+    name:       'AI Service',
+    status:     'not_implemented',
+    latency_ms: null,
+    message:    'AI backend belum diintegrasikan ke platform',
+    checked_at: new Date().toISOString(),
+  };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function fetchSystemServicesHealth(): Promise<SystemServicesHealth> {
@@ -260,6 +286,8 @@ export async function fetchSystemServicesHealth(): Promise<SystemServicesHealth>
   ]);
   const environment      = checkEnvironment();
   const platform_version = checkPlatformVersion();
+  const message_queue    = checkMessageQueue();
+  const ai_service       = checkAIService();
 
-  return { database, storage, api, environment, platform_version };
+  return { database, storage, api, environment, platform_version, message_queue, ai_service };
 }
