@@ -1,21 +1,18 @@
-// ─── useDrugStoreDashboardData — ADMIN-SYNC-006 ───────────────────────────────
+// ─── useDrugStoreDashboardData — ADMIN-SYNC-006 FINAL ─────────────────────────
 //
 // Shared data hook untuk Drug Store Dashboard & Operational.
 // Mengambil data LIVE dari Supabase menggunakan repository yang sudah ada.
 //
-// Tabel yang digunakan (LIVE):
-//   - workspaces         → workspace name/meta
-//   - stok_obat          → produk & stok obat workspace
-//   - stok_obat_masuk    → transaksi masuk (penerimaan stok)
-//   - stok_obat_keluar   → transaksi keluar (pengeluaran/dispensing)
-//   - drug_catalog       → master obat platform (count)
-//   - activity_log       → aktivitas workspace
-//
-// Tabel DIBUTUHKAN tapi BELUM ADA (BLOCKED):
-//   - drug_store_suppliers  → daftar PBF/distributor supplier
-//   - drug_store_customers  → daftar pelanggan toko obat
-//   - drug_store_orders     → pesanan pembelian & penjualan
-//   - drug_store_sales      → catatan penjualan toko obat
+// Tabel LIVE:
+//   - workspaces             → workspace name/meta
+//   - stok_obat              → produk & stok obat workspace
+//   - stok_obat_masuk        → transaksi masuk (penerimaan stok)
+//   - stok_obat_keluar       → transaksi keluar (pengeluaran/dispensing)
+//   - drug_catalog           → master obat platform (count)
+//   - activity_log           → aktivitas workspace
+//   - drug_store_suppliers   → PBF/distributor per workspace
+//   - drug_store_orders      → order pembelian & penjualan
+//   - drug_store_sales       → catatan penjualan
 
 import { useState, useEffect, useCallback } from 'react';
 import { repoGetWorkspaceByUuid } from '../repositories/workspaceRepository';
@@ -26,9 +23,22 @@ import {
 } from '../repositories/stokObatRepository';
 import { repoGetDrugCatalogCount } from '../repositories/drugCatalogRepository';
 import { repoGetActivityLogByWorkspace } from '../repositories/activityLogRepository';
+import {
+  repoGetDrugStoreSuppliersByWorkspace,
+  repoGetDrugStoreRecentOrders,
+  repoGetDrugStoreTodayPenjualanAggregate,
+  repoGetDrugStoreYesterdayPenjualanTotal,
+  repoGetDrugStoreSalesByWorkspace,
+} from '../repositories/drugStoreRepository';
 import type { WorkspaceRecord } from '../types/workspace';
 import type { StokObatDbRow, StokObatMasukDbRow, StokObatKeluarDbRow } from '../types/stokObat';
 import type { ActivityLogDbRow } from '../types/activityLog';
+import type {
+  DrugStoreSupplierDbRow,
+  DrugStoreOrderDbRow,
+  DrugStoreSalesDbRow,
+  DrugStorePenjualanSummary,
+} from '../types/drugStore';
 
 // ─── Output shapes ────────────────────────────────────────────────────────────
 
@@ -60,6 +70,14 @@ export interface DrugStoreDashboardData {
   masterObatCount: number;
   /** Log aktivitas workspace */
   activities: ActivityLogDbRow[];
+  /** Daftar supplier dari drug_store_suppliers */
+  suppliers: DrugStoreSupplierDbRow[];
+  /** Order terbaru dari drug_store_orders */
+  recentOrders: DrugStoreOrderDbRow[];
+  /** Aggregate penjualan hari ini */
+  todayPenjualan: DrugStorePenjualanSummary;
+  /** Catatan penjualan dari drug_store_sales */
+  sales: DrugStoreSalesDbRow[];
 }
 
 export interface UseDrugStoreDashboardDataResult {
@@ -97,14 +115,14 @@ export function getNearExpiryStokItems(items: StokObatDbRow[]): StokObatDbRow[] 
 }
 
 function buildStokSummary(items: StokObatDbRow[]): DrugStoreStokSummary {
-  const today   = new Date();
+  const today    = new Date();
   const in30Days = new Date(today);
   in30Days.setDate(today.getDate() + 30);
 
-  let lowStock    = 0;
-  let nearExpiry  = 0;
-  let expired     = 0;
-  let active      = 0;
+  let lowStock   = 0;
+  let nearExpiry = 0;
+  let expired    = 0;
+  let active     = 0;
 
   for (const item of items) {
     if (item.status === 'Aktif') active++;
@@ -130,20 +148,47 @@ function buildStokSummary(items: StokObatDbRow[]): DrugStoreStokSummary {
   };
 }
 
+function buildPenjualanSummary(
+  todayAgg: { totalAmount: number; orderCount: number; completedCount: number; processingCount: number },
+  yesterdayTotal: number,
+): DrugStorePenjualanSummary {
+  let growthPercent: number | null = null;
+  if (yesterdayTotal > 0) {
+    growthPercent = Math.round(((todayAgg.totalAmount - yesterdayTotal) / yesterdayTotal) * 100);
+  } else if (todayAgg.totalAmount > 0) {
+    growthPercent = 100;
+  }
+  return {
+    todayRevenue:    todayAgg.totalAmount,
+    todayOrderCount: todayAgg.orderCount,
+    completedCount:  todayAgg.completedCount,
+    processingCount: todayAgg.processingCount,
+    growthPercent,
+  };
+}
+
 // ─── Empty defaults ───────────────────────────────────────────────────────────
 
 const EMPTY_SUMMARY: DrugStoreStokSummary = {
   totalItems: 0, activeItems: 0, lowStockItems: 0, nearExpiryItems: 0, expiredItems: 0,
 };
 
+const EMPTY_PENJUALAN: DrugStorePenjualanSummary = {
+  todayRevenue: 0, todayOrderCount: 0, completedCount: 0, processingCount: 0, growthPercent: null,
+};
+
 const EMPTY_DATA: DrugStoreDashboardData = {
-  workspace:      null,
-  stokItems:      [],
-  stokMasuk:      [],
-  stokKeluar:     [],
-  stokSummary:    EMPTY_SUMMARY,
+  workspace:       null,
+  stokItems:       [],
+  stokMasuk:       [],
+  stokKeluar:      [],
+  stokSummary:     EMPTY_SUMMARY,
   masterObatCount: 0,
-  activities:     [],
+  activities:      [],
+  suppliers:       [],
+  recentOrders:    [],
+  todayPenjualan:  EMPTY_PENJUALAN,
+  sales:           [],
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -172,6 +217,11 @@ export function useDrugStoreDashboardData(
         stokKeluar,
         masterObatCount,
         activities,
+        suppliers,
+        recentOrders,
+        todayAgg,
+        yesterdayTotal,
+        sales,
       ] = await Promise.all([
         repoGetWorkspaceByUuid(workspaceId).catch(() => null),
         repoGetStokObatByWorkspace(workspaceId).catch(() => []),
@@ -179,6 +229,13 @@ export function useDrugStoreDashboardData(
         repoGetStokKeluarByWorkspace(workspaceId, 50).catch(() => []),
         repoGetDrugCatalogCount().catch(() => 0),
         repoGetActivityLogByWorkspace(workspaceId, 20).catch(() => []),
+        repoGetDrugStoreSuppliersByWorkspace(workspaceId).catch(() => []),
+        repoGetDrugStoreRecentOrders(workspaceId, 5).catch(() => []),
+        repoGetDrugStoreTodayPenjualanAggregate(workspaceId).catch(() => ({
+          totalAmount: 0, orderCount: 0, completedCount: 0, processingCount: 0,
+        })),
+        repoGetDrugStoreYesterdayPenjualanTotal(workspaceId).catch(() => 0),
+        repoGetDrugStoreSalesByWorkspace(workspaceId, 50).catch(() => []),
       ]);
 
       if (aborted.current) return;
@@ -188,9 +245,13 @@ export function useDrugStoreDashboardData(
         stokItems,
         stokMasuk,
         stokKeluar,
-        stokSummary: buildStokSummary(stokItems),
+        stokSummary:    buildStokSummary(stokItems),
         masterObatCount,
         activities,
+        suppliers,
+        recentOrders,
+        todayPenjualan: buildPenjualanSummary(todayAgg, yesterdayTotal),
+        sales,
       });
     } catch (err) {
       if (!aborted.current) {
@@ -245,6 +306,13 @@ export function formatRelativeTime(isoString: string): string {
 }
 
 export function formatExpiryDate(dateStr: string | null): string {
+  if (!dateStr) return '-';
+  const [y, m, d] = dateStr.split('-');
+  const bulanNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return `${d} ${bulanNames[parseInt(m, 10) - 1]} ${y}`;
+}
+
+export function formatOrderDate(dateStr: string): string {
   if (!dateStr) return '-';
   const [y, m, d] = dateStr.split('-');
   const bulanNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];

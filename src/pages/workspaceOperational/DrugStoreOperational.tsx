@@ -1,16 +1,12 @@
-// ─── DrugStoreOperational — ADMIN-SYNC-006 ───────────────────────────────────
+// ─── DrugStoreOperational — ADMIN-SYNC-006 FINAL ─────────────────────────────
 // Dashboard Operasional khusus Workspace Toko Obat Hewan.
 // Dipilih oleh workspaceOperationalRegistry.tsx — tidak di-hardcode di App.tsx.
 //
-// Sumber data:
-//   LIVE           → stok_obat (produk & stok obat workspace)
-//   LIVE           → stok_obat_masuk (transaksi masuk)
-//   LIVE           → stok_obat_keluar (transaksi keluar)
-//   LIVE           → drug_catalog (Master Obat platform — count)
-//   LIVE           → activity_log (aktivitas workspace)
-//   LIVE           → workspaces (nama toko)
-//   NOT_IMPLEMENTED → Supplier, Purchase, Sales, Transaction, Reports
-//                     (needs drug_store_suppliers, drug_store_orders, drug_store_sales)
+// Sumber data (semua LIVE dari Supabase):
+//   LIVE → stok_obat, stok_obat_masuk, stok_obat_keluar
+//   LIVE → drug_catalog (count), activity_log, workspaces
+//   LIVE → drug_store_suppliers, drug_store_orders, drug_store_sales
+//   NOT_IMPLEMENTED → AI Insight
 
 import { type ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
@@ -21,6 +17,7 @@ import {
   getLowStokObatItems,
   getNearExpiryStokItems,
   formatNumber,
+  formatRupiah,
 } from '../../hooks/useDrugStoreDashboardData';
 import {
   WorkspaceCard,
@@ -36,8 +33,6 @@ const COLORS = {
   bg:           '#e0f7fa',
   text:         '#006064',
   border:       '#80deea',
-  cardActive:   '#e0f7fa',
-  cardBorder:   '#26c6da',
   actionBg:     '#e0f7fa',
   actionText:   '#006064',
   actionBorder: '#80deea',
@@ -69,23 +64,46 @@ export default function DrugStoreOperational(): ReactElement {
 
   const workspaceName = data.workspace?.workspace_name ?? config.title;
 
-  // Compute live counts from stok_obat
-  const totalProduk    = data.stokItems.length;
-  const lowStockCount  = getLowStokObatItems(data.stokItems).length;
+  // ── LIVE counts dari stok_obat ─────────────────────────────────────────────
+  const totalProduk     = data.stokItems.length;
+  const lowStockCount   = getLowStokObatItems(data.stokItems).length;
   const nearExpiryCount = getNearExpiryStokItems(data.stokItems).length;
-  const masukCount     = data.stokMasuk.length;
-  const keluarCount    = data.stokKeluar.length;
+  const masukCount      = data.stokMasuk.length;
+  const keluarCount     = data.stokKeluar.length;
   const masterObatCount = data.masterObatCount;
 
-  // Operational sections with LIVE counts where available
-  const OPERATIONAL_SECTIONS = [
+  // ── LIVE counts dari drug_store_* ──────────────────────────────────────────
+  const supplierCount       = data.suppliers.length;
+  const activeSupplierCount = data.suppliers.filter((s) => s.status === 'Aktif').length;
+
+  const pembelianCount  = data.recentOrders.filter((o) => o.order_type === 'Pembelian').length;
+  const penjualanCount  = data.recentOrders.filter((o) => o.order_type === 'Penjualan').length;
+
+  const salesCount       = data.sales.length;
+  const salesTotalAmount = data.sales.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+
+  // Ringkasan laporan: total order penjualan dari drug_store_orders
+  const totalPenjualanOrders = data.recentOrders.filter((o) => o.order_type === 'Penjualan').length;
+
+  type SectionStatus = 'live' | 'not_implemented';
+
+  interface OperationalSection {
+    id:          string;
+    icon:        string;
+    title:       string;
+    description: string;
+    count:       string;
+    status:      SectionStatus;
+  }
+
+  const OPERATIONAL_SECTIONS: OperationalSection[] = [
     {
       id:          'master-obat',
       icon:        '📋',
       title:       'Master Obat',
       description: 'Katalog referensi obat hewan platform (drug_catalog).',
       count:       `${formatNumber(masterObatCount)} item di katalog`,
-      status:      'live' as const,
+      status:      'live',
     },
     {
       id:          'stok-obat',
@@ -93,7 +111,7 @@ export default function DrugStoreOperational(): ReactElement {
       title:       'Stok Obat',
       description: 'Stok obat aktif di workspace ini.',
       count:       `${formatNumber(totalProduk)} produk · ${lowStockCount} stok rendah`,
-      status:      'live' as const,
+      status:      'live',
     },
     {
       id:          'batch-expired',
@@ -101,63 +119,63 @@ export default function DrugStoreOperational(): ReactElement {
       title:       'Batch & Kedaluwarsa',
       description: 'Lacak nomor batch dan tanggal kedaluwarsa.',
       count:       `${nearExpiryCount} mendekati/sudah ED`,
-      status:      'live' as const,
+      status:      'live',
     },
     {
       id:          'transaksi-masuk',
       icon:        '📥',
       title:       'Transaksi Masuk',
       description: 'Catatan penerimaan produk dari distributor/PBF.',
-      count:       `${formatNumber(masukCount)} catatan`,
-      status:      'live' as const,
+      count:       `${formatNumber(masukCount)} catatan penerimaan`,
+      status:      'live',
     },
     {
       id:          'transaksi-keluar',
       icon:        '📤',
       title:       'Transaksi Keluar',
       description: 'Catatan pengeluaran/dispensing stok obat.',
-      count:       `${formatNumber(keluarCount)} catatan`,
-      status:      'live' as const,
+      count:       `${formatNumber(keluarCount)} catatan pengeluaran`,
+      status:      'live',
     },
     {
       id:          'supplier',
       icon:        '🏭',
       title:       'Supplier',
-      description: 'Kelola PBF, distributor, dan riwayat pembelian.',
-      count:       'Butuh tabel drug_store_suppliers',
-      status:      'blocked' as const,
+      description: 'PBF, distributor, dan riwayat pembelian.',
+      count:       `${formatNumber(supplierCount)} supplier · ${activeSupplierCount} aktif`,
+      status:      'live',
     },
     {
       id:          'purchase',
       icon:        '🛒',
       title:       'Purchase',
       description: 'Order pembelian dari supplier.',
-      count:       'Butuh tabel drug_store_orders',
-      status:      'blocked' as const,
+      count:       `${formatNumber(pembelianCount)} order pembelian terbaru`,
+      status:      'live',
     },
     {
       id:          'sales',
       icon:        '🧾',
       title:       'Penjualan',
-      description: 'Catat penjualan kepada pelanggan.',
-      count:       'Butuh tabel drug_store_orders',
-      status:      'blocked' as const,
+      description: 'Catat dan pantau penjualan kepada pelanggan.',
+      count:       `${formatNumber(penjualanCount)} order penjualan terbaru · ${formatRupiah(salesTotalAmount)} total`,
+      status:      'live',
     },
     {
       id:          'reports',
       icon:        '📊',
       title:       'Laporan',
       description: 'Laporan penjualan, stok, dan pembelian.',
-      count:       'Butuh tabel drug_store_orders + sales',
-      status:      'blocked' as const,
+      count:       `${formatNumber(totalPenjualanOrders)} order penjualan · ${formatNumber(salesCount)} catatan penjualan`,
+      status:      'live',
     },
     {
       id:          'ai-insight',
       icon:        '🤖',
       title:       'AI Insight',
-      description: 'Analisis berbasis data platform.',
+      description: 'Analisis berbasis data platform — belum diintegrasikan.',
       count:       'not_implemented',
-      status:      'not_implemented' as const,
+      status:      'not_implemented',
     },
   ];
 
@@ -212,9 +230,9 @@ export default function DrugStoreOperational(): ReactElement {
           <WorkspaceSectionTitle title="Ringkasan Stok Obat" action="Live" accentColor={COLORS.primary} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
             {[
-              { label: 'Total produk',    value: formatNumber(totalProduk),    icon: '💊', color: COLORS.text,  bg: COLORS.bg },
-              { label: 'Stok rendah',     value: String(lowStockCount),        icon: '⚠️', color: '#b45309',    bg: '#fffbeb' },
-              { label: 'Hampir/sudah ED', value: String(nearExpiryCount),      icon: '⏰', color: '#991b1b',    bg: '#fee2e2' },
+              { label: 'Total produk',    value: formatNumber(totalProduk),    icon: '💊', color: COLORS.text, bg: COLORS.bg  },
+              { label: 'Stok rendah',     value: String(lowStockCount),        icon: '⚠️', color: '#b45309',   bg: '#fffbeb' },
+              { label: 'Hampir/sudah ED', value: String(nearExpiryCount),      icon: '⏰', color: '#991b1b',   bg: '#fee2e2' },
             ].map((item) => (
               <div
                 key={item.label}
@@ -239,33 +257,17 @@ export default function DrugStoreOperational(): ReactElement {
           gap: 10,
         }}>
           {OPERATIONAL_SECTIONS.map((section) => {
-            const isBlocked        = section.status === 'blocked';
             const isNotImplemented = section.status === 'not_implemented';
             const isLive           = section.status === 'live';
 
-            const borderColor = isBlocked
-              ? '#fde68a'
-              : isNotImplemented
-                ? '#c7d2fe'
-                : COLORS.border;
+            const borderColor = isNotImplemented ? '#c7d2fe' : COLORS.border;
+            const bgColor     = isNotImplemented ? '#eef2ff' : 'var(--color-surface)';
 
-            const bgColor = isBlocked
-              ? '#fffbeb'
-              : isNotImplemented
-                ? '#eef2ff'
-                : 'var(--color-surface)';
+            const badgeColor = isNotImplemented
+              ? { color: '#4338ca', bg: '#e0e7ff' }
+              : { color: COLORS.primary, bg: COLORS.bg };
 
-            const badgeColor = isBlocked
-              ? { color: '#b45309', bg: '#fef3c7' }
-              : isNotImplemented
-                ? { color: '#4338ca', bg: '#e0e7ff' }
-                : { color: COLORS.primary, bg: COLORS.bg };
-
-            const badgeLabel = isBlocked
-              ? 'blocked'
-              : isNotImplemented
-                ? 'not_implemented'
-                : 'live';
+            const badgeLabel = isNotImplemented ? 'not_implemented' : 'live';
 
             return (
               <div
@@ -291,11 +293,17 @@ export default function DrugStoreOperational(): ReactElement {
                 <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>
                   {section.title}
                 </p>
-                <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.35 }}>
-                  {isLive ? section.count : section.description}
-                </p>
-                {isLive && (
-                  <p style={{ margin: '4px 0 0', fontSize: 9, color: COLORS.text, fontWeight: 600 }}>
+                {isLive ? (
+                  <>
+                    <p style={{ margin: '3px 0 0', fontSize: 10, color: COLORS.text, fontWeight: 600, lineHeight: 1.35 }}>
+                      {section.count}
+                    </p>
+                    <p style={{ margin: '3px 0 0', fontSize: 9, color: 'var(--color-muted)', lineHeight: 1.35 }}>
+                      {section.description}
+                    </p>
+                  </>
+                ) : (
+                  <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.35 }}>
                     {section.description}
                   </p>
                 )}

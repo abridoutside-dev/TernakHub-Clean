@@ -1,15 +1,12 @@
-// ─── DrugStoreDashboard — ADMIN-SYNC-006 ─────────────────────────────────────
+// ─── DrugStoreDashboard — ADMIN-SYNC-006 FINAL ───────────────────────────────
 // Dashboard Home khusus Workspace Toko Obat Hewan.
 // Dipilih oleh workspaceDashboardRegistry.tsx — tidak di-hardcode di App.tsx.
 //
-// Sumber data:
-//   LIVE           → stok_obat (produk & stok)
-//   LIVE           → stok_obat_masuk (transaksi masuk)
-//   LIVE           → stok_obat_keluar (transaksi keluar)
-//   LIVE           → activity_log (aktivitas workspace)
-//   LIVE           → workspaces (nama toko)
-//   NOT_IMPLEMENTED → Ringkasan Penjualan (needs drug_store_orders/drug_store_sales)
-//   NOT_IMPLEMENTED → Pesanan Terbaru (needs drug_store_orders)
+// Sumber data (semua LIVE dari Supabase):
+//   LIVE → workspaces, stok_obat, stok_obat_masuk, stok_obat_keluar
+//   LIVE → activity_log, drug_store_suppliers
+//   LIVE → drug_store_orders (Pesanan Terbaru, Ringkasan Penjualan)
+//   LIVE → drug_store_sales  (Ringkasan Penjualan)
 //   NOT_IMPLEMENTED → AI Insight (service belum diintegrasikan)
 
 import React from 'react';
@@ -21,8 +18,10 @@ import {
   getNearExpiryStokItems,
   getExpiryStatusFromDate,
   formatNumber,
+  formatRupiah,
   formatRelativeTime,
   formatExpiryDate,
+  formatOrderDate,
 } from '../../hooks/useDrugStoreDashboardData';
 import {
   WorkspaceCard,
@@ -31,6 +30,7 @@ import {
 } from '../../components/workspace/WorkspacePageHelpers';
 import type { StokObatDbRow } from '../../types/stokObat';
 import type { ActivityLogDbRow } from '../../types/activityLog';
+import type { DrugStoreOrderDbRow, DrugStorePenjualanSummary } from '../../types/drugStore';
 
 // ─── Tema warna Toko Obat ─────────────────────────────────────────────────────
 
@@ -59,12 +59,143 @@ function LoadingSkeleton() {
   );
 }
 
-// ─── Stock Summary Card ───────────────────────────────────────────────────────
+// ─── Ringkasan Penjualan Card — LIVE ─────────────────────────────────────────
+
+function RingkasanPenjualanCard({ penjualan }: { penjualan: DrugStorePenjualanSummary }) {
+  const growthLabel =
+    penjualan.growthPercent === null
+      ? '—'
+      : penjualan.growthPercent >= 0
+        ? `+${penjualan.growthPercent}%`
+        : `${penjualan.growthPercent}%`;
+
+  const growthColor =
+    penjualan.growthPercent === null
+      ? '#6b7280'
+      : penjualan.growthPercent >= 0
+        ? '#166534'
+        : '#991b1b';
+
+  return (
+    <WorkspaceCard style={{ marginBottom: 14 }}>
+      <WorkspaceSectionTitle title="Ringkasan Penjualan" action="Live" accentColor={COLORS.primary} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 10 }}>
+        <div style={{ background: COLORS.bg, borderRadius: 12, padding: 13 }}>
+          <p style={{ margin: 0, fontSize: 11, color: COLORS.text, fontWeight: 700 }}>💰 Penjualan Hari Ini</p>
+          <p style={{ margin: '5px 0 0', fontSize: 17, fontWeight: 800, color: COLORS.text, wordBreak: 'break-all' }}>
+            {formatRupiah(penjualan.todayRevenue)}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: growthColor, fontWeight: 700 }}>
+            {growthLabel} vs kemarin
+          </p>
+        </div>
+        <div style={{ background: '#f0fdf4', borderRadius: 12, padding: 13 }}>
+          <p style={{ margin: 0, fontSize: 11, color: '#166534', fontWeight: 700 }}>🧾 Order Hari Ini</p>
+          <p style={{ margin: '5px 0 0', fontSize: 20, fontWeight: 800, color: '#15803d' }}>
+            {formatNumber(penjualan.todayOrderCount)}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: '#166534' }}>total transaksi penjualan</p>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '8px 11px' }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#166534', fontWeight: 700 }}>✅ Selesai</p>
+          <p style={{ margin: '3px 0 0', fontSize: 16, fontWeight: 800, color: '#15803d' }}>
+            {formatNumber(penjualan.completedCount)}
+          </p>
+        </div>
+        <div style={{ background: '#fff7ed', borderRadius: 10, padding: '8px 11px' }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#9a3412', fontWeight: 700 }}>⏳ Diproses</p>
+          <p style={{ margin: '3px 0 0', fontSize: 16, fontWeight: 800, color: '#7c2d12' }}>
+            {formatNumber(penjualan.processingCount)}
+          </p>
+        </div>
+      </div>
+      {penjualan.todayOrderCount === 0 && (
+        <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+          Belum ada penjualan hari ini. Data akan muncul setelah transaksi pertama dicatat.
+        </p>
+      )}
+    </WorkspaceCard>
+  );
+}
+
+// ─── Pesanan Terbaru Card — LIVE ──────────────────────────────────────────────
+
+const ORDER_STATUS_CFG: Record<string, { color: string; bg: string }> = {
+  Baru:       { color: '#1d4ed8', bg: '#dbeafe' },
+  Diproses:   { color: '#b45309', bg: '#fef3c7' },
+  Selesai:    { color: '#166534', bg: '#dcfce7' },
+  Dibatalkan: { color: '#991b1b', bg: '#fee2e2' },
+};
+
+function PesananTerbaruCard({ orders }: { orders: DrugStoreOrderDbRow[] }) {
+  if (orders.length === 0) {
+    return (
+      <WorkspaceCard style={{ marginBottom: 14 }}>
+        <WorkspaceSectionTitle title="Pesanan Terbaru" action="Live" accentColor={COLORS.primary} />
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', padding: '12px 0' }}>
+          Belum ada pesanan. Pesanan pertama akan muncul di sini.
+        </p>
+      </WorkspaceCard>
+    );
+  }
+
+  return (
+    <WorkspaceCard style={{ marginBottom: 14 }}>
+      <WorkspaceSectionTitle title="Pesanan Terbaru" action={`${orders.length} order`} accentColor={COLORS.primary} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {orders.map((order) => {
+          const statusCfg = ORDER_STATUS_CFG[order.status] ?? { color: '#6b7280', bg: '#f3f4f6' };
+          const isPembelian = order.order_type === 'Pembelian';
+          return (
+            <div
+              key={order.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 11px', borderRadius: 10,
+                background: isPembelian ? '#eff6ff' : '#f0fdf4',
+                border: `1px solid ${isPembelian ? '#bfdbfe' : '#bbf7d0'}`,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{isPembelian ? '🛒' : '🧾'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {order.order_number ?? `Order #${order.id.slice(0, 8)}`}
+                </p>
+                <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                  {order.order_type} · {formatOrderDate(order.order_date)}
+                  {order.customer_name ? ` · ${order.customer_name}` : ''}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: statusCfg.color,
+                  background: statusCfg.bg, padding: '2px 6px', borderRadius: 5,
+                }}>
+                  {order.status}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 600 }}>
+                  {formatRupiah(order.total_amount)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </WorkspaceCard>
+  );
+}
+
+// ─── Stock Summary Card — LIVE ────────────────────────────────────────────────
 
 function StokSummaryCard({ items }: { items: StokObatDbRow[] }) {
-  const total       = items.length;
-  const lowStock    = getLowStokObatItems(items).length;
-  const nearExpiry  = getNearExpiryStokItems(items).filter(
+  const total      = items.length;
+  const lowStock   = getLowStokObatItems(items).length;
+  const nearExpiry = getNearExpiryStokItems(items).filter(
     (i) => getExpiryStatusFromDate(i.expiry_date) === 'Mendekati',
   ).length;
 
@@ -73,9 +204,9 @@ function StokSummaryCard({ items }: { items: StokObatDbRow[] }) {
       <WorkspaceSectionTitle title="Ringkasan Stok Obat" action="Live" accentColor={COLORS.primary} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
         {[
-          { value: formatNumber(total), label: 'Produk aktif',   icon: '💊', color: COLORS.text,  bg: COLORS.bg },
-          { value: String(lowStock),   label: 'Stok rendah',    icon: '⚠️', color: '#b45309',     bg: '#fffbeb' },
-          { value: String(nearExpiry), label: 'Hampir ED',       icon: '⏰', color: '#991b1b',     bg: '#fee2e2' },
+          { value: formatNumber(total), label: 'Produk aktif', icon: '💊', color: COLORS.text,  bg: COLORS.bg },
+          { value: String(lowStock),   label: 'Stok rendah',   icon: '⚠️', color: '#b45309',    bg: '#fffbeb' },
+          { value: String(nearExpiry), label: 'Hampir ED',      icon: '⏰', color: '#991b1b',    bg: '#fee2e2' },
         ].map((item) => (
           <div
             key={item.label}
@@ -91,7 +222,7 @@ function StokSummaryCard({ items }: { items: StokObatDbRow[] }) {
   );
 }
 
-// ─── Low Stock Card ───────────────────────────────────────────────────────────
+// ─── Low Stock Card — LIVE ────────────────────────────────────────────────────
 
 function LowStokCard({ items }: { items: StokObatDbRow[] }) {
   const lowStock = getLowStokObatItems(items).slice(0, 4);
@@ -147,13 +278,13 @@ function LowStokCard({ items }: { items: StokObatDbRow[] }) {
   );
 }
 
-// ─── Near Expiry Card ─────────────────────────────────────────────────────────
+// ─── Near Expiry Card — LIVE ──────────────────────────────────────────────────
 
 const EXPIRY_CFG = {
-  Kadaluarsa: { color: '#991b1b', bg: '#fee2e2', border: '#fca5a5', icon: '❌' },
-  Mendekati:  { color: '#b45309', bg: '#fffbeb', border: '#fbbf24', icon: '⏰' },
-  Aman:       { color: '#166534', bg: '#dcfce7', border: '#86efac', icon: '✅' },
-  'Tidak Ada':{ color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', icon: '—'  },
+  Kadaluarsa:  { color: '#991b1b', bg: '#fee2e2', border: '#fca5a5', icon: '❌' },
+  Mendekati:   { color: '#b45309', bg: '#fffbeb', border: '#fbbf24', icon: '⏰' },
+  Aman:        { color: '#166534', bg: '#dcfce7', border: '#86efac', icon: '✅' },
+  'Tidak Ada': { color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', icon: '—'  },
 } as const;
 
 function NearExpiryCard({ items }: { items: StokObatDbRow[] }) {
@@ -214,7 +345,7 @@ function NearExpiryCard({ items }: { items: StokObatDbRow[] }) {
   );
 }
 
-// ─── Transaksi Summary Card ───────────────────────────────────────────────────
+// ─── Transaksi Summary Card — LIVE ────────────────────────────────────────────
 
 function TransaksiSummaryCard({
   masukCount,
@@ -248,7 +379,7 @@ function TransaksiSummaryCard({
   );
 }
 
-// ─── Activity Card ────────────────────────────────────────────────────────────
+// ─── Activity Card — LIVE ─────────────────────────────────────────────────────
 
 function ActivityIcon(domain: string, action: string): string {
   if (action === 'CREATE') return '➕';
@@ -299,31 +430,7 @@ function RecentActivityCard({ activities }: { activities: ActivityLogDbRow[] }) 
   );
 }
 
-// ─── Blocked Widget ───────────────────────────────────────────────────────────
-
-function BlockedWidget({ title, reason }: { title: string; reason: string }) {
-  return (
-    <WorkspaceCard style={{ marginBottom: 14, borderColor: '#fde68a', background: '#fffbeb' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <span style={{ fontSize: 20 }}>🔒</span>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#92400e' }}>{title}</h2>
-          <span style={{
-            display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 700,
-            color: '#b45309', background: '#fef3c7', padding: '2px 7px', borderRadius: 6,
-          }}>
-            blocked
-          </span>
-        </div>
-      </div>
-      <p style={{ margin: 0, fontSize: 11, color: '#92400e', lineHeight: 1.6 }}>
-        {reason}
-      </p>
-    </WorkspaceCard>
-  );
-}
-
-// ─── AI Insight Widget ────────────────────────────────────────────────────────
+// ─── AI Insight Widget — not_implemented ──────────────────────────────────────
 
 function AiInsightWidget() {
   return (
@@ -343,7 +450,6 @@ function AiInsightWidget() {
       <p style={{ margin: 0, fontSize: 11, color: '#4338ca', lineHeight: 1.6 }}>
         Widget AI Insight tersedia untuk diaktifkan. Analisis akan mengonsumsi data platform
         (stok, transaksi, aktivitas) dan memanggil AI service yang akan diintegrasikan kemudian.
-        Tidak ada AI engine terpisah yang diperlukan saat ini.
       </p>
       <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
         {[
@@ -400,7 +506,7 @@ export default function DrugStoreDashboard(): React.ReactElement {
           </div>
         </div>
         <p style={{ margin: '12px 0 0', fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-          Ringkasan operasional toko obat — stok, transaksi, kedaluwarsa, dan aktivitas workspace secara real-time.
+          Ringkasan operasional toko obat — stok, transaksi, penjualan, kedaluwarsa, dan aktivitas workspace secara real-time.
         </p>
       </header>
 
@@ -438,20 +544,14 @@ export default function DrugStoreDashboard(): React.ReactElement {
             />
           </WorkspaceCard>
 
-          {/* Ringkasan Penjualan — BLOCKED */}
-          <BlockedWidget
-            title="Ringkasan Penjualan"
-            reason="Widget ini membutuhkan tabel drug_store_orders (order_type, total_amount, order_date, status) dan drug_store_sales (sale_date, total_amount, customer_id). Tabel belum tersedia di Supabase."
-          />
+          {/* Ringkasan Penjualan — LIVE */}
+          <RingkasanPenjualanCard penjualan={data.todayPenjualan} />
 
           {/* Ringkasan Stok Obat — LIVE */}
           <StokSummaryCard items={data.stokItems} />
 
-          {/* Pesanan Terbaru — BLOCKED */}
-          <BlockedWidget
-            title="Pesanan Terbaru"
-            reason="Widget ini membutuhkan tabel drug_store_orders (buyer/customer_id, items, total_amount, status, order_date). Tabel belum tersedia di Supabase."
-          />
+          {/* Pesanan Terbaru — LIVE */}
+          <PesananTerbaruCard orders={data.recentOrders} />
 
           {/* Obat Hampir Habis — LIVE */}
           <LowStokCard items={data.stokItems} />
