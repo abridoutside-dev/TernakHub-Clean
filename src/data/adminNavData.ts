@@ -658,14 +658,32 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
     label: 'Workspace Transport',
     icon: '🚛',
     items: [
+      // ADMIN-SYNC-008: Dashboard, Delivery, Reports → synced (LIVE)
       {
         key: 'trans-dashboard',
         label: 'Dashboard',
         icon: '📊',
         path: '/admin/transport/dashboard',
-        syncStatus: 'not_implemented',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
       },
+      {
+        key: 'trans-delivery',
+        label: 'Delivery',
+        icon: '📦',
+        path: '/admin/transport/delivery',
+        syncStatus: 'synced',
+        health: 'healthy',
+      },
+      {
+        key: 'trans-reports',
+        label: 'Reports',
+        icon: '📊',
+        path: '/admin/transport/reports',
+        syncStatus: 'synced',
+        health: 'healthy',
+      },
+      // Blocked — no Supabase tables
       {
         key: 'trans-vehicles',
         label: 'Vehicles',
@@ -679,14 +697,6 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Drivers',
         icon: '👷',
         path: '/admin/transport/drivers',
-        syncStatus: 'not_implemented',
-        health: 'unknown',
-      },
-      {
-        key: 'trans-delivery',
-        label: 'Delivery',
-        icon: '📦',
-        path: '/admin/transport/delivery',
         syncStatus: 'not_implemented',
         health: 'unknown',
       },
@@ -706,14 +716,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         syncStatus: 'not_implemented',
         health: 'unknown',
       },
-      {
-        key: 'trans-reports',
-        label: 'Reports',
-        icon: '📊',
-        path: '/admin/transport/reports',
-        syncStatus: 'not_implemented',
-        health: 'unknown',
-      },
+      // not_implemented — no AI backend
       {
         key: 'trans-ai',
         label: 'AI Insight',

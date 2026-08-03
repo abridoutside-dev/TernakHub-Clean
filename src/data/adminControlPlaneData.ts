@@ -223,7 +223,15 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     ],
   },
 
-  // ── 7. Workspace Transport ─────────────────────────────────────────────────
+  // ── 7. Workspace Transport — ADMIN-SYNC-008 ──────────────────────────────────
+  // LIVE   → Dashboard (workspaces type=Transport + marketplace data)
+  // LIVE   → Delivery  (marketplace_transactions WHERE seller=Transport ws)
+  // LIVE   → Reports   (aggregate marketplace data)
+  // NI     → Vehicle   (transport_vehicles belum ada)
+  // NI     → Driver    (transport_drivers belum ada)
+  // NI     → Schedule  (transport_schedules belum ada)
+  // NI     → Route     (transport_routes belum ada)
+  // NI     → AI        (AI backend belum tersedia)
   {
     domainKey: 'domain-transport',
     label: 'Workspace Transport',
@@ -231,9 +239,11 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     description: 'Transport vehicles, drivers, deliveries, routes, and schedules.',
     primaryPath: '/admin/transport/dashboard',
     widgets: [
+      w('trans-dashboard', 'Dashboard Summary', '📊',  LIVE),
+      w('trans-delivery',  'Delivery Summary',  '📦',  LIVE),
+      w('trans-reports',   'Reports Summary',   '📈',  LIVE),
       w('trans-vehicle',   'Vehicle Summary',   '🚚'),
       w('trans-driver',    'Driver Summary',    '👷'),
-      w('trans-delivery',  'Delivery Summary',  '📦'),
       w('trans-schedule',  'Schedule Summary',  '📅'),
       w('trans-route',     'Route Summary',     '🗺️'),
       w('trans-ai',        'AI Summary',        '🤖'),

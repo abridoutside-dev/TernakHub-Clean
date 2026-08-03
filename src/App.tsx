@@ -257,6 +257,17 @@ import { WorkspacesPlansPage, WorkspacesVerificationPage, BlockedWorkspacesPage,
 import { MarketplaceTransactionsPage, MarketplaceReportsPage } from './pages/admin/modules/MarketplaceSubPages';
 import { FeedStockPage, FeedConsumptionPage } from './pages/admin/modules/FeedSubPages';
 import { MedicineStockPage, MedicineUsagePage } from './pages/admin/modules/MedicineSubPages';
+// Transport domain — ADMIN-SYNC-008
+import TransportModule from './pages/admin/modules/TransportModule';
+import {
+  TransportVehiclesAdmin,
+  TransportDriversAdmin,
+  TransportDeliveryAdmin,
+  TransportScheduleAdmin,
+  TransportRouteAdmin,
+  TransportReportsAdmin,
+  TransportAIInsightAdmin,
+} from './pages/admin/modules/TransportSubPages';
 
 // ─── PublicRoute ──────────────────────────────────────────────────────────────
 // AUTH-004 — Redirects already-authenticated users away from public auth pages
@@ -732,6 +743,16 @@ export default function App() {
         <Route path="/admin/settings/security" element={<SettingsModule />} />
         <Route path="/admin/settings/api"      element={<SettingsModule />} />
         <Route path="/admin/settings/email"    element={<SettingsModule />} />
+
+        {/* Transport domain — ADMIN-SYNC-008 */}
+        <Route path="/admin/transport/dashboard"  element={<TransportModule />} />
+        <Route path="/admin/transport/vehicles"   element={<TransportVehiclesAdmin />} />
+        <Route path="/admin/transport/drivers"    element={<TransportDriversAdmin />} />
+        <Route path="/admin/transport/delivery"   element={<TransportDeliveryAdmin />} />
+        <Route path="/admin/transport/schedule"   element={<TransportScheduleAdmin />} />
+        <Route path="/admin/transport/route"      element={<TransportRouteAdmin />} />
+        <Route path="/admin/transport/reports"    element={<TransportReportsAdmin />} />
+        <Route path="/admin/transport/ai-insight" element={<TransportAIInsightAdmin />} />
 
         {/* ── News / RSS / Publication — admin-only content management ── */}
         <Route path="/admin/news-event/review"               element={<AdminNewsEventReview />} />
