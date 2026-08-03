@@ -1,12 +1,14 @@
-// ─── FeedStoreOperational — ADMIN-SYNC-005 ───────────────────────────────────
+// ─── FeedStoreOperational — ADMIN-FOUNDATION-003 ──────────────────────────────
 // Dashboard Operasional Workspace Toko Pakan — LIVE dari Supabase.
 //
 // Sumber data:
-//   LIVE    → stok_inventaris          (Daftar Produk, Manajemen Stok)
-//   LIVE    → stok_inventaris_transactions (Transaksi Masuk, Transaksi Keluar, Gerakan Stok)
-//   LIVE    → activity_log            (Aktivitas)
-//   BLOCKED → feed_store_suppliers    (Supplier — belum ada tabel)
-//   BLOCKED → feed_store_customers    (Pelanggan — belum ada tabel)
+//   LIVE    → stok_inventaris               (Daftar Produk, Manajemen Stok)
+//   LIVE    → stok_inventaris_transactions  (Transaksi Masuk, Transaksi Keluar, Gerakan Stok)
+//   LIVE    → activity_log                  (Aktivitas)
+//   LIVE    → feed_store_suppliers          (Supplier)
+//   LIVE    → feed_store_customers          (Pelanggan)
+//   LIVE    → feed_store_orders             (Pesanan — digunakan di Laporan)
+//   LIVE    → feed_store_sales              (Penjualan — digunakan di Laporan)
 
 import { useState, type ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -20,8 +22,11 @@ import {
   getTransaksiKeluar,
   formatNumber,
   formatRelativeTime,
+  formatRupiah,
 } from '../../hooks/useFeedStoreDashboardData';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
+import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow, FeedStoreSalesDbRow } from '../../types/feedStore';
+import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,9 +38,6 @@ interface Section {
   title: string;
   description: string;
   blocked: boolean;
-  blockReason?: string;
-  blockDependency?: string;
-  blockPriority?: 'high' | 'medium' | 'low';
 }
 
 // ─── Section config ───────────────────────────────────────────────────────────
@@ -81,30 +83,21 @@ const SECTIONS: Section[] = [
     icon: '🚚',
     title: 'Supplier',
     description: 'Daftar pemasok dan riwayat pembelian.',
-    blocked: true,
-    blockReason: 'Tabel feed_store_suppliers belum tersedia di database. Informasi supplier saat ini tidak disimpan dalam skema platform.',
-    blockDependency: 'feed_store_suppliers',
-    blockPriority: 'medium',
+    blocked: false,
   },
   {
     id: 'customers',
     icon: '👥',
     title: 'Pelanggan',
     description: 'Kelola data pelanggan toko dan histori pembelian.',
-    blocked: true,
-    blockReason: 'Tabel feed_store_customers belum tersedia di database. Data pelanggan direct sales tidak disimpan dalam skema platform saat ini.',
-    blockDependency: 'feed_store_customers',
-    blockPriority: 'medium',
+    blocked: false,
   },
   {
     id: 'reports',
     icon: '📊',
     title: 'Laporan',
     description: 'Laporan penjualan, stok, dan kinerja toko.',
-    blocked: true,
-    blockReason: 'Laporan keuangan memerlukan tabel feed_store_sales. Laporan stok tersedia secara parsial melalui stok_inventaris.',
-    blockDependency: 'feed_store_sales',
-    blockPriority: 'high',
+    blocked: false,
   },
   {
     id: 'ai_insight',
@@ -115,8 +108,17 @@ const SECTIONS: Section[] = [
   },
 ];
 
-// ActivityDetail digunakan pada panel detail ketika section 'ai_insight' tidak dipilih
-// — komponen ini sengaja disimpan untuk future wiring ke tab aktivitas jika ditambahkan.
+// ─── Shared UI ────────────────────────────────────────────────────────────────
+
+function EmptyState({ icon, message, hint }: { icon: string; message: string; hint?: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '20px 10px' }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text)', fontWeight: 600 }}>{message}</p>
+      {hint && <p style={{ margin: '5px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>{hint}</p>}
+    </div>
+  );
+}
 
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
@@ -269,6 +271,274 @@ function TransactionList({ transactions, type }: { transactions: StokTransaction
   );
 }
 
+// ─── Supplier Detail (LIVE) ───────────────────────────────────────────────────
+
+function SupplierDetail({ suppliers }: { suppliers: FeedStoreSupplierDbRow[] }) {
+  const aktif    = suppliers.filter((s) => s.status === 'Aktif').length;
+  const nonaktif = suppliers.filter((s) => s.status !== 'Aktif').length;
+
+  if (suppliers.length === 0) {
+    return (
+      <EmptyState
+        icon="🚚"
+        message="Belum ada supplier yang terdaftar."
+        hint="Tambahkan supplier untuk mencatat pemasok pakan."
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+        {[
+          { label: 'Total supplier', value: formatNumber(suppliers.length), color: '#1d4ed8', bg: '#eff6ff' },
+          { label: 'Aktif',          value: formatNumber(aktif),            color: '#166534', bg: '#f0fdf4' },
+          { label: 'Nonaktif',       value: formatNumber(nonaktif),         color: '#6b7280', bg: '#f9fafb' },
+        ].map((stat) => (
+          <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '9px 7px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 10, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {suppliers.slice(0, 10).map((sup) => (
+          <div
+            key={sup.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 9,
+              background: sup.status === 'Aktif' ? '#f0fdf4' : '#f9fafb',
+              border: `1px solid ${sup.status === 'Aktif' ? '#bbf7d0' : '#e5e7eb'}`,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🚚</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {sup.name}
+              </p>
+              <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                {[sup.contact_name, sup.phone, sup.city].filter(Boolean).join(' · ') || 'Tidak ada kontak'}
+              </p>
+            </div>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, flexShrink: 0,
+              color: sup.status === 'Aktif' ? '#166534' : '#6b7280',
+              background: sup.status === 'Aktif' ? '#dcfce7' : '#f3f4f6',
+            }}>
+              {sup.status}
+            </span>
+          </div>
+        ))}
+        {suppliers.length > 10 && (
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+            ... dan {suppliers.length - 10} supplier lainnya
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Customer Detail (LIVE) ───────────────────────────────────────────────────
+
+function CustomerDetail({ customers }: { customers: FeedStoreCustomerDbRow[] }) {
+  const aktif = customers.filter((c) => c.status === 'Aktif').length;
+  const byType: Record<string, number> = {};
+  for (const c of customers) {
+    const t = c.customer_type ?? 'Lainnya';
+    byType[t] = (byType[t] ?? 0) + 1;
+  }
+
+  if (customers.length === 0) {
+    return (
+      <EmptyState
+        icon="👥"
+        message="Belum ada pelanggan yang terdaftar."
+        hint="Tambahkan data pelanggan untuk mencatat pembeli pakan."
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+        {[
+          { label: 'Total pelanggan', value: formatNumber(customers.length), color: '#7c3aed', bg: '#f5f3ff' },
+          { label: 'Aktif',           value: formatNumber(aktif),            color: '#166534', bg: '#f0fdf4' },
+          { label: 'Nonaktif',        value: formatNumber(customers.length - aktif), color: '#6b7280', bg: '#f9fafb' },
+        ].map((stat) => (
+          <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '9px 7px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 10, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+      {Object.keys(byType).length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {Object.entries(byType).map(([type, count]) => (
+            <span key={type} style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#5b21b6', padding: '3px 8px', borderRadius: 6 }}>
+              {type}: {count}
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {customers.slice(0, 10).map((cust) => (
+          <div
+            key={cust.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 9,
+              background: cust.status === 'Aktif' ? '#f5f3ff' : '#f9fafb',
+              border: `1px solid ${cust.status === 'Aktif' ? '#ddd6fe' : '#e5e7eb'}`,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>👤</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {cust.name}
+              </p>
+              <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                {[cust.customer_type, cust.phone, cust.city].filter(Boolean).join(' · ') || 'Tidak ada kontak'}
+              </p>
+            </div>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, flexShrink: 0,
+              color: cust.status === 'Aktif' ? '#5b21b6' : '#6b7280',
+              background: cust.status === 'Aktif' ? '#ede9fe' : '#f3f4f6',
+            }}>
+              {cust.status}
+            </span>
+          </div>
+        ))}
+        {customers.length > 10 && (
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+            ... dan {customers.length - 10} pelanggan lainnya
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Reports Detail (LIVE) ────────────────────────────────────────────────────
+
+function ReportsDetail({
+  salesSummary,
+  recentOrders,
+  recentSales,
+  stokItems,
+  transactions,
+}: {
+  salesSummary: FeedStoreSalesSummaryData;
+  recentOrders: FeedStoreOrderDbRow[];
+  recentSales: FeedStoreSalesDbRow[];
+  stokItems: StokInventarisDbRow[];
+  transactions: StokTransactionDbRow[];
+}) {
+  const totalStokValue  = 0; // harga beli tidak ada di stok_inventaris
+  const masukCount      = getTransaksiMasuk(transactions).length;
+  const keluarCount     = getTransaksiKeluar(transactions).length;
+  const penjualanOrders = recentOrders.filter((o) => o.order_type === 'Penjualan');
+  const pembelianOrders = recentOrders.filter((o) => o.order_type === 'Pembelian');
+
+  return (
+    <div>
+      {/* Ringkasan Finansial */}
+      <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: 'var(--color-text)' }}>💰 Ringkasan Finansial</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
+        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 12 }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#166534', fontWeight: 700 }}>Penjualan Hari Ini</p>
+          <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 800, color: '#15803d', wordBreak: 'break-word' }}>
+            {salesSummary.todayRevenue > 0 ? formatRupiah(salesSummary.todayRevenue) : 'Rp 0'}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#166534' }}>{formatNumber(salesSummary.todayOrderCount)} order</p>
+        </div>
+        <div style={{ background: '#fff7ed', borderRadius: 10, padding: 12 }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#9a3412', fontWeight: 700 }}>Penjualan Bulan Ini</p>
+          <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 800, color: '#7c2d12', wordBreak: 'break-word' }}>
+            {salesSummary.monthRevenue > 0 ? formatRupiah(salesSummary.monthRevenue) : 'Rp 0'}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#9a3412' }}>{formatNumber(salesSummary.monthSalesCount)} catatan penjualan</p>
+        </div>
+      </div>
+
+      {/* Ringkasan Order */}
+      <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: 'var(--color-text)' }}>📋 Ringkasan Order</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
+        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 12 }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#166534', fontWeight: 700 }}>🧾 Order Penjualan</p>
+          <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 800, color: '#15803d' }}>{formatNumber(penjualanOrders.length)}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#166534' }}>dari {recentOrders.length} total order</p>
+        </div>
+        <div style={{ background: '#eff6ff', borderRadius: 10, padding: 12 }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#1d4ed8', fontWeight: 700 }}>📦 Order Pembelian</p>
+          <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 800, color: '#1e40af' }}>{formatNumber(pembelianOrders.length)}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#1d4ed8' }}>dari {recentOrders.length} total order</p>
+        </div>
+      </div>
+
+      {/* Ringkasan Stok */}
+      <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: 'var(--color-text)' }}>📦 Ringkasan Stok</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
+        {[
+          { label: 'Total item stok', value: formatNumber(stokItems.length),   color: '#1d4ed8', bg: '#eff6ff' },
+          { label: 'Stok masuk',      value: formatNumber(masukCount),         color: '#166534', bg: '#f0fdf4' },
+          { label: 'Stok keluar',     value: formatNumber(keluarCount),        color: '#991b1b', bg: '#fef2f2' },
+        ].map((stat) => (
+          <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '9px 7px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 9, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Catatan Penjualan Terbaru */}
+      {recentSales.length > 0 && (
+        <>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: 'var(--color-text)' }}>🧾 Catatan Penjualan Terbaru</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {recentSales.slice(0, 5).map((sale) => {
+              const statusColor = sale.status === 'Selesai' ? '#166534' : sale.status === 'Dibatalkan' ? '#991b1b' : '#92400e';
+              const statusBg    = sale.status === 'Selesai' ? '#f0fdf4'  : sale.status === 'Dibatalkan' ? '#fef2f2'  : '#fffbeb';
+              return (
+                <div key={sale.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 9, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <span style={{ fontSize: 16 }}>🧾</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: 'var(--color-text)' }}>
+                      {formatRupiah(sale.total_amount)}
+                    </p>
+                    <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                      {sale.sale_date} · {sale.payment_method ?? 'Metode tidak dicatat'}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, background: statusBg, padding: '2px 7px', borderRadius: 6, flexShrink: 0 }}>
+                    {sale.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {recentOrders.length === 0 && recentSales.length === 0 && (
+        <div style={{ marginTop: 8 }}>
+          <EmptyState icon="📊" message="Belum ada data laporan." hint="Data akan muncul setelah order dan catatan penjualan dicatat." />
+        </div>
+      )}
+
+      {totalStokValue === 0 && (
+        <p style={{ margin: '12px 0 0', fontSize: 10, color: 'var(--color-muted)', fontStyle: 'italic' }}>
+          * Nilai stok tidak tersedia — tabel stok_inventaris tidak menyimpan harga satuan.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── AI Insight Detail ────────────────────────────────────────────────────────
 
 function AiInsightDetail() {
   return (
@@ -306,52 +576,16 @@ function AiInsightDetail() {
   );
 }
 
-function BlockedDetail({ section }: { section: Section }) {
-  const priorityColor = section.blockPriority === 'high' ? '#991b1b' : section.blockPriority === 'medium' ? '#92400e' : '#1d4ed8';
-  const priorityBg    = section.blockPriority === 'high' ? '#fef2f2' : section.blockPriority === 'medium' ? '#fffbeb' : '#eff6ff';
-  const priorityLabel = section.blockPriority === 'high' ? 'Prioritas Tinggi' : section.blockPriority === 'medium' ? 'Prioritas Sedang' : 'Prioritas Rendah';
-  return (
-    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 20 }}>🚧</span>
-        <div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>{section.title} — Blocked</p>
-          <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, color: priorityColor, background: priorityBg, padding: '2px 7px', borderRadius: 5 }}>
-            {priorityLabel}
-          </span>
-        </div>
-      </div>
-      <div style={{ background: '#f3f4f6', borderRadius: 8, padding: 10 }}>
-        <p style={{ margin: 0, fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
-          <strong style={{ color: '#374151' }}>Alasan:</strong> {section.blockReason}
-        </p>
-        <p style={{ margin: '6px 0 0', fontSize: 11, color: '#6b7280' }}>
-          <strong style={{ color: '#374151' }}>Dependency:</strong>{' '}
-          <code style={{ fontSize: 10, background: '#e5e7eb', padding: '1px 5px', borderRadius: 4 }}>
-            {section.blockDependency}
-          </code>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ icon, message, hint }: { icon: string; message: string; hint?: string }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '20px 10px' }}>
-      <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
-      <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text)', fontWeight: 600 }}>{message}</p>
-      {hint && <p style={{ margin: '5px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>{hint}</p>}
-    </div>
-  );
-}
-
-// ─── Count Labels (LIVE) ──────────────────────────────────────────────────────
+// ─── Count Labels ─────────────────────────────────────────────────────────────
 
 function getSectionCountLabel(
   sectionId: SectionId,
   items: StokInventarisDbRow[],
   transactions: StokTransactionDbRow[],
+  suppliers: FeedStoreSupplierDbRow[],
+  customers: FeedStoreCustomerDbRow[],
+  recentOrders: FeedStoreOrderDbRow[],
+  salesSummary: FeedStoreSalesSummaryData,
 ): string {
   switch (sectionId) {
     case 'products':  return `${formatNumber(items.length)} item stok`;
@@ -359,12 +593,12 @@ function getSectionCountLabel(
       const low = getLowStockItems(items).length;
       return low > 0 ? `${formatNumber(low)} perlu perhatian` : `${formatNumber(items.length)} item`;
     }
-    case 'incoming':  return `${formatNumber(getTransaksiMasuk(transactions).length)} transaksi`;
-    case 'outgoing':  return `${formatNumber(getTransaksiKeluar(transactions).length)} transaksi`;
-    case 'movements': return `${formatNumber(transactions.length)} total gerakan`;
-    case 'supplier':  return 'Blocked';
-    case 'customers': return 'Blocked';
-    case 'reports':   return 'Blocked';
+    case 'incoming':   return `${formatNumber(getTransaksiMasuk(transactions).length)} transaksi`;
+    case 'outgoing':   return `${formatNumber(getTransaksiKeluar(transactions).length)} transaksi`;
+    case 'movements':  return `${formatNumber(transactions.length)} total gerakan`;
+    case 'supplier':   return `${formatNumber(suppliers.length)} supplier`;
+    case 'customers':  return `${formatNumber(customers.length)} pelanggan`;
+    case 'reports':    return salesSummary.todayRevenue > 0 ? formatRupiah(salesSummary.todayRevenue) : `${formatNumber(recentOrders.length)} order`;
     case 'ai_insight': return 'not_implemented';
     default: return '-';
   }
@@ -446,9 +680,17 @@ export default function FeedStoreOperational(): ReactElement {
         <>
           <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
             {SECTIONS.map((section) => {
-              const active  = section.id === selectedSection;
-              const countLabel = getSectionCountLabel(section.id, data.stokItems, data.transactions);
-              const isBlocked  = section.blocked;
+              const active     = section.id === selectedSection;
+              const countLabel = getSectionCountLabel(
+                section.id,
+                data.stokItems,
+                data.transactions,
+                data.suppliers,
+                data.customers,
+                data.recentOrders,
+                data.salesSummary,
+              );
+              const isAi = section.id === 'ai_insight';
 
               return (
                 <button
@@ -457,24 +699,20 @@ export default function FeedStoreOperational(): ReactElement {
                   onClick={() => setSelectedSection(section.id)}
                   style={{
                     textAlign: 'left',
-                    border: active
-                      ? '1.5px solid #f59e0b'
-                      : isBlocked ? '1px solid #d1d5db' : '1px solid var(--color-border)',
+                    border: active ? '1.5px solid #f59e0b' : '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-md)',
-                    background: active ? '#fffbeb' : isBlocked ? '#f9fafb' : 'var(--color-surface)',
+                    background: active ? '#fffbeb' : 'var(--color-surface)',
                     padding: 13, cursor: 'pointer', minHeight: 110,
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ fontSize: 23 }}>{section.icon}</span>
-                    {isBlocked
-                      ? <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700 }}>Blocked</span>
-                      : section.id === 'ai_insight'
-                        ? <span style={{ fontSize: 10, color: '#6366f1', fontWeight: 700 }}>N/I</span>
-                        : <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>Live</span>
+                    {isAi
+                      ? <span style={{ fontSize: 10, color: '#6366f1', fontWeight: 700 }}>N/I</span>
+                      : <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>Live</span>
                     }
                   </div>
-                  <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 800, color: isBlocked ? '#9ca3af' : 'var(--color-text)' }}>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>
                     {section.title}
                   </p>
                   <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.35 }}>
@@ -495,9 +733,7 @@ export default function FeedStoreOperational(): ReactElement {
               </div>
             </div>
 
-            {selected.blocked ? (
-              <BlockedDetail section={selected} />
-            ) : selected.id === 'products' ? (
+            {selected.id === 'products' ? (
               <ProductsDetail items={data.stokItems} />
             ) : selected.id === 'stock' ? (
               <StockDetail items={data.stokItems} />
@@ -507,6 +743,18 @@ export default function FeedStoreOperational(): ReactElement {
               <TransactionList transactions={data.transactions} type="Keluar" />
             ) : selected.id === 'movements' ? (
               <TransactionList transactions={data.transactions} type="all" />
+            ) : selected.id === 'supplier' ? (
+              <SupplierDetail suppliers={data.suppliers} />
+            ) : selected.id === 'customers' ? (
+              <CustomerDetail customers={data.customers} />
+            ) : selected.id === 'reports' ? (
+              <ReportsDetail
+                salesSummary={data.salesSummary}
+                recentOrders={data.recentOrders}
+                recentSales={data.recentSales}
+                stokItems={data.stokItems}
+                transactions={data.transactions}
+              />
             ) : selected.id === 'ai_insight' ? (
               <AiInsightDetail />
             ) : null}

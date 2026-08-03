@@ -1,19 +1,17 @@
-// ─── useFeedStoreDashboardData — ADMIN-SYNC-005 ───────────────────────────────
+// ─── useFeedStoreDashboardData — ADMIN-FOUNDATION-003 ─────────────────────────
 //
 // Shared data hook untuk Feed Store Dashboard & Operational.
 // Mengambil data LIVE dari Supabase menggunakan repository yang sudah ada.
 //
 // Tabel yang digunakan:
-//   - workspaces               → workspace name/meta
-//   - stok_inventaris          → produk & stok
-//   - stok_inventaris_transactions → gerakan stok (masuk/keluar/penyesuaian)
-//   - activity_log             → aktivitas workspace
-//
-// Tabel yang belum ada (BLOCKED):
-//   - feed_store_sales         → ringkasan penjualan, pesanan terbaru
-//   - feed_store_purchases     → pembelian dari supplier
-//   - feed_store_suppliers     → daftar supplier
-//   - feed_store_customers     → daftar pelanggan
+//   - workspaces                    → workspace name/meta
+//   - stok_inventaris               → produk & stok
+//   - stok_inventaris_transactions  → gerakan stok (masuk/keluar/penyesuaian)
+//   - activity_log                  → aktivitas workspace
+//   - feed_store_suppliers          → daftar pemasok
+//   - feed_store_customers          → daftar pelanggan
+//   - feed_store_orders             → pesanan (penjualan & pembelian)
+//   - feed_store_sales              → catatan penjualan
 
 import { useState, useEffect, useCallback } from 'react';
 import { repoGetWorkspaceByUuid } from '../repositories/workspaceRepository';
@@ -22,11 +20,38 @@ import {
   repoGetTransactionsByWorkspace,
 } from '../repositories/stokInventarisRepository';
 import { repoGetActivityLogByWorkspace } from '../repositories/activityLogRepository';
+import {
+  repoGetSuppliersByWorkspace,
+  repoGetCustomersByWorkspace,
+  repoGetRecentOrders,
+  repoGetTodayPenjualanAggregate,
+  repoGetYesterdayPenjualanTotal,
+  repoGetSalesAggregate,
+  repoGetSalesByWorkspace,
+} from '../repositories/feedStoreRepository';
 import type { WorkspaceRecord } from '../types/workspace';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../types/stokInventaris';
 import type { ActivityLogDbRow } from '../types/activityLog';
+import type {
+  FeedStoreSupplierDbRow,
+  FeedStoreCustomerDbRow,
+  FeedStoreOrderDbRow,
+  FeedStoreSalesDbRow,
+} from '../types/feedStore';
 
 // ─── Output shape ─────────────────────────────────────────────────────────────
+
+export interface FeedStoreSalesSummaryData {
+  todayRevenue: number;
+  todayOrderCount: number;
+  completedCount: number;
+  processingCount: number;
+  /** null jika tidak ada data kemarin */
+  growthPercent: number | null;
+  /** Penjualan bulan ini dari feed_store_sales */
+  monthRevenue: number;
+  monthSalesCount: number;
+}
 
 export interface FeedStoreDashboardData {
   /** Workspace info dari tabel workspaces */
@@ -37,6 +62,16 @@ export interface FeedStoreDashboardData {
   transactions: StokTransactionDbRow[];
   /** Log aktivitas workspace dari tabel activity_log */
   activities: ActivityLogDbRow[];
+  /** Daftar supplier dari feed_store_suppliers */
+  suppliers: FeedStoreSupplierDbRow[];
+  /** Daftar pelanggan dari feed_store_customers */
+  customers: FeedStoreCustomerDbRow[];
+  /** Pesanan terbaru dari feed_store_orders */
+  recentOrders: FeedStoreOrderDbRow[];
+  /** Catatan penjualan terbaru dari feed_store_sales */
+  recentSales: FeedStoreSalesDbRow[];
+  /** Ringkasan penjualan hari ini */
+  salesSummary: FeedStoreSalesSummaryData;
 }
 
 export interface UseFeedStoreDashboardDataResult {
@@ -46,11 +81,26 @@ export interface UseFeedStoreDashboardDataResult {
   refresh: () => void;
 }
 
+const EMPTY_SALES_SUMMARY: FeedStoreSalesSummaryData = {
+  todayRevenue: 0,
+  todayOrderCount: 0,
+  completedCount: 0,
+  processingCount: 0,
+  growthPercent: null,
+  monthRevenue: 0,
+  monthSalesCount: 0,
+};
+
 const EMPTY_DATA: FeedStoreDashboardData = {
   workspace:    null,
   stokItems:    [],
   transactions: [],
   activities:   [],
+  suppliers:    [],
+  customers:    [],
+  recentOrders: [],
+  recentSales:  [],
+  salesSummary: EMPTY_SALES_SUMMARY,
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -65,7 +115,6 @@ export function useFeedStoreDashboardData(
   const fetchData = useCallback(async (aborted: { current: boolean }) => {
     if (!workspaceId || workspaceId === 'w7') {
       // workspaceId 'w7' adalah seed ID — tidak ada di Supabase.
-      // Tampilkan state kosong tanpa error.
       setData(EMPTY_DATA);
       return;
     }
@@ -74,16 +123,67 @@ export function useFeedStoreDashboardData(
     setError(null);
 
     try {
-      const [workspace, stokItems, transactions, activities] = await Promise.all([
+      // Hitung awal bulan ini untuk aggregate penjualan bulan ini
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+      const [
+        workspace,
+        stokItems,
+        transactions,
+        activities,
+        suppliers,
+        customers,
+        recentOrders,
+        recentSales,
+        todayAggregate,
+        yesterdayTotal,
+        monthSales,
+      ] = await Promise.all([
         repoGetWorkspaceByUuid(workspaceId).catch(() => null),
         repoGetStokInventarisByWorkspace(workspaceId).catch(() => []),
         repoGetTransactionsByWorkspace(workspaceId).catch(() => []),
         repoGetActivityLogByWorkspace(workspaceId, 20).catch(() => []),
+        repoGetSuppliersByWorkspace(workspaceId).catch(() => []),
+        repoGetCustomersByWorkspace(workspaceId).catch(() => []),
+        repoGetRecentOrders(workspaceId, 8).catch(() => []),
+        repoGetSalesByWorkspace(workspaceId, 20).catch(() => []),
+        repoGetTodayPenjualanAggregate(workspaceId).catch(() => ({ totalAmount: 0, orderCount: 0, completedCount: 0, processingCount: 0 })),
+        repoGetYesterdayPenjualanTotal(workspaceId).catch(() => 0),
+        repoGetSalesAggregate(workspaceId, { since: monthStart }).catch(() => ({ totalAmount: 0, count: 0 })),
       ]);
 
       if (aborted.current) return;
 
-      setData({ workspace, stokItems, transactions, activities });
+      // Hitung growth vs kemarin
+      let growthPercent: number | null = null;
+      if (yesterdayTotal > 0) {
+        growthPercent = ((todayAggregate.totalAmount - yesterdayTotal) / yesterdayTotal) * 100;
+      } else if (todayAggregate.totalAmount > 0) {
+        growthPercent = 100;
+      }
+
+      const salesSummary: FeedStoreSalesSummaryData = {
+        todayRevenue:    todayAggregate.totalAmount,
+        todayOrderCount: todayAggregate.orderCount,
+        completedCount:  todayAggregate.completedCount,
+        processingCount: todayAggregate.processingCount,
+        growthPercent,
+        monthRevenue:    monthSales.totalAmount,
+        monthSalesCount: monthSales.count,
+      };
+
+      setData({
+        workspace,
+        stokItems,
+        transactions,
+        activities,
+        suppliers,
+        customers,
+        recentOrders,
+        recentSales,
+        salesSummary,
+      });
     } catch (err) {
       if (!aborted.current) {
         const msg = err instanceof Error ? err.message : 'Gagal memuat data Feed Store.';
@@ -149,4 +249,9 @@ export function formatRelativeTime(isoString: string): string {
 /** Format angka dengan separator ribuan */
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat('id-ID').format(value);
+}
+
+/** Format nilai IDR */
+export function formatRupiah(value: number): string {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
 }

@@ -1,4 +1,4 @@
-// ─── FeedStoreDashboard — ADMIN-SYNC-005 ─────────────────────────────────────
+// ─── FeedStoreDashboard — ADMIN-FOUNDATION-003 ────────────────────────────────
 // Dashboard Home Workspace Toko Pakan — LIVE dari Supabase.
 //
 // Sumber data:
@@ -6,8 +6,8 @@
 //   LIVE  → stok_inventaris_transactions (gerakan stok)
 //   LIVE  → activity_log (aktivitas workspace)
 //   LIVE  → workspaces (nama toko)
-//   BLOCKED → feed_store_sales (belum ada tabel)
-//   BLOCKED → feed_store_orders (belum ada tabel)
+//   LIVE  → feed_store_orders (pesanan terbaru & ringkasan penjualan hari ini)
+//   LIVE  → feed_store_sales (ringkasan penjualan bulan ini)
 //   NOT_IMPLEMENTED → AI Insight (service belum diintegrasikan)
 
 import React from 'react';
@@ -21,9 +21,13 @@ import {
   getTransaksiKeluar,
   formatRelativeTime,
   formatNumber,
+  formatRupiah,
 } from '../../hooks/useFeedStoreDashboardData';
 import type { StokInventarisDbRow } from '../../types/stokInventaris';
 import type { ActivityLogDbRow } from '../../types/activityLog';
+import type { FeedStoreOrderDbRow } from '../../types/feedStore';
+import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
+import type { StokTransactionDbRow } from '../../types/stokInventaris';
 
 // ─── UI Primitives ────────────────────────────────────────────────────────────
 
@@ -76,55 +80,6 @@ function QuickActions({ actions, workspaceId }: { actions: WorkspaceQuickAction[
         </button>
       ))}
     </div>
-  );
-}
-
-// ─── Blocked Widget ───────────────────────────────────────────────────────────
-
-function BlockedWidget({
-  title,
-  reason,
-  dependency,
-  priority,
-}: {
-  title: string;
-  reason: string;
-  dependency: string;
-  priority: 'high' | 'medium' | 'low';
-}) {
-  const priorityColor = priority === 'high' ? '#991b1b' : priority === 'medium' ? '#92400e' : '#1d4ed8';
-  const priorityBg    = priority === 'high' ? '#fef2f2' : priority === 'medium' ? '#fffbeb' : '#eff6ff';
-  const priorityLabel = priority === 'high' ? 'Prioritas Tinggi' : priority === 'medium' ? 'Prioritas Sedang' : 'Prioritas Rendah';
-
-  return (
-    <Card style={{ borderColor: '#e5e7eb', background: '#f9fafb' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 20 }}>🚧</span>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--color-text)' }}>{title}</h2>
-          <span
-            style={{
-              display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 700,
-              color: priorityColor, background: priorityBg,
-              padding: '2px 7px', borderRadius: 6,
-            }}
-          >
-            {priorityLabel}
-          </span>
-        </div>
-      </div>
-      <div style={{ background: '#f3f4f6', borderRadius: 8, padding: 10 }}>
-        <p style={{ margin: 0, fontSize: 11, color: '#6b7280' }}>
-          <strong style={{ color: '#374151' }}>Alasan:</strong> {reason}
-        </p>
-        <p style={{ margin: '5px 0 0', fontSize: 11, color: '#6b7280' }}>
-          <strong style={{ color: '#374151' }}>Dependency:</strong>{' '}
-          <code style={{ fontSize: 10, background: '#e5e7eb', padding: '1px 5px', borderRadius: 4 }}>
-            {dependency}
-          </code>
-        </p>
-      </div>
-    </Card>
   );
 }
 
@@ -181,9 +136,9 @@ function LoadingSkeleton() {
 // ─── Stock Summary ────────────────────────────────────────────────────────────
 
 function StockSummaryCard({ items }: { items: StokInventarisDbRow[] }) {
-  const total       = items.length;
-  const active      = items.filter((i) => i.status === 'Aktif').length;
-  const lowStock    = getLowStockItems(items);
+  const total          = items.length;
+  const active         = items.filter((i) => i.status === 'Aktif').length;
+  const lowStock       = getLowStockItems(items);
   const perluPerhatian = lowStock.length;
 
   return (
@@ -319,7 +274,7 @@ function RecentActivityCard({ activities }: { activities: ActivityLogDbRow[] }) 
 
 // ─── Transaction Summary ──────────────────────────────────────────────────────
 
-function TransactionSummaryCard({ items, transactions }: { items: StokInventarisDbRow[]; transactions: import('../../types/stokInventaris').StokTransactionDbRow[] }) {
+function TransactionSummaryCard({ items, transactions }: { items: StokInventarisDbRow[]; transactions: StokTransactionDbRow[] }) {
   const masuk  = getTransaksiMasuk(transactions);
   const keluar = getTransaksiKeluar(transactions);
 
@@ -346,6 +301,110 @@ function TransactionSummaryCard({ items, transactions }: { items: StokInventaris
         <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
           Belum ada data transaksi. Mulai catat stok masuk untuk mengisi data.
         </p>
+      )}
+    </Card>
+  );
+}
+
+// ─── Sales Summary Widget (LIVE) ──────────────────────────────────────────────
+
+function SalesSummaryCard({ summary }: { summary: FeedStoreSalesSummaryData }) {
+  const { todayRevenue, todayOrderCount, completedCount, processingCount, growthPercent, monthRevenue, monthSalesCount } = summary;
+  const growthColor = growthPercent === null ? '#6b7280' : growthPercent >= 0 ? '#166534' : '#991b1b';
+  const growthLabel = growthPercent === null
+    ? 'Belum ada data kemarin'
+    : growthPercent >= 0
+      ? `▲ ${growthPercent.toFixed(1)}% vs kemarin`
+      : `▼ ${Math.abs(growthPercent).toFixed(1)}% vs kemarin`;
+
+  return (
+    <Card style={{ marginBottom: 14, borderColor: '#bbf7d0' }}>
+      <SectionTitle title="Ringkasan Penjualan" badge="Live" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 10 }}>
+        <div style={{ background: '#f0fdf4', borderRadius: 12, padding: 13 }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#166534', fontWeight: 700 }}>💰 Penjualan Hari Ini</p>
+          <p style={{ margin: '5px 0 0', fontSize: 15, fontWeight: 800, color: '#15803d', wordBreak: 'break-word' }}>
+            {todayRevenue > 0 ? formatRupiah(todayRevenue) : 'Rp 0'}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 10, color: growthColor, fontWeight: 600 }}>{growthLabel}</p>
+        </div>
+        <div style={{ background: '#fff7ed', borderRadius: 12, padding: 13 }}>
+          <p style={{ margin: 0, fontSize: 10, color: '#9a3412', fontWeight: 700 }}>📅 Penjualan Bulan Ini</p>
+          <p style={{ margin: '5px 0 0', fontSize: 15, fontWeight: 800, color: '#7c2d12', wordBreak: 'break-word' }}>
+            {monthRevenue > 0 ? formatRupiah(monthRevenue) : 'Rp 0'}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 10, color: '#9a3412' }}>{formatNumber(monthSalesCount)} catatan penjualan</p>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+        {[
+          { value: formatNumber(todayOrderCount), label: 'Order hari ini',  color: '#1d4ed8', bg: '#eff6ff' },
+          { value: formatNumber(completedCount),  label: 'Selesai',         color: '#166534', bg: '#f0fdf4' },
+          { value: formatNumber(processingCount), label: 'Diproses',        color: '#92400e', bg: '#fffbeb' },
+        ].map((stat) => (
+          <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '8px 6px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 9, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+      {todayOrderCount === 0 && (
+        <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+          Belum ada penjualan hari ini. Data akan muncul setelah order penjualan dicatat.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+// ─── Recent Orders Widget (LIVE) ─────────────────────────────────────────────
+
+function RecentOrdersCard({ orders }: { orders: FeedStoreOrderDbRow[] }) {
+  const statusColor = (status: string) => {
+    if (status === 'Selesai')    return { color: '#166534', bg: '#f0fdf4' };
+    if (status === 'Dibatalkan') return { color: '#991b1b', bg: '#fef2f2' };
+    if (status === 'Diproses')   return { color: '#92400e', bg: '#fffbeb' };
+    return { color: '#1d4ed8', bg: '#eff6ff' };
+  };
+
+  return (
+    <Card style={{ marginBottom: 14, borderColor: '#bfdbfe' }}>
+      <SectionTitle title="Pesanan Terbaru" badge="Live" />
+      {orders.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', padding: '12px 0' }}>
+          Belum ada pesanan yang dicatat. Tambahkan order penjualan atau pembelian untuk mulai.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {orders.map((order) => {
+            const sc = statusColor(order.status);
+            const isPenjualan = order.order_type === 'Penjualan';
+            return (
+              <div
+                key={order.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 11px', borderRadius: 9,
+                  background: isPenjualan ? '#f0fdf4' : '#eff6ff',
+                  border: `1px solid ${isPenjualan ? '#bbf7d0' : '#bfdbfe'}`,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{isPenjualan ? '🧾' : '📋'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {order.order_number ?? `Order ${order.id.slice(0, 8)}`}
+                  </p>
+                  <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                    {order.order_type} · {order.order_date} · {formatRupiah(order.total_amount)}
+                  </p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: sc.color, background: sc.bg, padding: '2px 7px', borderRadius: 6, flexShrink: 0 }}>
+                  {order.status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </Card>
   );
@@ -379,7 +438,7 @@ export default function FeedStoreDashboard(): React.ReactElement {
           </div>
         </div>
         <p style={{ margin: '12px 0 0', fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-          Ringkasan operasional toko — stok, gerakan barang, dan aktivitas workspace secara real-time.
+          Ringkasan operasional toko — stok, penjualan, pesanan, dan aktivitas workspace secara real-time.
         </p>
       </header>
 
@@ -404,6 +463,12 @@ export default function FeedStoreDashboard(): React.ReactElement {
             <QuickActions actions={dashboardConfig.quickActions} workspaceId={routeWorkspaceId} />
           </Card>
 
+          {/* Ringkasan Penjualan — LIVE */}
+          <SalesSummaryCard summary={data.salesSummary} />
+
+          {/* Pesanan Terbaru — LIVE */}
+          <RecentOrdersCard orders={data.recentOrders} />
+
           {/* Ringkasan Stok — LIVE */}
           <StockSummaryCard items={data.stokItems} />
 
@@ -412,26 +477,6 @@ export default function FeedStoreDashboard(): React.ReactElement {
 
           {/* Item Stok Kritis — LIVE */}
           <LowStockCard items={data.stokItems} />
-
-          {/* ── BLOCKED: Ringkasan Penjualan ── */}
-          <div style={{ marginBottom: 14 }}>
-            <BlockedWidget
-              title="Ringkasan Penjualan"
-              reason="Tidak ada tabel penjualan (sales/orders) di database. Transaksi stok keluar (stok_inventaris_transactions) tidak menyimpan informasi harga jual, pembeli, atau status pesanan."
-              dependency="feed_store_sales"
-              priority="high"
-            />
-          </div>
-
-          {/* ── BLOCKED: Pesanan Terbaru ── */}
-          <div style={{ marginBottom: 14 }}>
-            <BlockedWidget
-              title="Pesanan Terbaru"
-              reason="Tidak ada tabel pesanan/orders untuk Toko Pakan. Marketplace transactions bukan pengganti karena digunakan untuk transaksi antar-workspace, bukan direct sales."
-              dependency="feed_store_orders"
-              priority="high"
-            />
-          </div>
 
           {/* Aktivitas Terkini — LIVE */}
           <div style={{ marginBottom: 14 }}>
