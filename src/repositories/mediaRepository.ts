@@ -402,6 +402,95 @@ export async function repoDeleteLivestockPhoto(
   return (data?.length ?? 0) > 0;
 }
 
+// ─── Browser media insert ─────────────────────────────────────────────────────
+// Used by imageStorageService after a direct-to-R2 browser upload.
+// The supabase client automatically includes the user's session JWT for RLS.
+
+/** Maps client MediaCategory values to the DB media_category enum. */
+const APP_CATEGORY_TO_DB: Record<string, string> = {
+  livestock:        'livestock',
+  marketplace:      'marketplace',
+  master_pakan:     'feed',
+  produk_komersial: 'marketplace',
+  workspace:        'workspace',
+  profile:          'profile',
+  kesehatan:        'health',
+  penyakit:         'health',
+  reproduksi:       'livestock',
+  batch:            'livestock',
+  news_event:       'news',
+  dokumen:          'system',
+  system:           'system',
+};
+
+function appCategoryToDb(category: string): string {
+  return APP_CATEGORY_TO_DB[category] ?? 'system';
+}
+
+function appCategoryToDbMediaType(category: string): string {
+  if (category === 'profile' || category === 'workspace') return 'avatar';
+  return 'image';
+}
+
+export interface MediaInsertBrowserInput {
+  category:          MediaCategory | string;
+  originalFilename:  string;
+  mimeType:          string;
+  fileSizeBytes:     number;
+  width:             number;
+  height:            number;
+  storageUrl:        string;
+  thumbnailUrl:      string;
+  objectKey:         string;
+  thumbnailKey:      string;
+  ownerWorkspaceId:  string;
+  uploadedBy:        string;
+  altText?:          string | null;
+  tags?:             string[];
+}
+
+/**
+ * Insert a media row from the browser after a successful direct-to-R2 upload.
+ * Returns the UUID of the newly-created media row.
+ * Uses the current Supabase session (RLS-enforced via the user's JWT).
+ */
+export async function repoInsertMediaBrowser(
+  input: MediaInsertBrowserInput,
+): Promise<string> {
+  const extraTags = input.tags ?? [];
+  const systemTags = [
+    `bucket:r2`,
+    `key:${input.objectKey}`,
+    `thumb_key:${input.thumbnailKey}`,
+  ];
+
+  const { data, error } = await supabase
+    .from('media')
+    .insert({
+      media_type:         appCategoryToDbMediaType(input.category),
+      media_category:     appCategoryToDb(input.category),
+      file_name:          input.originalFilename,
+      mime_type:          input.mimeType,
+      file_size_bytes:    input.fileSizeBytes,
+      width:              input.width  > 0 ? input.width  : null,
+      height:             input.height > 0 ? input.height : null,
+      storage_url:        input.storageUrl,
+      cdn_url:            input.thumbnailUrl || null,
+      owner_workspace_id: input.ownerWorkspaceId || null,
+      created_by:         input.uploadedBy,
+      alt_text:           input.altText ?? null,
+      tags:               [...systemTags, ...extraTags],
+      status:             'active',
+    })
+    .select('id')
+    .single();
+
+  if (error) throw new MediaRepoError(error.message, error.code);
+  return String((data as { id: string }).id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Resolve the display URL for a media UUID.
  * Returns thumbnail_url if available, otherwise storage_url, otherwise null.
