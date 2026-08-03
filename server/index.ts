@@ -15,6 +15,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import uploadRouter from './routes/upload.js';
+import adminConfigRouter from './routes/adminConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -48,6 +49,7 @@ app.use(express.json({ limit: '1mb' }));
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.use('/api/upload', uploadRouter);
+app.use('/api/admin', adminConfigRouter);
 
 // Root ping
 app.get('/api/ping', (_req, res) => {

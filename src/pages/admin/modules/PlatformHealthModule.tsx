@@ -56,7 +56,7 @@ function overlayStorageConfig(
   return {
     ...check,
     status: 'degraded',
-    message: `Bucket "${cfg.bucket}" dikonfigurasi · R2 credentials dibutuhkan di env`,
+    message: `Bucket "${cfg.bucket}" dikonfigurasi · R2 credentials diperlukan`,
   };
 }
 
@@ -328,26 +328,123 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Storage (R2) Config Drawer ───────────────────────────────────────────────
+// ─── Storage (R2) Config Drawer — ADMIN-PLATFORM-003B ─────────────────────────
 
 const ALL_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const CREDENTIAL_MASKED = '**masked**';
+
+function isMasked(v: string) { return v === CREDENTIAL_MASKED || v === '' || v.startsWith('**'); }
+
+function CredentialField({
+  label, value, onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [replacing, setReplacing] = useState(false);
+  const masked = isMasked(value);
+
+  if (masked && !replacing) {
+    return (
+      <div style={fieldGroupStyle}>
+        <label style={labelStyle}>{label}</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input style={{ ...fieldStyleRO, flex: 1 }} readOnly value={CREDENTIAL_MASKED} />
+          <button
+            onClick={() => setReplacing(true)}
+            style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Ganti
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={fieldGroupStyle}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          style={{ ...fieldStyle, flex: 1 }}
+          type="password"
+          value={replacing ? '' : value}
+          placeholder={replacing ? 'Masukkan nilai baru…' : ''}
+          autoComplete="off"
+          onChange={e => onChange(e.target.value)}
+        />
+        {replacing && (
+          <button
+            onClick={() => { setReplacing(false); onChange(CREDENTIAL_MASKED); }}
+            style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: 12, cursor: 'pointer' }}
+          >
+            Batal
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface OpResult { status: 'idle' | 'loading' | 'ok' | 'error'; message: string }
+const OP_IDLE: OpResult = { status: 'idle', message: '' };
+
+function OpBtn({ label, result, onClick }: { label: string; result: OpResult; onClick: () => void }) {
+  const busy = result.status === 'loading';
+  const color = result.status === 'ok' ? '#15803d' : result.status === 'error' ? '#b91c1c' : '#374151';
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          disabled={busy}
+          onClick={onClick}
+          style={{ padding: '8px 16px', borderRadius: 7, border: '1px solid #e2e8f0', background: busy ? '#f8fafc' : '#fff', color: '#374151', fontSize: 12.5, fontWeight: 600, cursor: busy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
+        >
+          {busy ? `${label}…` : label}
+        </button>
+        {result.message && (
+          <span style={{ fontSize: 12, color }}>{result.message}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   const [cfg, setCfg]       = useState<StorageServiceConfig>(DEFAULT_STORAGE_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [validationErr, setValidationErr] = useState<string | null>(null);
 
+  const [testConn,    setTestConn]    = useState<OpResult>(OP_IDLE);
+  const [testUpload,  setTestUpload]  = useState<OpResult>(OP_IDLE);
+  const [testDownload,setTestDownload]= useState<OpResult>(OP_IDLE);
+
+  // Load config from the admin API (credentials come back masked)
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const saved = await repoGetServiceConfig<StorageServiceConfig>(CONFIG_KEYS.storage, DEFAULT_STORAGE_CONFIG);
-      setCfg(saved);
+      try {
+        const { data: { session } } = await (await import('../../../lib/supabase')).supabase.auth.getSession();
+        const jwt = session?.access_token ?? '';
+        const res = await fetch('/api/admin/storage-config', {
+          headers: { Authorization: `Bearer ${jwt}` },
+        });
+        if (res.ok) {
+          const body = await res.json() as { success: boolean; config: StorageServiceConfig };
+          if (body.success) setCfg(body.config);
+        }
+      } catch { /* fallback to defaults */ }
       setLoading(false);
     })();
   }, []);
+
+  const getJwt = async (): Promise<string> => {
+    const { data: { session } } = await (await import('../../../lib/supabase')).supabase.auth.getSession();
+    return session?.access_token ?? '';
+  };
 
   const toggleMime = (mime: string) => {
     setCfg(p => ({
@@ -358,47 +455,113 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
     }));
   };
 
+  const validate = (): string | null => {
+    if (!cfg.accountId.trim()) return 'Account ID wajib diisi';
+    if (!cfg.bucket.trim())    return 'Bucket Name wajib diisi';
+    if (cfg.allowedMimeTypes.length === 0) return 'Pilih minimal satu MIME Type';
+    return null;
+  };
+
   const handleSave = async () => {
+    const err = validate();
+    if (err) { setValidationErr(err); return; }
+    setValidationErr(null);
     setSaving(true); setSaveMsg(null);
     try {
-      await repoUpsertServiceConfig(CONFIG_KEYS.storage, cfg as unknown as Record<string, unknown>, { description: 'Cloudflare R2 object storage configuration', isPublic: false });
-      setSaveMsg('✅ Konfigurasi disimpan');
+      const jwt = await getJwt();
+      const res = await fetch('/api/admin/storage-config', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg),
+      });
+      const body = await res.json() as { success: boolean; message?: string; error?: string };
+      setSaveMsg(body.success ? `✅ ${body.message ?? 'Konfigurasi disimpan'}` : `❌ ${body.error ?? 'Gagal menyimpan'}`);
     } catch (e) {
       setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
-  const handleTest = async () => {
-    setTesting(true); setTestResult(null);
+  const callOp = async (
+    path: string,
+    setter: (r: OpResult) => void,
+  ) => {
+    setter({ status: 'loading', message: '' });
     try {
-      const res = await fetch('/api/upload/health');
-      const body = await res.json() as { status?: string; bucket?: string; message?: string };
-      setTestResult(res.ok && body.status === 'ok'
-        ? `✅ R2 bucket "${body.bucket}" reachable`
-        : `❌ ${body.message ?? `HTTP ${res.status}`}`);
+      const jwt = await getJwt();
+      const res = await fetch(`/api/admin/storage-config/${path}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      const body = await res.json() as { success: boolean; message?: string; error?: string };
+      setter(body.success
+        ? { status: 'ok',    message: `✅ ${body.message ?? 'Berhasil'}` }
+        : { status: 'error', message: `❌ ${body.error ?? 'Gagal'}` });
     } catch (e) {
-      setTestResult(`❌ ${e instanceof Error ? e.message : 'Connection failed'}`);
-    } finally { setTesting(false); }
+      setter({ status: 'error', message: `❌ ${getErrorMessage(e)}` });
+    }
   };
+
+  const setBool = (key: keyof StorageServiceConfig) => (v: boolean) =>
+    setCfg(p => ({ ...p, [key]: v }));
 
   return (
     <DrawerOverlay onClose={onClose}>
       <DrawerHeader icon="📦" title="Object Storage (R2) Configuration" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
-        {loading ? <SkeletonBox height={200} /> : (
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 16 }}>
+            <SkeletonBox height={36} /><SkeletonBox height={36} /><SkeletonBox height={36} />
+            <SkeletonBox height={36} /><SkeletonBox height={36} />
+          </div>
+        ) : (
           <>
-            <SectionLabel>Identitas & Endpoint</SectionLabel>
-            <Field label="Account ID (hint)" hint="Tampilan referensi saja. Credential sesungguhnya dikonfigurasi via environment variable CLOUDFLARE_R2_ACCOUNT_ID.">
-              <input style={fieldStyle} value={cfg.accountIdHint} placeholder="e.g. a1b2c3..." onChange={e => setCfg(p => ({ ...p, accountIdHint: e.target.value }))} />
+            {/* ── IDENTITY ─────────────────────────────────────────────────── */}
+            <SectionLabel>Identity</SectionLabel>
+            <Field label="Cloudflare Account ID">
+              <input style={fieldStyle} value={cfg.accountId} placeholder="abc123..." onChange={e => setCfg(p => ({ ...p, accountId: e.target.value.trim() }))} />
             </Field>
             <Field label="Bucket Name">
-              <input style={fieldStyle} value={cfg.bucket} onChange={e => setCfg(p => ({ ...p, bucket: e.target.value }))} />
+              <input style={fieldStyle} value={cfg.bucket} placeholder="ternakhub-images" onChange={e => setCfg(p => ({ ...p, bucket: e.target.value.trim() }))} />
             </Field>
-            <Field label="Public URL / Custom Domain" hint="URL publik untuk objek yang disajikan. Kosongkan jika menggunakan r2.dev default.">
-              <input style={fieldStyle} value={cfg.publicUrl} placeholder="https://assets.example.com" onChange={e => setCfg(p => ({ ...p, publicUrl: e.target.value }))} />
+            <Field label="Endpoint URL">
+              <input style={fieldStyle} value={cfg.endpoint} placeholder="https://<accountid>.r2.cloudflarestorage.com" onChange={e => setCfg(p => ({ ...p, endpoint: e.target.value.trim() }))} />
+            </Field>
+            <Field label="Region">
+              <input style={fieldStyle} value={cfg.region} placeholder="auto" onChange={e => setCfg(p => ({ ...p, region: e.target.value.trim() || 'auto' }))} />
+            </Field>
+            <Field label="Public URL">
+              <input style={fieldStyle} value={cfg.publicUrl} placeholder="https://<accountid>.r2.dev" onChange={e => setCfg(p => ({ ...p, publicUrl: e.target.value.trim() }))} />
+            </Field>
+            <Field label="Custom Domain">
+              <input style={fieldStyle} value={cfg.customDomain} placeholder="https://assets.example.com" onChange={e => setCfg(p => ({ ...p, customDomain: e.target.value.trim() }))} />
             </Field>
 
+            {/* ── CREDENTIAL ───────────────────────────────────────────────── */}
+            <SectionLabel>Credential</SectionLabel>
+            <CredentialField
+              label="Access Key ID"
+              value={cfg.accessKeyId}
+              onChange={v => setCfg(p => ({ ...p, accessKeyId: v }))}
+            />
+            <CredentialField
+              label="Secret Access Key"
+              value={cfg.secretAccessKey}
+              onChange={v => setCfg(p => ({ ...p, secretAccessKey: v }))}
+            />
+            <CredentialField
+              label="Cloudflare API Token"
+              value={cfg.cfApiToken}
+              onChange={v => setCfg(p => ({ ...p, cfApiToken: v }))}
+            />
+
+            {/* ── UPLOAD POLICY ─────────────────────────────────────────────── */}
             <SectionLabel>Upload Policy</SectionLabel>
+            <Field label="Enable Storage">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <Toggle value={cfg.enableStorage} onChange={setBool('enableStorage')} />
+                <span style={{ fontSize: 12, color: '#64748b' }}>{cfg.enableStorage ? 'Storage aktif' : 'Storage dinonaktifkan'}</span>
+              </div>
+            </Field>
             <Field label="Max Upload Size (MB)">
               <input style={fieldStyle} type="number" min={1} max={100} value={cfg.maxUploadSizeMb} onChange={e => setCfg(p => ({ ...p, maxUploadSizeMb: parseInt(e.target.value) || 10 }))} />
             </Field>
@@ -412,30 +575,76 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             </Field>
+            <Field label="Max Resolution (px — sisi terpanjang)">
+              <input style={fieldStyle} type="number" min={100} max={8192} step={64} value={cfg.maxResolutionPx} onChange={e => setCfg(p => ({ ...p, maxResolutionPx: parseInt(e.target.value) || 1920 }))} />
+            </Field>
+            <Field label="Auto Compression">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <Toggle value={cfg.autoCompression} onChange={setBool('autoCompression')} />
+                <span style={{ fontSize: 12, color: '#64748b' }}>Kompres gambar secara otomatis saat upload</span>
+              </div>
+            </Field>
+            <Field label="Compression Quality (%)">
+              <input style={fieldStyle} type="number" min={10} max={100} value={cfg.compressionQuality} onChange={e => setCfg(p => ({ ...p, compressionQuality: parseInt(e.target.value) || 80 }))} />
+            </Field>
+            <Field label="Convert to WebP">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <Toggle value={cfg.convertToWebP} onChange={setBool('convertToWebP')} />
+                <span style={{ fontSize: 12, color: '#64748b' }}>Konversi semua output ke format WebP</span>
+              </div>
+            </Field>
+            <Field label="Preserve EXIF">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <Toggle value={cfg.preserveExif} onChange={setBool('preserveExif')} />
+                <span style={{ fontSize: 12, color: '#64748b' }}>Pertahankan metadata EXIF (lokasi, tanggal, dll.)</span>
+              </div>
+            </Field>
 
-            <SectionLabel>Processing</SectionLabel>
-            <Field label="Auto Image Compression">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                <Toggle value={cfg.autoImageCompression} onChange={v => setCfg(p => ({ ...p, autoImageCompression: v }))} />
-                <span style={{ fontSize: 12, color: '#64748b' }}>Kompres otomatis gambar saat upload (max 1920px, JPEG 80%)</span>
-              </div>
-            </Field>
-            <Field label="Auto Convert to WebP">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                <Toggle value={cfg.autoConvertWebP} onChange={v => setCfg(p => ({ ...p, autoConvertWebP: v }))} />
-                <span style={{ fontSize: 12, color: '#64748b' }}>Konversi output ke format WebP</span>
-              </div>
-            </Field>
-            <Field label="CDN Cache TTL (detik)" hint="Durasi cache CDN untuk objek yang disajikan. Default: 86400 (1 hari).">
+            {/* ── DELIVERY ─────────────────────────────────────────────────── */}
+            <SectionLabel>Delivery</SectionLabel>
+            <Field label="CDN Cache TTL (detik)">
               <input style={fieldStyle} type="number" min={60} max={31536000} value={cfg.cdnCacheTtlSec} onChange={e => setCfg(p => ({ ...p, cdnCacheTtlSec: parseInt(e.target.value) || 86400 }))} />
             </Field>
+            <Field label="Signed URL">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <Toggle value={cfg.signedUrl} onChange={setBool('signedUrl')} />
+                <span style={{ fontSize: 12, color: '#64748b' }}>Gunakan Signed URL untuk akses objek (bucket privat)</span>
+              </div>
+            </Field>
+            <Field label="Visibilitas Bucket">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <Toggle value={cfg.isPublicBucket} onChange={setBool('isPublicBucket')} />
+                <span style={{ fontSize: 12, color: '#64748b' }}>{cfg.isPublicBucket ? 'Public — objek dapat diakses langsung via URL' : 'Private — akses melalui Signed URL'}</span>
+              </div>
+            </Field>
+            <Field label="Default Image Quality (%)">
+              <input style={fieldStyle} type="number" min={10} max={100} value={cfg.defaultImageQuality} onChange={e => setCfg(p => ({ ...p, defaultImageQuality: parseInt(e.target.value) || 80 }))} />
+            </Field>
+
+            {/* ── OPERATIONS ───────────────────────────────────────────────── */}
+            <SectionLabel>Operations</SectionLabel>
+            <OpBtn label="Test Connection" result={testConn}     onClick={() => callOp('test-connection', setTestConn)} />
+            <OpBtn label="Test Upload"     result={testUpload}   onClick={() => callOp('test-upload',     setTestUpload)} />
+            <OpBtn label="Test Download"   result={testDownload} onClick={() => callOp('test-download',   setTestDownload)} />
+
+            {/* Validation error */}
+            {validationErr && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 12.5, marginTop: 8 }}>
+                ⚠️ {validationErr}
+              </div>
+            )}
           </>
         )}
       </div>
       <DrawerFooter>
-        <TestBtn onClick={handleTest} testing={testing} result={testResult} />
-        <div style={{ flex: 1 }} />
         <SaveFeedback msg={saveMsg} />
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={onClose}
+          style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >
+          Tutup
+        </button>
         <SaveBtn onClick={handleSave} saving={saving} />
       </DrawerFooter>
     </DrawerOverlay>

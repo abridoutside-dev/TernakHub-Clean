@@ -34,7 +34,7 @@ import {
   uploadObject,
   deleteObject,
   checkBucketHealth,
-  R2_BUCKET,
+  getBucket,
 } from '../r2Client.js';
 import { generateUploadKey } from '../utils/keyGen.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -247,7 +247,7 @@ router.post(
             thumbnail_url:     thumbResult.ok ? thumbResult.url : origResult.url,
             object_key:        originalKey,
             thumbnail_key:     thumbnailKey,
-            bucket:            R2_BUCKET,
+            bucket:            getBucket(),
             owner_workspace_id: workspaceId,
             uploaded_by:       req.user?.id ?? 'unknown',
           },
@@ -332,14 +332,14 @@ router.get('/health', async (_req: Request, res: Response) => {
   try {
     const result = await checkBucketHealth();
     if (result.ok) {
-      res.json({ status: 'ok', bucket: R2_BUCKET, message: result.message });
+      res.json({ status: 'ok', bucket: getBucket(), message: result.message });
     } else {
-      res.status(503).json({ status: 'error', bucket: R2_BUCKET, message: result.message });
+      res.status(503).json({ status: 'error', bucket: getBucket(), message: result.message });
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[R2] Health check error:', err);
-    res.status(503).json({ status: 'error', bucket: R2_BUCKET, message });
+    res.status(503).json({ status: 'error', bucket: getBucket(), message });
   }
 });
 

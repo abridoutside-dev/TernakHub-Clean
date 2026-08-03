@@ -1,0 +1,164 @@
+Sebelum mengerjakan apa pun:
+
+1. Checkout branch main.
+2. Jalankan git pull origin main.
+3. Pastikan commit terakhir adalah commit terbaru ADMIN-PLATFORM-003A.
+
+=========================================================
+ADMIN-PLATFORM-003B
+Complete Platform Service Configuration
+=========================================================
+
+Tujuan:
+
+Selesaikan Platform Service Configuration agar benar-benar menjadi Control Plane TernakHub.
+
+JANGAN membuat placeholder.
+
+JANGAN membuat dummy.
+
+JANGAN membuat mock.
+
+JANGAN membuat TODO.
+
+JANGAN meninggalkan PR.
+
+=========================================================
+
+ARSITEKTUR RESMI
+
+Dashboard Admin adalah SATU-SATUNYA tempat Administrator mengelola konfigurasi seluruh Platform.
+
+Administrator TIDAK BOLEH dipaksa:
+
+- mengubah file .env
+- mengubah server
+- mengubah Cloudflare Dashboard
+- mengubah Supabase Dashboard
+
+untuk konfigurasi operasional normal.
+
+=========================================================
+OBJECT STORAGE
+=========================================================
+
+Lengkapi Configure Cloudflare R2.
+
+Harus dapat mengelola:
+
+IDENTITY
+
+- Cloudflare Account ID
+- Bucket Name
+- Endpoint
+- Region
+- Public URL
+- Custom Domain
+
+CREDENTIAL
+
+- Access Key ID
+- Secret Access Key
+
+Secret Key:
+
+- disimpan terenkripsi
+- tidak pernah ditampilkan penuh
+- tampil sebagai ************
+- sediakan tombol Replace Secret Key
+
+UPLOAD POLICY
+
+- Enable Storage
+- Max Upload Size
+- Allowed MIME Types
+- Max Resolution
+- Auto Compression
+- Compression Quality
+- Convert to WebP
+- Preserve EXIF
+
+DELIVERY
+
+- CDN Cache TTL
+- Signed URL
+- Public / Private Bucket
+- Default Image Quality
+
+OPERATIONS
+
+- Test Connection
+- Test Upload
+- Test Download
+- Save Configuration
+
+=========================================================
+PERSISTENCE
+
+Seluruh konfigurasi harus benar-benar digunakan oleh aplikasi.
+
+Bukan hanya disimpan.
+
+Setelah Save:
+
+- upload berikutnya menggunakan konfigurasi terbaru
+- repository membaca konfigurasi terbaru
+- service membaca konfigurasi terbaru
+
+tanpa restart aplikasi.
+
+=========================================================
+SECURITY
+
+Credential sensitif:
+
+- Access Key
+- Secret Key
+
+HARUS terenkripsi.
+
+Tidak boleh dikirim kembali sebagai plaintext.
+
+=========================================================
+ADMIN UI
+
+Perbaiki UI agar benar-benar menjadi halaman konfigurasi profesional.
+
+Hilangkan istilah:
+
+(hint)
+
+Gunakan label yang jelas.
+
+Tambahkan validasi.
+
+Tambahkan loading.
+
+Tambahkan success message.
+
+Tambahkan failed message.
+
+=========================================================
+VALIDASI
+
+Build
+
+TypeScript
+
+ESLint
+
+=========================================================
+LAPORAN
+
+1. Files modified
+2. Repository yang berubah
+3. Encryption yang digunakan
+4. Storage Service yang berubah
+5. Widget yang berubah
+6. Build Status
+7. TypeScript Status
+8. ESLint Status
+
+Commit perubahan.
+
+Jangan mengerjakan service lain sebelum Cloudflare R2 benar-benar selesai end-to-end.

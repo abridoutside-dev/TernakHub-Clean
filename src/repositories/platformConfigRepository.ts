@@ -63,25 +63,55 @@ export const DEFAULT_SUPABASE_CONFIG: SupabaseServiceConfig = {
 };
 
 export interface StorageServiceConfig {
-  accountIdHint: string;
-  bucket: string;
-  publicUrl: string;
-  maxUploadSizeMb: number;
-  allowedMimeTypes: string[];
-  autoImageCompression: boolean;
-  autoConvertWebP: boolean;
-  cdnCacheTtlSec: number;
+  // IDENTITY
+  accountId:    string;
+  bucket:       string;
+  endpoint:     string;
+  region:       string;
+  publicUrl:    string;
+  customDomain: string;
+  // CREDENTIAL (browser never receives plaintext — stored as masked sentinel)
+  accessKeyId:     string;
+  secretAccessKey: string;
+  cfApiToken:      string;
+  // UPLOAD POLICY
+  enableStorage:       boolean;
+  maxUploadSizeMb:     number;
+  allowedMimeTypes:    string[];
+  maxResolutionPx:     number;
+  autoCompression:     boolean;
+  compressionQuality:  number;
+  convertToWebP:       boolean;
+  preserveExif:        boolean;
+  // DELIVERY
+  cdnCacheTtlSec:      number;
+  signedUrl:           boolean;
+  isPublicBucket:      boolean;
+  defaultImageQuality: number;
 }
 
 export const DEFAULT_STORAGE_CONFIG: StorageServiceConfig = {
-  accountIdHint: '',
-  bucket: 'ternakhub-images',
-  publicUrl: '',
-  maxUploadSizeMb: 10,
-  allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  autoImageCompression: true,
-  autoConvertWebP: false,
-  cdnCacheTtlSec: 86400,
+  accountId:    '',
+  bucket:       'ternakhub-images',
+  endpoint:     '',
+  region:       'auto',
+  publicUrl:    '',
+  customDomain: '',
+  accessKeyId:     '',
+  secretAccessKey: '',
+  cfApiToken:      '',
+  enableStorage:       true,
+  maxUploadSizeMb:     10,
+  allowedMimeTypes:    ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  maxResolutionPx:     1920,
+  autoCompression:     true,
+  compressionQuality:  80,
+  convertToWebP:       false,
+  preserveExif:        false,
+  cdnCacheTtlSec:      86400,
+  signedUrl:           false,
+  isPublicBucket:      true,
+  defaultImageQuality: 80,
 };
 
 export interface MessageQueueConfig {

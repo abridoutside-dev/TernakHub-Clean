@@ -1,8 +1,8 @@
-// ─── Cloudflare R2 Client — DB-001C-1 ────────────────────────────────────────
+// ─── Cloudflare R2 Client — ADMIN-PLATFORM-003B ───────────────────────────────
 //
 // Uses the Cloudflare REST API (Bearer token) — NOT the S3-compatible API.
-// This is the correct approach when CLOUDFLARE_R2_API_TOKEN is a Cloudflare
-// API token (not an S3 Access Key ID + Secret pair).
+// Credentials are read at call-time from the mutable r2ConfigStore so that
+// admin-saved configuration takes effect immediately without a server restart.
 //
 // API reference:
 //   PUT  /accounts/{accountId}/r2/buckets/{bucket}/objects/{key}
@@ -11,28 +11,32 @@
 //
 // SECURITY: This file MUST only be imported by server-side code.
 // Never import it in src/ (browser) code — credentials would be exposed.
-//
-// Env vars (Replit Secrets — server-side only, no VITE_ prefix):
-//   CLOUDFLARE_R2_ACCOUNT_ID   — Cloudflare account ID
-//   CLOUDFLARE_R2_BUCKET_NAME  — R2 bucket name
-//   CLOUDFLARE_R2_API_TOKEN    — Cloudflare API token (Bearer auth)
-//   CLOUDFLARE_R2_PUBLIC_URL   — (optional) public base URL for served objects
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { getR2Config, getCfApiToken } from './r2ConfigStore.js';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
-export const R2_ACCOUNT_ID  = process.env.CLOUDFLARE_R2_ACCOUNT_ID ?? '';
-export const R2_BUCKET       = process.env.CLOUDFLARE_R2_BUCKET_NAME ?? 'ternakhub-images';
-export const R2_API_TOKEN    = process.env.CLOUDFLARE_R2_API_TOKEN ?? '';
-export const R2_PUBLIC_URL   = (process.env.CLOUDFLARE_R2_PUBLIC_URL ?? '').replace(/\/$/, '');
+// ─── Live accessors (read from config store, not static env vars) ─────────────
 
-if (!R2_ACCOUNT_ID) console.error('[R2] Missing CLOUDFLARE_R2_ACCOUNT_ID');
-if (!R2_API_TOKEN)  console.error('[R2] Missing CLOUDFLARE_R2_API_TOKEN');
+export function getAccountId(): string  { return getR2Config().accountId  || (process.env.CLOUDFLARE_R2_ACCOUNT_ID  ?? ''); }
+export function getBucket():    string  { return getR2Config().bucket      || (process.env.CLOUDFLARE_R2_BUCKET_NAME  ?? 'ternakhub-images'); }
+export function getPublicUrl(): string  { return getR2Config().publicUrl   || (process.env.CLOUDFLARE_R2_PUBLIC_URL   ?? '').replace(/\/$/, ''); }
+export function getApiToken():  string  { return getCfApiToken()           || (process.env.CLOUDFLARE_R2_API_TOKEN    ?? ''); }
+
+// Legacy static-style exports kept for compatibility with existing callers.
+// These now read live values from the store on every access.
+export const R2_BUCKET = new Proxy({} as { valueOf(): string }, {
+  get(_t, p) {
+    if (p === 'valueOf' || p === 'toString' || p === Symbol.toPrimitive) return () => getBucket();
+    return undefined;
+  },
+}) as unknown as string;
 
 // ─── Auth Header ──────────────────────────────────────────────────────────────
 
 export function authHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${R2_API_TOKEN}` };
+  return { Authorization: `Bearer ${getApiToken()}` };
 }
 
 // ─── Object URL helpers ───────────────────────────────────────────────────────
@@ -41,22 +45,26 @@ export function authHeaders(): Record<string, string> {
  * Cloudflare REST API URL for an R2 object (used by server-side operations).
  */
 export function r2ObjectApiUrl(key: string): string {
-  return `${CF_API}/accounts/${R2_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects/${key}`;
+  return `${CF_API}/accounts/${getAccountId()}/r2/buckets/${getBucket()}/objects/${encodeURIComponent(key)}`;
 }
 
 /**
  * Public-facing URL for an uploaded object.
  *
  * Priority:
- *   1. CLOUDFLARE_R2_PUBLIC_URL env var (custom domain or r2.dev URL set in dashboard)
- *   2. Derived r2.dev URL — requires "Public Access" enabled on the bucket
+ *   1. Admin-saved customDomain
+ *   2. Admin-saved publicUrl (custom domain or r2.dev URL)
+ *   3. CLOUDFLARE_R2_PUBLIC_URL env var
+ *   4. Derived r2.dev URL — requires "Public Access" enabled on the bucket
  *
  * @param key - Object key (path) in the bucket
  */
 export function buildPublicUrl(key: string): string {
-  if (R2_PUBLIC_URL) return `${R2_PUBLIC_URL}/${key}`;
+  const cfg = getR2Config();
+  const base = cfg.customDomain || cfg.publicUrl || getPublicUrl();
+  if (base) return `${base.replace(/\/$/, '')}/${key}`;
   // Derived r2.dev URL (works only if bucket public access is enabled)
-  return `https://${R2_BUCKET}.${R2_ACCOUNT_ID}.r2.dev/${key}`;
+  return `https://${getBucket()}.${getAccountId()}.r2.dev/${key}`;
 }
 
 // ─── Bucket Health Check ──────────────────────────────────────────────────────
@@ -68,24 +76,34 @@ export interface BucketHealthResult {
 }
 
 export async function checkBucketHealth(): Promise<BucketHealthResult> {
-  const url = `${CF_API}/accounts/${R2_ACCOUNT_ID}/r2/buckets`;
+  const accountId = getAccountId();
+  const bucket    = getBucket();
+
+  if (!accountId) {
+    return { ok: false, bucket, message: 'Account ID belum dikonfigurasi' };
+  }
+  if (!getApiToken()) {
+    return { ok: false, bucket, message: 'API Token / CF API Token belum dikonfigurasi' };
+  }
+
+  const url = `${CF_API}/accounts/${accountId}/r2/buckets`;
   const res = await fetch(url, { headers: authHeaders() });
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    return { ok: false, bucket: R2_BUCKET, message: `HTTP ${res.status}: ${text}` };
+    return { ok: false, bucket, message: `HTTP ${res.status}: ${text}` };
   }
 
   interface BucketsResponse {
     success: boolean;
     result: { buckets: Array<{ name: string }> };
   }
-  const data = await res.json() as BucketsResponse;
-  const found = data.result?.buckets?.some((b) => b.name === R2_BUCKET);
+  const data  = await res.json() as BucketsResponse;
+  const found = data.result?.buckets?.some((b) => b.name === bucket);
   if (!found) {
-    return { ok: false, bucket: R2_BUCKET, message: `Bucket "${R2_BUCKET}" tidak ditemukan di akun ini` };
+    return { ok: false, bucket, message: `Bucket "${bucket}" tidak ditemukan di akun ini` };
   }
-  return { ok: true, bucket: R2_BUCKET, message: `Bucket "${R2_BUCKET}" reachable` };
+  return { ok: true, bucket, message: `Bucket "${bucket}" reachable` };
 }
 
 // ─── Object Upload ────────────────────────────────────────────────────────────
@@ -115,7 +133,7 @@ export async function uploadObject(
 
   const headers: Record<string, string> = {
     ...authHeaders(),
-    'Content-Type': mimeType,
+    'Content-Type':   mimeType,
     'Content-Length': buffer.length.toString(),
   };
 
@@ -127,9 +145,9 @@ export async function uploadObject(
   }
 
   const res = await fetch(url, {
-    method: 'PUT',
+    method:  'PUT',
     headers,
-    body: buffer,
+    body:    buffer,
   });
 
   if (!res.ok) {
@@ -158,7 +176,7 @@ export async function deleteObject(key: string): Promise<DeleteObjectResult> {
   const url = r2ObjectApiUrl(key);
 
   const res = await fetch(url, {
-    method: 'DELETE',
+    method:  'DELETE',
     headers: authHeaders(),
   });
 
