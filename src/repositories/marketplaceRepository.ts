@@ -573,6 +573,74 @@ export async function repoGetMarketplaceReportSummary(): Promise<MarketplaceRepo
   return (data ?? []) as MarketplaceReportSummaryRow[];
 }
 
+// ─── v_marketplace_listing_full reads ────────────────────────────────────────
+// View yang menggabungkan marketplace_listings dengan data seller & workspace.
+
+export interface MarketplaceListingFullRow {
+  id: string;
+  workspace_id: string | null;
+  title: string | null;
+  description: string | null;
+  price: number | null;
+  status: string | null;
+  category: string | null;
+  species: string | null;
+  verification: string | null;
+  location: string | null;
+  province: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  // Joined seller / workspace fields
+  seller_id: string | null;
+  seller_name: string | null;
+  seller_email: string | null;
+  workspace_name: string | null;
+  workspace_type: string | null;
+  workspace_plan: string | null;
+  workspace_verified: boolean | null;
+}
+
+/**
+ * Semua listing lengkap dari v_marketplace_listing_full.
+ * @param statusFilter Jika diisi, filter berdasarkan status listing.
+ * @param limitRows    Batas baris yang diambil (default 200).
+ */
+export async function repoGetListingsFull(
+  statusFilter?: string,
+  limitRows = 200,
+): Promise<MarketplaceListingFullRow[]> {
+  let query = supabase
+    .from('v_marketplace_listing_full')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limitRows);
+  if (statusFilter) query = query.eq('status', statusFilter);
+  const { data, error } = await query;
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceListingFullRow[];
+}
+
+// ─── v_marketplace_transaction_summary reads ──────────────────────────────────
+// View yang merangkum total transaksi dan nilai transaksi platform.
+
+export interface MarketplaceTransactionSummaryRow {
+  total_transactions: number;
+  completed_transactions: number;
+  pending_transactions: number;
+  total_value: number;
+  avg_transaction_value: number | null;
+}
+
+/** Ringkasan agregat transaksi dari v_marketplace_transaction_summary. */
+export async function repoGetTransactionSummary(): Promise<MarketplaceTransactionSummaryRow | null> {
+  const { data, error } = await supabase
+    .from('v_marketplace_transaction_summary')
+    .select('*')
+    .maybeSingle();
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data as MarketplaceTransactionSummaryRow | null);
+}
+
 // ─── Moderation reads ─────────────────────────────────────────────────────────
 
 export interface MarketplaceModerasiDbRow {

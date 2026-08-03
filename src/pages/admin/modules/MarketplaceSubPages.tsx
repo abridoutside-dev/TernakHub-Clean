@@ -17,30 +17,12 @@ import {
 } from '../../../data/adminMarketplaceData';
 import {
   repoGetMarketplaceReportSummary,
+  repoGetListingsFull,
+  repoGetTransactionSummary,
   type MarketplaceReportSummaryRow,
+  type MarketplaceListingFullRow,
+  type MarketplaceTransactionSummaryRow,
 } from '../../../repositories/marketplaceRepository';
-
-// ─── Supabase row shape (same as MarketplaceModule) ──────────────────────────
-
-interface ListingRow {
-  id: string;
-  title?: string | null;
-  description?: string | null;
-  category?: string | null;
-  species?: string | null;
-  price?: number | null;
-  status?: string | null;
-  verification?: string | null;
-  location?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  seller_id?: string | null;
-  seller_name?: string | null;
-  seller_email?: string | null;
-  workspace_id?: string | null;
-  workspace_name?: string | null;
-  workspace_type?: string | null;
-}
 
 const VALID_STATUSES: ListingStatus[] = ['Active', 'Sold', 'Draft', 'Hidden', 'Reported'];
 const VALID_SPECIES: LivestockSpecies[] = ['Domba', 'Kambing', 'Sapi', 'Kerbau', 'Kuda'];
@@ -48,7 +30,7 @@ const VALID_VERIFS: VerificationStatus[] = ['Verified', 'Unverified', 'Pending']
 const VALID_CATS: ListingCategory[] = ['Ternak Hidup', 'Bibit Ternak', 'Produk Ternak', 'Pakan & Suplemen', 'Peralatan'];
 const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#0ea5e9'];
 
-function adaptListing(r: ListingRow): AdminListingRecord {
+function adaptListing(r: MarketplaceListingFullRow): AdminListingRecord {
   const name = r.seller_name ?? r.seller_email?.split('@')[0] ?? '—';
   const initials = name.substring(0, 2).toUpperCase();
   const color = COLORS[(r.id.charCodeAt(0) ?? 0) % COLORS.length];
@@ -79,8 +61,8 @@ function adaptListing(r: ListingRow): AdminListingRecord {
     workspaceId: r.workspace_id ?? '—',
     workspaceName: r.workspace_name ?? '—',
     workspaceType: r.workspace_type ?? '—',
-    workspacePlan: 'Free',
-    workspaceVerified: false,
+    workspacePlan: r.workspace_plan ?? 'Free',
+    workspaceVerified: r.workspace_verified ?? false,
     workspaceLocation: r.location ?? '—',
     location: r.location ?? '—',
     viewCount: 0,
@@ -148,6 +130,28 @@ function StatusBadge({ status }: { status: ListingStatus }) {
   );
 }
 
+function ValueCard({ label, valueRupiah, icon, color, loading }: {
+  label: string; valueRupiah: number; icon: string; color: string; loading?: boolean;
+}) {
+  const formatted = valueRupiah >= 1_000_000_000
+    ? `Rp ${(valueRupiah / 1_000_000_000).toFixed(1)}M`
+    : valueRupiah >= 1_000_000
+    ? `Rp ${(valueRupiah / 1_000_000).toFixed(0)}jt`
+    : `Rp ${valueRupiah.toLocaleString('id-ID')}`;
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 11.5, fontWeight: 500, color: '#64748b' }}>{label}</span>
+        <span style={{ width: 32, height: 32, borderRadius: 8, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{icon}</span>
+      </div>
+      {loading
+        ? <div style={{ width: 80, height: 26, borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'adm-shimmer 1.4s infinite' }} />
+        : <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{formatted}</div>
+      }
+    </div>
+  );
+}
+
 function formatRupiah(n: number): string {
   return 'Rp ' + n.toLocaleString('id-ID');
 }
@@ -160,11 +164,12 @@ export function MarketplaceTransactionsPage() {
   const [error, setError]       = useState<string | null>(null);
 
   // Stats
-  const [statSold, setStatSold]       = useState(0);
-  const [statActive, setStatActive]   = useState(0);
-  const [statTotal, setStatTotal]     = useState(0);
-  const [statReported, setStatReported] = useState(0);
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [statSold, setStatSold]           = useState(0);
+  const [statActive, setStatActive]       = useState(0);
+  const [statTotal, setStatTotal]         = useState(0);
+  const [statReported, setStatReported]   = useState(0);
+  const [statTotalValue, setStatTotalValue] = useState(0);
+  const [statsLoading, setStatsLoading]   = useState(true);
 
   const [search, setSearch]         = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -174,15 +179,9 @@ export function MarketplaceTransactionsPage() {
     (async () => {
       try {
         setLoading(true); setError(null);
-        const { data, error: fetchErr } = await supabase
-          .from('marketplace_listings')
-          .select('*')
-          .eq('status', 'Sold')
-          .order('updated_at', { ascending: false })
-          .limit(500);
+        const fullRows = await repoGetListingsFull('Sold', 500);
         if (cancelled) return;
-        if (fetchErr) { setError(fetchErr.message); return; }
-        setRows((data ?? []).map(adaptListing));
+        setRows(fullRows.map(adaptListing));
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
       } finally {
@@ -197,17 +196,19 @@ export function MarketplaceTransactionsPage() {
     (async () => {
       try {
         setStatsLoading(true);
-        const [total, sold, active, reported] = await Promise.all([
+        const [total, sold, active, reported, txSummary] = await Promise.all([
           fetchTotalCount(),
           fetchCountByStatus('Sold'),
           fetchCountByStatus('Active'),
           fetchCountByStatus('Reported'),
+          repoGetTransactionSummary().catch((): MarketplaceTransactionSummaryRow | null => null),
         ]);
         if (cancelled) return;
         setStatTotal(total);
         setStatSold(sold);
         setStatActive(active);
         setStatReported(reported);
+        setStatTotalValue(txSummary?.total_value ?? 0);
       } finally {
         if (!cancelled) setStatsLoading(false);
       }
@@ -253,10 +254,11 @@ export function MarketplaceTransactionsPage() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
-          <StatCard label="Terjual"      value={statSold}     icon="✅" color="#10b981" loading={statsLoading} />
-          <StatCard label="Aktif"        value={statActive}   icon="🟢" color="#3b82f6" loading={statsLoading} />
-          <StatCard label="Total Listing" value={statTotal}   icon="📋" color="#64748b" loading={statsLoading} />
-          <StatCard label="Dilaporkan"   value={statReported} icon="🚨" color="#ef4444" loading={statsLoading} />
+          <StatCard  label="Terjual"              value={statSold}     icon="✅" color="#10b981" loading={statsLoading} />
+          <StatCard  label="Aktif"                value={statActive}   icon="🟢" color="#3b82f6" loading={statsLoading} />
+          <StatCard  label="Total Listing"        value={statTotal}    icon="📋" color="#64748b" loading={statsLoading} />
+          <StatCard  label="Dilaporkan"           value={statReported} icon="🚨" color="#ef4444" loading={statsLoading} />
+          <ValueCard label="Total Nilai Transaksi" valueRupiah={statTotalValue} icon="💰" color="#059669" loading={statsLoading} />
         </div>
 
         <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid #f1f5f9', marginBottom: 20 }}>
@@ -366,17 +368,11 @@ export function MarketplaceReportsPage() {
     (async () => {
       try {
         setLoading(true); setError(null);
-        const [{ data, error: fetchErr }, summaries] = await Promise.all([
-          supabase
-            .from('marketplace_listings')
-            .select('*')
-            .eq('status', 'Reported')
-            .order('updated_at', { ascending: false })
-            .limit(500),
+        const [fullRows, summaries] = await Promise.all([
+          repoGetListingsFull('Reported', 500),
           repoGetMarketplaceReportSummary().catch((): MarketplaceReportSummaryRow[] => []),
         ]);
         if (cancelled) return;
-        if (fetchErr) { setError(fetchErr.message); return; }
 
         // Build summary map keyed by listing_id
         const summaryMap = new Map<string, MarketplaceReportSummaryRow>(
@@ -384,7 +380,7 @@ export function MarketplaceReportsPage() {
         );
 
         // Enrich each listing with real report data from v_marketplace_report_summary
-        const enriched = (data ?? []).map(r => {
+        const enriched = fullRows.map(r => {
           const base = adaptListing(r);
           const s = summaryMap.get(r.id);
           if (s) {

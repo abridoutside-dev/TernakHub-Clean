@@ -2,7 +2,7 @@
 // ADMIN-003: All dummy data removed. Data sourced from Supabase `marketplace_listings`.
 // Shows 0 / empty state when no data. No hardcoded values.
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
 import {
@@ -15,28 +15,10 @@ import {
   type LivestockSpecies,
   type VerificationStatus,
 } from '../../../data/adminMarketplaceData';
-
-// ─── Supabase row shape ───────────────────────────────────────────────────────
-
-interface ListingRow {
-  id: string;
-  title?: string | null;
-  description?: string | null;
-  category?: string | null;
-  species?: string | null;
-  price?: number | null;
-  status?: string | null;
-  verification?: string | null;
-  location?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  seller_id?: string | null;
-  seller_name?: string | null;
-  seller_email?: string | null;
-  workspace_id?: string | null;
-  workspace_name?: string | null;
-  workspace_type?: string | null;
-}
+import {
+  repoGetListingsFull,
+  type MarketplaceListingFullRow,
+} from '../../../repositories/marketplaceRepository';
 
 const VALID_STATUSES: ListingStatus[] = ['Active', 'Sold', 'Draft', 'Hidden', 'Reported'];
 const VALID_SPECIES: LivestockSpecies[] = ['Domba', 'Kambing', 'Sapi', 'Kerbau', 'Kuda'];
@@ -44,7 +26,7 @@ const VALID_VERIFS: VerificationStatus[] = ['Verified', 'Unverified', 'Pending']
 const VALID_CATS: ListingCategory[] = ['Ternak Hidup', 'Bibit Ternak', 'Produk Ternak', 'Pakan & Suplemen', 'Peralatan'];
 const COLORS = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#0ea5e9'];
 
-function adaptListing(r: ListingRow): AdminListingRecord {
+function adaptListing(r: MarketplaceListingFullRow): AdminListingRecord {
   const name = r.seller_name ?? r.seller_email?.split('@')[0] ?? '—';
   const initials = name.substring(0, 2).toUpperCase();
   const color = COLORS[(r.id.charCodeAt(0) ?? 0) % COLORS.length];
@@ -75,8 +57,8 @@ function adaptListing(r: ListingRow): AdminListingRecord {
     workspaceId: r.workspace_id ?? '—',
     workspaceName: r.workspace_name ?? '—',
     workspaceType: r.workspace_type ?? '—',
-    workspacePlan: 'Free',
-    workspaceVerified: false,
+    workspacePlan: r.workspace_plan ?? 'Free',
+    workspaceVerified: r.workspace_verified ?? false,
     workspaceLocation: r.location ?? '—',
     location: r.location ?? '—',
     viewCount: 0,
@@ -127,11 +109,11 @@ function VerifBadge({ status }: { status: VerificationStatus }) {
   return <span style={{ padding: '3px 9px', borderRadius: 20, background: c.bg, color: c.color, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{c.label}</span>;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginTop: 20 }}>{children}</div>;
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '7px 0', borderBottom: '1px solid #f1f5f9' }}>
       <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
@@ -245,14 +227,13 @@ export default function MarketplaceModule() {
     (async () => {
       try {
         setLoading(true); setError(null);
-        const [total, { data, error: fetchErr }] = await Promise.all([
+        const [total, fullRows] = await Promise.all([
           fetchCount('marketplace_listings'),
-          supabase.from('marketplace_listings').select('*').order('created_at', { ascending: false }).limit(200),
+          repoGetListingsFull(undefined, 200),
         ]);
         if (cancelled) return;
-        if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
         setTotal(total);
-        setRows((data ?? []).map(adaptListing));
+        setRows(fullRows.map(adaptListing));
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
       } finally {
