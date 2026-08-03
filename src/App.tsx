@@ -228,6 +228,15 @@ import MasterEscrowModule from './pages/admin/modules/MasterEscrowModule';
 import RelationshipModule from './pages/admin/modules/RelationshipModule';
 import OwnershipTransferModule from './pages/admin/modules/OwnershipTransferModule';
 import CrossWorkspaceLineageModule from './pages/admin/modules/CrossWorkspaceLineageModule';
+import FarmDashboardModule from './pages/admin/modules/FarmDashboardModule';
+import FarmBatchModule from './pages/admin/modules/FarmBatchModule';
+import FarmCatatBobotModule from './pages/admin/modules/FarmCatatBobotModule';
+import FarmPemberianPakanModule from './pages/admin/modules/FarmPemberianPakanModule';
+import FarmMasterPakanModule from './pages/admin/modules/FarmMasterPakanModule';
+import FarmFormulaPakanModule from './pages/admin/modules/FarmFormulaPakanModule';
+import FarmKesehatanModule from './pages/admin/modules/FarmKesehatanModule';
+import FarmReproduksiModule from './pages/admin/modules/FarmReproduksiModule';
+import FarmMutasiModule from './pages/admin/modules/FarmMutasiModule';
 import { UsersRolesPage, UsersActivityPage } from './pages/admin/modules/UsersSubPages';
 import { WorkspacesPlansPage, WorkspacesVerificationPage, BlockedWorkspacesPage, PendingRequestsPage } from './pages/admin/modules/WorkspacesSubPages';
 import { MarketplaceTransactionsPage, MarketplaceReportsPage } from './pages/admin/modules/MarketplaceSubPages';
@@ -646,6 +655,18 @@ export default function App() {
         {/* Livestock */}
         <Route path="/admin/livestock/health"   element={<LivestockModule />} />
         <Route path="/admin/livestock/breeding" element={<LivestockModule />} />
+        {/* Farm domain — ADMIN-SYNC-004 */}
+        <Route path="/admin/farm/dashboard"       element={<FarmDashboardModule />} />
+        <Route path="/admin/farm/batch"           element={<FarmBatchModule />} />
+        <Route path="/admin/farm/catat-bobot"     element={<FarmCatatBobotModule />} />
+        <Route path="/admin/farm/pemberian-pakan" element={<FarmPemberianPakanModule />} />
+        <Route path="/admin/farm/stok-pakan"      element={<FeedModule />} />
+        <Route path="/admin/farm/master-pakan"    element={<FarmMasterPakanModule />} />
+        <Route path="/admin/farm/formula-pakan"   element={<FarmFormulaPakanModule />} />
+        <Route path="/admin/farm/stok-obat"       element={<MedicineModule />} />
+        <Route path="/admin/farm/kesehatan-hewan" element={<FarmKesehatanModule />} />
+        <Route path="/admin/farm/reproduksi"      element={<FarmReproduksiModule />} />
+        <Route path="/admin/farm/mutasi"          element={<FarmMutasiModule />} />
         {/* Cross-WS Lineage */}
         <Route path="/admin/lineage/cross-ws"     element={<CrossWorkspaceLineageModule />} />
         <Route path="/admin/lineage/verification" element={<CrossWorkspaceLineageModule />} />

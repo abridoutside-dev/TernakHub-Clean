@@ -137,23 +137,38 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
   },
 
   // ── 3. Workspace Farm ──────────────────────────────────────────────────────
+  // ADMIN-SYNC-004: farm-summary, farm-livestock, farm-batch, farm-bobot,
+  // farm-feed, farm-master-pakan, farm-formula, farm-medicine, farm-health,
+  // farm-repro, farm-mutasi all wired to live Supabase tables.
+  // farm-master-obat / farm-ai = blocked (no backend table).
   {
     domainKey: 'domain-farm',
     label: 'Workspace Farm',
     icon: '🐄',
     description: 'Cross-workspace livestock, feed, medicine, health, and AI insights.',
-    primaryPath: '/admin/livestock',
+    primaryPath: '/admin/farm/dashboard',
     widgets: [
-      w('farm-summary',     'Farm Summary',       '🐄', DUM),
-      w('farm-livestock',   'Livestock Summary',  '🐮', DUM),
-      w('farm-batch',       'Batch Summary',      '📦'),
-      w('farm-bobot',       'Catat Bobot Summary','⚖️'),
-      w('farm-feed',        'Feed Summary',       '🌾'),
-      w('farm-medicine',    'Medicine Summary',   '💊'),
-      w('farm-health',      'Health Summary',     '🩺'),
-      w('farm-repro',       'Reproduction Summary','🔬'),
-      w('farm-mutasi',      'Mutation Summary',   '🔀'),
-      w('farm-ai',          'AI Summary',         '🤖'),
+      w('farm-summary',       'Farm Dashboard',         '🐄', LIVE),
+      w('farm-livestock',     'Livestock Summary',      '🐮', LIVE),
+      w('farm-batch',         'Batch Summary',          '📦', LIVE),
+      w('farm-bobot',         'Catat Bobot Summary',    '⚖️', LIVE),
+      w('farm-feed',          'Stok Pakan Summary',     '🌾', LIVE),
+      w('farm-master-pakan',  'Master Pakan',           '📚', LIVE),
+      w('farm-formula',       'Formula Pakan',          '🧪', LIVE),
+      w('farm-medicine',      'Stok Obat Summary',      '💊', LIVE),
+      w('farm-health',        'Kesehatan Hewan',        '🩺', LIVE),
+      w('farm-repro',         'Reproduksi',             '🔬', LIVE),
+      w('farm-mutasi',        'Mutasi / Transfer',      '🔀', LIVE),
+      w('farm-master-obat',   'Master Obat',            '📋', {
+        health: 'unknown', syncStatus: 'not_implemented', statistics: {},
+        blocker: { reason: 'Tidak ada tabel master_obat_catalog di Supabase; perlu tabel baru untuk master obat platform.', blockedSince: '2026-08-03' },
+        lastSync: null,
+      }),
+      w('farm-ai',            'AI Insight Farm',        '🤖', {
+        health: 'unknown', syncStatus: 'not_implemented', statistics: {},
+        blocker: { reason: 'Belum ada backend AI/ML untuk farm insight; membutuhkan integrasi AI engine.', blockedSince: '2026-08-03' },
+        lastSync: null,
+      }),
     ],
   },
 
