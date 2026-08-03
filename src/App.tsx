@@ -239,6 +239,7 @@ import FarmReproduksiModule from './pages/admin/modules/FarmReproduksiModule';
 import FarmMutasiModule from './pages/admin/modules/FarmMutasiModule';
 import FarmStokPakanModule from './pages/admin/modules/FarmStokPakanModule';
 import FarmStokObatModule from './pages/admin/modules/FarmStokObatModule';
+import FarmMasterObatModule from './pages/admin/modules/FarmMasterObatModule';
 import { UsersRolesPage, UsersActivityPage } from './pages/admin/modules/UsersSubPages';
 import { WorkspacesPlansPage, WorkspacesVerificationPage, BlockedWorkspacesPage, PendingRequestsPage } from './pages/admin/modules/WorkspacesSubPages';
 import { MarketplaceTransactionsPage, MarketplaceReportsPage } from './pages/admin/modules/MarketplaceSubPages';
@@ -669,6 +670,7 @@ export default function App() {
         <Route path="/admin/farm/kesehatan-hewan" element={<FarmKesehatanModule />} />
         <Route path="/admin/farm/reproduksi"      element={<FarmReproduksiModule />} />
         <Route path="/admin/farm/mutasi"          element={<FarmMutasiModule />} />
+        <Route path="/admin/farm/master-obat"    element={<FarmMasterObatModule />} />
         {/* Cross-WS Lineage */}
         <Route path="/admin/lineage/cross-ws"     element={<CrossWorkspaceLineageModule />} />
         <Route path="/admin/lineage/verification" element={<CrossWorkspaceLineageModule />} />

@@ -137,11 +137,12 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
   },
 
   // ── 3. Workspace Farm ──────────────────────────────────────────────────────
-  // ADMIN-SYNC-004: semua modul Farm yang backend-nya tersedia sudah LIVE.
+  // ADMIN-SYNC-004 + ADMIN-FOUNDATION-001: semua modul Farm LIVE kecuali AI.
   // Live: farm-summary, farm-livestock, farm-batch, farm-bobot,
   //   farm-pemberian-pakan, farm-stok-pakan, farm-master-pakan, farm-formula,
-  //   farm-stok-obat, farm-health, farm-repro, farm-mutasi.
-  // Blocked (not_implemented): farm-master-obat, farm-ai, farm-riwayat-aktivitas.
+  //   farm-stok-obat, farm-health, farm-repro, farm-mutasi, farm-master-obat,
+  //   farm-riwayat-aktivitas.
+  // Blocked (not_implemented): farm-ai (no AI engine backend).
   {
     domainKey: 'domain-farm',
     label: 'Workspace Farm',
@@ -161,19 +162,11 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('farm-health',             'Kesehatan Hewan',        '🩺', LIVE),
       w('farm-repro',              'Reproduksi',             '🔬', LIVE),
       w('farm-mutasi',             'Mutasi / Transfer',      '🔀', LIVE),
-      w('farm-master-obat',        'Master Obat',            '📋', {
-        health: 'unknown', syncStatus: 'not_implemented', statistics: {},
-        blocker: { reason: 'Tidak ada tabel master_obat_catalog di Supabase; perlu tabel baru untuk katalog obat platform.', blockedSince: '2026-08-03' },
-        lastSync: null,
-      }),
+      w('farm-master-obat',        'Master Obat',            '📋', LIVE),
+      w('farm-riwayat-aktivitas',  'Riwayat Aktivitas Farm', '📋', LIVE),
       w('farm-ai',                 'AI Insight Farm',        '🤖', {
         health: 'unknown', syncStatus: 'not_implemented', statistics: {},
         blocker: { reason: 'Belum ada backend AI/ML untuk farm insight; membutuhkan integrasi AI engine.', blockedSince: '2026-08-03' },
-        lastSync: null,
-      }),
-      w('farm-riwayat-aktivitas',  'Riwayat Aktivitas Farm', '📋', {
-        health: 'unknown', syncStatus: 'not_implemented', statistics: {},
-        blocker: { reason: 'Belum ada tabel activity_log atau audit_trail untuk domain Farm di Supabase.', blockedSince: '2026-08-03' },
         lastSync: null,
       }),
     ],
@@ -347,7 +340,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('at-audit',       'Audit Summary',       '📜'),
       w('at-verification','Verification Queue',  '✅', DUM),
       w('at-trust',       'Trust Queue',         '🛡️', DUM),
-      w('at-logs',        'Activity Logs',       '📋'),
+      w('at-logs',        'Activity Logs',       '📋', LIVE),
       w('at-restore',     'Restore History',     '♻️'),
       w('at-backup',      'Backup History',      '💾'),
       w('at-perm-audit',  'Permission Audit',    '🔑'),

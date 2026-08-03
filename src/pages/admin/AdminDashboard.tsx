@@ -1,7 +1,5 @@
 // ─── Admin Dashboard — ADM-001 / ADM-002 / ADMIN-002 / P0-003C / P0-003D ──────
-// P0-003C : fetchCount() returns number|null — null = backend unavailable.
-//           PlatformSummary shows "Backend belum tersedia" for null counts.
-// P0-003D : Final verification (2026-07-21).  All widgets audited:
+// ADMIN-FOUNDATION-001: RecentActivities wired to live activity_log table.
 //
 //   Widget                  Source              Status
 //   ──────────────────────  ──────────────────  ──────────────────────────────
@@ -11,14 +9,13 @@
 //   SystemHealth — DB       pingDatabase()      ✔ Production Data (platform_config)
 //   SystemHealth — others   —                   ✔ Backend belum tersedia
 //   QuickActions            adminNavData.ts     ✔ Navigation only (no counters)
-//   RecentActivities        —                   ✔ Empty State (no activity_log)
+//   RecentActivities        activity_log        ✔ LIVE — Supabase activity_log
 //   PlatformStatistics      —                   ✔ Empty State (no history table)
 //
 //   Forbidden markers scan: 0 TODO / FIXME / HACK / MOCK / DUMMY found.
 //   TypeScript: 0 errors.  Production build: ✓ success.
 //
 // ADMIN-002: All dummy/fake stats replaced with real Supabase queries.
-// Every number shown is queried live. Missing tables → null → empty state.
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -333,30 +330,119 @@ function QuickActions({ navigate }: { navigate: (path: string) => void }) {
   );
 }
 
-// ─── Recent Activities — empty state (no activity table yet) ─────────────────
+// ─── Recent Activities — ADMIN-FOUNDATION-001 ────────────────────────────────
+// Live reads from activity_log table (created in migration 20260803000002).
+
+interface ActivityLogRow {
+  id: string;
+  workspace_id: string | null;
+  domain: string;
+  module: string;
+  entity_type: string;
+  action: string;
+  description: string | null;
+  severity: string;
+  status: string;
+  created_at: string;
+  workspaces: { name: string | null } | null;
+}
+
+const SEVERITY_CFG: Record<string, { color: string; bg: string; dot: string }> = {
+  info:     { color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6' },
+  warning:  { color: '#d97706', bg: '#fffbeb', dot: '#f59e0b' },
+  error:    { color: '#b91c1c', bg: '#fef2f2', dot: '#ef4444' },
+  critical: { color: '#7c2d12', bg: '#fff7ed', dot: '#f97316' },
+};
 
 function RecentActivities({ loadedAt }: { loadedAt: Date | null }) {
+  const [rows, setRows]       = useState<ActivityLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true); setError(null);
+      const { data, error: qErr } = await supabase
+        .from('activity_log')
+        .select('id, workspace_id, domain, module, entity_type, action, description, severity, status, created_at, workspaces(name)')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (qErr) { setError(qErr.message); return; }
+      setRows((data ?? []) as unknown as ActivityLogRow[]);
+      setLastSync(new Date());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Gagal memuat aktivitas');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const displayTime = lastSync ?? loadedAt;
+
   return (
     <section style={{ background: '#fff', borderRadius: 14, padding: '20px', border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Aktivitas Terbaru</div>
-          <div style={{ fontSize: 11.5, color: '#64748b' }}>Linimasa kejadian platform</div>
+          <div style={{ fontSize: 11.5, color: '#64748b' }}>Linimasa kejadian platform — <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 4 }}>activity_log</code></div>
         </div>
-        {loadedAt && (
+        {displayTime && (
           <span style={{ fontSize: 10.5, fontWeight: 500, color: '#94a3b8', padding: '3px 10px', borderRadius: 20, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-            Updated {loadedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            Updated {displayTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
         )}
       </div>
-      {/* Empty state — no activity_log table yet */}
-      <div style={{ padding: '40px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontSize: 36 }}>📋</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#64748b' }}>Belum tersedia</div>
-        <div style={{ fontSize: 12.5, color: '#94a3b8', maxWidth: 280, lineHeight: 1.55 }}>
-          Tabel <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>activity_log</code> belum tersedia di Supabase.
+
+      {error && (
+        <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, color: '#b91c1c', fontSize: 12.5, marginBottom: 12 }}>
+          ⚠️ {error}
         </div>
-      </div>
+      )}
+
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {Array.from({ length: 5 }).map((_el, i) => (
+            <div key={i} style={{ height: 44, borderRadius: 8, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'adm-shimmer 1.4s infinite' }} />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: '40px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 36 }}>📋</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#64748b' }}>Belum ada aktivitas</div>
+          <div style={{ fontSize: 12.5, color: '#94a3b8', maxWidth: 280, lineHeight: 1.55 }}>
+            Log aktivitas akan muncul saat terjadi operasi di workspace.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {rows.map(row => {
+            const sev = SEVERITY_CFG[row.severity] ?? SEVERITY_CFG.info;
+            return (
+              <div key={row.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, background: '#fafafa', border: '1px solid #f1f5f9' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: sev.dot, flexShrink: 0, marginTop: 5 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#0f172a' }}>{row.action}</span>
+                    <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: sev.bg, color: sev.color, fontWeight: 600 }}>{row.domain}/{row.module}</span>
+                    {row.workspaces?.name && (
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{row.workspaces.name}</span>
+                    )}
+                  </div>
+                  {row.description && (
+                    <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description}</div>
+                  )}
+                </div>
+                <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {new Date(row.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
