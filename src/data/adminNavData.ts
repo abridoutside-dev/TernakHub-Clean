@@ -206,9 +206,11 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         syncStatus: 'synced',
         health: 'healthy',
         children: [
-          { key: 'ws-all',          label: 'Semua Workspace', path: '/admin/workspaces',              icon: '🗂️' },
-          { key: 'ws-plans',        label: 'Paket',           path: '/admin/workspaces/plans',        icon: '⭐' },
-          { key: 'ws-verification', label: 'Verifikasi',      path: '/admin/workspaces/verification', icon: '✅' },
+          { key: 'ws-all',          label: 'Semua Workspace',    path: '/admin/workspaces',              icon: '🗂️' },
+          { key: 'ws-plans',        label: 'Paket',              path: '/admin/workspaces/plans',        icon: '⭐' },
+          { key: 'ws-verification', label: 'Verifikasi',         path: '/admin/workspaces/verification', icon: '✅' },
+          { key: 'ws-blocked',      label: 'Terblokir',          path: '/admin/workspaces/blocked',      icon: '🚫' },
+          { key: 'ws-pending',      label: 'Permintaan Pending', path: '/admin/workspaces/pending',      icon: '⏳' },
         ],
       },
       {

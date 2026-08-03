@@ -229,7 +229,7 @@ import RelationshipModule from './pages/admin/modules/RelationshipModule';
 import OwnershipTransferModule from './pages/admin/modules/OwnershipTransferModule';
 import CrossWorkspaceLineageModule from './pages/admin/modules/CrossWorkspaceLineageModule';
 import { UsersRolesPage, UsersActivityPage } from './pages/admin/modules/UsersSubPages';
-import { WorkspacesPlansPage, WorkspacesVerificationPage } from './pages/admin/modules/WorkspacesSubPages';
+import { WorkspacesPlansPage, WorkspacesVerificationPage, BlockedWorkspacesPage, PendingRequestsPage } from './pages/admin/modules/WorkspacesSubPages';
 import { MarketplaceTransactionsPage, MarketplaceReportsPage } from './pages/admin/modules/MarketplaceSubPages';
 import { FeedStockPage, FeedConsumptionPage } from './pages/admin/modules/FeedSubPages';
 import { MedicineStockPage, MedicineUsagePage } from './pages/admin/modules/MedicineSubPages';
@@ -629,6 +629,8 @@ export default function App() {
         {/* Workspaces */}
         <Route path="/admin/workspaces/plans"        element={<WorkspacesPlansPage />} />
         <Route path="/admin/workspaces/verification" element={<WorkspacesVerificationPage />} />
+        <Route path="/admin/workspaces/blocked"      element={<BlockedWorkspacesPage />} />
+        <Route path="/admin/workspaces/pending"      element={<PendingRequestsPage />} />
         {/* Marketplace */}
         <Route path="/admin/marketplace/transactions" element={<MarketplaceTransactionsPage />} />
         <Route path="/admin/marketplace/reports"      element={<MarketplaceReportsPage />} />

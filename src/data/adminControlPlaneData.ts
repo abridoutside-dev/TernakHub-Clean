@@ -131,8 +131,8 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('uw-users',         'Users Summary',         '👤', LIVE),
       w('uw-verification',  'Verification Summary',  '✅', LIVE),
       w('uw-subscription',  'Subscription Summary',  '⭐', LIVE),
-      w('uw-blocked',       'Blocked Workspaces',    '🚫'),
-      w('uw-pending',       'Pending Requests',      '⏳'),
+      w('uw-blocked',       'Blocked Workspaces',    '🚫', LIVE),
+      w('uw-pending',       'Pending Requests',      '⏳', LIVE),
     ],
   },
 
