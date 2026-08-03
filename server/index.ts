@@ -49,7 +49,7 @@ app.use(express.json({ limit: '1mb' }));
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.use('/api/upload', uploadRouter);
-app.use('/api/admin', adminConfigRouter);
+app.use('/api/admin/storage-config', adminConfigRouter);
 
 // Root ping
 app.get('/api/ping', (_req, res) => {
