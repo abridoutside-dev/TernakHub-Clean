@@ -171,19 +171,25 @@ function dbRowToNotifikasiItem(row: {
   action_route: string | null;
   is_read: boolean;
   created_at: string;
+  recipient_workspace_id?: string | null;
 }): NotifikasiItem {
   let sumber: NotifikasiSumber = 'Sistem';
   if (row.notification_type === 'Transaksi') sumber = 'Transaksi';
 
+  // Map DB notification_type to the nearest NotifikasiTipe union value.
+  const tipe = sumber === 'Transaksi' ? 'Transaksi Baru' as const : 'Verifikasi Berhasil' as const;
+
   return {
     id: `db-${row.id}`,
     sumber,
+    tipe,
     judul: row.title,
     ringkasan: row.message,
     icon: row.icon ?? '🔔',
     timestamp: row.created_at,
     dibaca: row.is_read,
     navigateTo: row.action_route ?? undefined,
+    targetWorkspaceId: row.recipient_workspace_id ?? '',
   };
 }
 

@@ -24,7 +24,7 @@ export interface UseMarketplaceNotifikasiResult {
 export function useMarketplaceNotifikasi(
   workspaceId?: string,
 ): UseMarketplaceNotifikasiResult {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notifikasi, setNotifikasi] = useState<MarketplaceNotifikasiDbRow[]>([]);
