@@ -13,6 +13,7 @@ import {
   type AktivitasRecord,
   type KategoriAktivitas,
 } from '../data/marketplaceRiwayatAktivitasData';
+import { useMarketplaceAktivitas } from '../hooks/useMarketplaceAktivitas';
 
 // ─── Konstanta ────────────────────────────────────────────────────────────────
 
@@ -429,6 +430,27 @@ function DetailSheet({
 
 // ─── Halaman Utama ────────────────────────────────────────────────────────────
 
+/** Map a DB activity_log module name to the UI KategoriAktivitas. */
+function mapModuleToKategori(module: string): KategoriAktivitas {
+  const m = module.toLowerCase();
+  if (m.includes('listing'))   return 'Listing';
+  if (m.includes('wishlist'))  return 'Wishlist';
+  if (m.includes('negosias'))  return 'Negosiasi';
+  if (m.includes('chat'))      return 'Chat';
+  if (m.includes('transaksi') || m.includes('transaction')) return 'Transaksi';
+  return 'Sistem';
+}
+
+function mapSeverityToIcon(severity: string): string {
+  switch (severity) {
+    case 'critical': return '🚨';
+    case 'high':     return '⚠️';
+    case 'medium':   return '📋';
+    case 'low':      return '📄';
+    default:         return '⚙️';
+  }
+}
+
 export default function MarketplaceRiwayatAktivitas() {
   const ws = getActiveWorkspace();
   const workspaceId = ws?.id ?? 'w1';
@@ -438,9 +460,41 @@ export default function MarketplaceRiwayatAktivitas() {
   const [filter, setFilter]     = useState<FilterKategori>('Semua');
   const [selected, setSelected] = useState<AktivitasRecord | null>(null);
 
-  // Hitung data sekali per render — aggregator read-only
-  const allAktivitas = useMemo(() => getAllAktivitas(workspaceId), [workspaceId]);
+  // Hitung data sekali per render — aggregator read-only (from in-memory stores)
+  const memAktivitas = useMemo(() => getAllAktivitas(workspaceId), [workspaceId]);
   const ringkasan    = useMemo(() => getRingkasanAktivitas(workspaceId), [workspaceId]);
+
+  // DB activity_log (supplements the in-memory aggregated records)
+  const { rows: dbRows } = useMarketplaceAktivitas(workspaceId);
+
+  // Convert DB rows to AktivitasRecord and merge
+  const allAktivitas = useMemo((): AktivitasRecord[] => {
+    const memIds = new Set(memAktivitas.map((r) => r.id));
+    const fromDb: AktivitasRecord[] = dbRows
+      .filter((r) => !memIds.has(r.id))
+      .map((row, idx) => {
+        const kat = mapModuleToKategori(row.module);
+        return {
+          id: row.id,
+          nomorAktivitas: `AKT-DB-${row.id.slice(0, 8).toUpperCase()}`,
+          jenisAktivitas: (row.action || 'Aktivitas Sistem') as AktivitasRecord['jenisAktivitas'],
+          kategori: kat,
+          nomorReferensi: row.entity_id ?? row.id.slice(0, 8).toUpperCase(),
+          judulReferensi: row.description ?? row.action,
+          workspaceId: row.workspace_id ?? workspaceId,
+          workspaceNama: ws?.name ?? '',
+          ringkasan: row.description ?? row.action,
+          waktu: row.created_at,
+          status: row.status,
+          icon: mapSeverityToIcon(row.severity),
+          detail: (row.metadata ?? {}) as Record<string, string | number>,
+        };
+        void idx;
+      });
+    return [...memAktivitas, ...fromDb].sort((a, b) =>
+      b.waktu.localeCompare(a.waktu),
+    );
+  }, [memAktivitas, dbRows, workspaceId, ws?.name]);
 
   // Search + Filter (search uses debounced value)
   const filtered = useMemo(() => {

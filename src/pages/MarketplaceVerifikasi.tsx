@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
 import {
   getVerifikasiBadge,
-  submitVerifikasi,
+  type StatusVerifikasiWorkspace,
 } from '../data/marketplaceWorkspaceVerifikasiData';
 import {
   computeTrustScore,
@@ -21,6 +21,7 @@ import {
   type RiwayatVerifikasiEvent,
   type TipeRiwayatVerifikasi,
 } from '../data/marketplaceTrustData';
+import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -203,22 +204,78 @@ function InfoBox({ icon, title, body }: { icon: string; title: string; body: str
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+/** Build a RiwayatVerifikasiEvent from a DB trust_verifications row. */
+function dbRowToRiwayatEvent(row: {
+  verification_type: string;
+  status: string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+}): RiwayatVerifikasiEvent[] {
+  const events: RiwayatVerifikasiEvent[] = [];
+  const submitDate = (row.submitted_at ?? row.created_at).slice(0, 10);
+  events.push({
+    tanggal: submitDate,
+    tipe: 'Pengajuan',
+    keterangan: `Pengajuan verifikasi (${row.verification_type}) dikirim.`,
+  });
+  if (row.reviewed_at) {
+    const reviewDate = row.reviewed_at.slice(0, 10);
+    const isApproved = row.status === 'Approved' || row.status === 'Verified';
+    const isRejected = row.status === 'Rejected';
+    if (isApproved) {
+      events.push({ tanggal: reviewDate, tipe: 'Disetujui', keterangan: `Verifikasi (${row.verification_type}) disetujui.` });
+    } else if (isRejected) {
+      events.push({
+        tanggal: reviewDate,
+        tipe: 'Ditolak',
+        keterangan: row.rejection_reason ?? `Verifikasi (${row.verification_type}) ditolak.`,
+      });
+    } else if (row.status === 'Suspended') {
+      events.push({ tanggal: reviewDate, tipe: 'Ditangguhkan', keterangan: `Workspace ditangguhkan.` });
+    }
+  }
+  return events;
+}
+
 export default function MarketplaceVerifikasi() {
   const navigate = useNavigate();
-  const [tick, setTick] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const activeWs = getActiveWorkspace();
   const workspace = WORKSPACES.find((w) => w.id === activeWs.id);
 
-  // Re-derived each render so they reflect post-submitVerifikasi state
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const verifikasi = (() => getVerifikasiBadge(activeWs.id))();
-  // tick is consumed here to force re-evaluation when submitVerifikasi() changes the store
-  void tick;
+  // DB hook: fetches trust_verifications for this workspace
+  const dbVerifikasi = useMarketplaceVerifikasi(activeWs.id);
+
+  // Status badge: prefer DB-derived status; fall back to static in-memory data
+  const verifikasi = dbVerifikasi.status !== null
+    ? getVerifikasiBadge(activeWs.id)  // keep badge shape but override status below
+    : getVerifikasiBadge(activeWs.id);
+
+  // Effective status: DB wins when loaded, else static
+  const effectiveStatus: StatusVerifikasiWorkspace =
+    dbVerifikasi.status ?? verifikasi.status;
+
+  // Build riwayat: prefer DB rows, fall back to static
+  const riwayat: RiwayatVerifikasiEvent[] = dbVerifikasi.rows.length > 0
+    ? dbVerifikasi.rows.flatMap(dbRowToRiwayatEvent).sort((a, b) =>
+        b.tanggal.localeCompare(a.tanggal))
+    : getRiwayatVerifikasiWorkspace(activeWs.id);
+
   const trust = computeTrustScore(activeWs.id);
   const levelBadge = getTrustLevelBadge(trust.level);
-  const riwayat = getRiwayatVerifikasiWorkspace(activeWs.id);
   const bergabung = getWorkspaceBergabungSejak(activeWs.id);
+
+  async function handleAjukanVerifikasi() {
+    setSubmitting(true);
+    setSubmitError(null);
+    const result = await dbVerifikasi.submitVerifikasi('KTP');
+    setSubmitting(false);
+    if (!result.ok) setSubmitError(result.error ?? 'Gagal mengirim pengajuan.');
+  }
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '12px 16px 40px' }}>
@@ -309,7 +366,7 @@ export default function MarketplaceVerifikasi() {
           </span>
         } />
 
-        {verifikasi.status === 'Belum Diverifikasi' && (
+        {effectiveStatus === 'Belum Diverifikasi' && (
           <>
             <div style={{
               marginTop: 10, padding: '10px 12px',
@@ -319,25 +376,32 @@ export default function MarketplaceVerifikasi() {
             }}>
               💡 Ajukan verifikasi untuk meningkatkan kepercayaan pembeli dan mendapatkan badge resmi di setiap listing Anda.
             </div>
+            {submitError && (
+              <div style={{
+                marginBottom: 8, padding: '8px 12px',
+                background: '#ffebee', borderRadius: 'var(--radius-sm)',
+                fontSize: 11.5, color: '#c62828',
+              }}>
+                ⚠️ {submitError}
+              </div>
+            )}
             <button
               type="button"
-              onClick={() => {
-                const ok = submitVerifikasi(activeWs.id);
-                if (ok) setTick((t) => t + 1);
-              }}
+              disabled={submitting}
+              onClick={() => { void handleAjukanVerifikasi(); }}
               style={{
                 width: '100%', padding: '11px 0',
                 borderRadius: 'var(--radius-md)',
-                background: '#1b7a43', color: '#fff',
+                background: submitting ? '#ccc' : '#1b7a43', color: '#fff',
                 border: 'none', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer',
+                cursor: submitting ? 'not-allowed' : 'pointer',
               }}
             >
-              📤 Ajukan Verifikasi
+              {submitting ? '⏳ Mengirim...' : '📤 Ajukan Verifikasi'}
             </button>
           </>
         )}
-        {verifikasi.status === 'Dalam Proses' && (
+        {effectiveStatus === 'Dalam Proses' && (
           <div style={{
             marginTop: 10, padding: '10px 12px',
             background: '#fff8e1', borderRadius: 'var(--radius-sm)',
@@ -347,7 +411,7 @@ export default function MarketplaceVerifikasi() {
           </div>
         )}
 
-        {verifikasi.status === 'Ditangguhkan' && (
+        {effectiveStatus === 'Ditangguhkan' && (
           <div style={{
             marginTop: 10, padding: '10px 12px',
             background: '#ffebee', borderRadius: 'var(--radius-sm)',

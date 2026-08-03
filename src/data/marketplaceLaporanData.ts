@@ -399,6 +399,72 @@ export function getLaporanSummary(): LaporanSummary {
  * query: cari di id, listingJudul, listingSlug, workspaceNamaTerlapor, workspaceNamaPelapor
  * status: filter by status (undefined = semua)
  */
+// ─── DB populate ──────────────────────────────────────────────────────────────
+// populateLaporanFromDb() merges marketplace_moderations rows into LAPORAN_LIST.
+// Called by useMarketplace after repoGetLaporanByWorkspace() succeeds.
+// Guard: if rows.length === 0 → keep seed data.
+
+export interface MarketplaceLaporanDbRowForPopulate {
+  id: string;
+  listing_id: string | null;
+  reported_by_workspace_id: string | null;
+  moderation_type: string | null;
+  reason: string | null;
+  status: string;  // 'Pending'|'UnderReview'|'Resolved'|'Ditolak'
+  created_at: string;
+}
+
+function mapModerasiStatusToLaporan(dbStatus: string): StatusLaporan {
+  switch (dbStatus) {
+    case 'UnderReview': return 'Diproses';
+    case 'Resolved':    return 'Selesai';
+    case 'Ditolak':     return 'Ditolak';
+    default:            return 'Menunggu Review';  // 'Pending'
+  }
+}
+
+export function populateLaporanFromDb(
+  rows: MarketplaceLaporanDbRowForPopulate[],
+): void {
+  if (rows.length === 0) return;
+
+  const hydrated: LaporanRecord[] = rows.map((row) => {
+    const dateStr = row.created_at.slice(0, 10);
+    const statusUI = mapModerasiStatusToLaporan(row.status);
+    return {
+      id: row.id,                             // UUID from DB
+      listingUuid: row.listing_id ?? '',
+      listingJudul: row.listing_id ?? '(Listing)',
+      listingSlug: '',
+      listingKategoriSlug: '',
+      workspaceIdTerlapor: '',
+      workspaceNamaTerlapor: '(Terlapor)',
+      workspaceIdPelapor: row.reported_by_workspace_id ?? '',
+      workspaceNamaPelapor: '(Pelapor)',
+      alasan: (row.moderation_type ?? 'Lainnya') as AlasanLaporan,
+      keterangan: row.reason ?? '',
+      lampiran: [],
+      status: statusUI,
+      tanggalLaporan: dateStr,
+      riwayatPenanganan: [
+        { tanggal: dateStr, status: 'Menunggu Review', catatan: 'Laporan diterima.' },
+        ...(statusUI !== 'Menunggu Review'
+          ? [{ tanggal: dateStr, status: statusUI, catatan: `Status: ${statusUI}` }]
+          : []),
+      ],
+    };
+  });
+
+  // Merge: upsert by id
+  const dbIds = new Set(hydrated.map((l) => l.id));
+  for (let i = LAPORAN_LIST.length - 1; i >= 0; i--) {
+    if (dbIds.has(LAPORAN_LIST[i].id)) LAPORAN_LIST.splice(i, 1);
+  }
+  LAPORAN_LIST.push(...hydrated);
+  // Sort newest first
+  LAPORAN_LIST.sort((a, b) => b.tanggalLaporan.localeCompare(a.tanggalLaporan));
+}
+
 export function queryLaporan(params: {
   query?: string;
   status?: StatusLaporan;

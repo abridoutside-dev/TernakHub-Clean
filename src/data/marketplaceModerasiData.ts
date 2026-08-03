@@ -402,6 +402,73 @@ export function getKasusModerasiSummary(): KasusModerasiSummary {
  * query: cari di id, nomorReport, listingJudul, listingSlug, workspaceNama
  * status: filter by status (undefined = semua)
  */
+// ─── DB populate ──────────────────────────────────────────────────────────────
+// populateModerasiFromDb() merges marketplace_moderations rows into KASUS_LIST.
+// Called by useMarketplace after repoGetModerasiAll() succeeds.
+// Guard: if rows.length === 0 → keep seed data.
+
+export interface MarketplaceModerasiDbRowForPopulate {
+  id: string;
+  listing_id: string | null;
+  reported_by_workspace_id: string | null;
+  moderation_type: string | null;
+  reason: string | null;
+  status: string;   // 'Pending'|'UnderReview'|'Resolved'|'Ditolak'
+  action_taken: string | null;
+  created_at: string;
+}
+
+function mapModerasiStatusToKasus(dbStatus: string): StatusModerasi {
+  switch (dbStatus) {
+    case 'UnderReview': return 'Sedang Diproses';
+    case 'Resolved':    return 'Selesai';
+    case 'Ditolak':     return 'Ditolak';
+    default:            return 'Menunggu Review';  // 'Pending'
+  }
+}
+
+export function populateModerasiFromDb(
+  rows: MarketplaceModerasiDbRowForPopulate[],
+): void {
+  if (rows.length === 0) return;
+
+  const hydrated: KasusModerasiRecord[] = rows.map((row) => {
+    const dateStr = row.created_at.slice(0, 10);
+    const statusUI = mapModerasiStatusToKasus(row.status);
+    return {
+      id: row.id,                              // UUID from DB
+      listingUuid: row.listing_id ?? '',
+      listingJudul: row.listing_id ?? '(Listing)',
+      listingSlug: '',
+      listingKategoriSlug: '',
+      workspaceId: row.reported_by_workspace_id ?? '',
+      workspaceNama: '(Workspace)',
+      sumber: 'Report Listing' as SumberModerasi,
+      alasan: row.reason ?? row.moderation_type ?? '',
+      bukti: [],
+      catatanModerator: row.action_taken ?? '',
+      status: statusUI,
+      tindakan: row.action_taken ? (row.action_taken as TindakanModerasi) : undefined,
+      tanggalDibuat: dateStr,
+      riwayatKeputusan: [
+        { tanggal: dateStr, status: 'Menunggu Review', catatan: 'Kasus diterima.' },
+        ...(statusUI !== 'Menunggu Review'
+          ? [{ tanggal: dateStr, status: statusUI, catatan: `Status diperbarui: ${statusUI}` }]
+          : []),
+      ],
+    };
+  });
+
+  // Merge: upsert by id
+  const dbIds = new Set(hydrated.map((k) => k.id));
+  for (let i = KASUS_LIST.length - 1; i >= 0; i--) {
+    if (dbIds.has(KASUS_LIST[i].id)) KASUS_LIST.splice(i, 1);
+  }
+  KASUS_LIST.push(...hydrated);
+  // Sort newest first
+  KASUS_LIST.sort((a, b) => b.tanggalDibuat.localeCompare(a.tanggalDibuat));
+}
+
 export function queryKasusModerasi(params: {
   query?: string;
   status?: StatusModerasi;

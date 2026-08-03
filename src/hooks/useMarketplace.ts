@@ -30,11 +30,17 @@ import {
 import { populateListingsFromDb } from '../data/marketplaceListingData';
 import { populateTransaksiFromDb } from '../data/marketplaceTransaksiData';
 import { populateNegosiasiFromDb } from '../data/marketplaceNegosiasiData';
+import { populateLaporanFromDb } from '../data/marketplaceLaporanData';
+import { populateModerasiFromDb } from '../data/marketplaceModerasiData';
 import {
   registerListingSupabaseIds,
   registerTransaksiSupabaseIds,
   registerNegosiasiSupabaseIds,
 } from '../services/marketplaceService';
+import {
+  repoGetLaporanByWorkspace,
+  repoGetModerasiAll,
+} from '../repositories/marketplaceRepository';
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
@@ -97,6 +103,18 @@ export function useMarketplace(): UseMarketplaceResult {
         populateNegosiasiFromDb(negosiasiRows);
         registerNegosiasiSupabaseIds(negosiasiRows);
       }
+
+      // Laporan (moderation reports) — workspace's own reports as reporter
+      try {
+        const laporanRows = await repoGetLaporanByWorkspace(workspaceId);
+        if (laporanRows.length > 0) populateLaporanFromDb(laporanRows);
+      } catch { /* non-critical — keep seed data */ }
+
+      // Kasus Moderasi — all moderation cases (admin view)
+      try {
+        const moderasiRows = await repoGetModerasiAll();
+        if (moderasiRows.length > 0) populateModerasiFromDb(moderasiRows);
+      } catch { /* non-critical — keep seed data */ }
 
     } catch (err) {
       if (abortRef.current) return;

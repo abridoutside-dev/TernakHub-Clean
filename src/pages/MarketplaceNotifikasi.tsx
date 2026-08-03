@@ -2,7 +2,7 @@
 // Halaman pusat notifikasi: ringkasan, filter per sumber, dan daftar notifikasi
 // dari seluruh aktivitas Listing, Negosiasi, Chat, Transaksi, dan Sistem.
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePaginatedList } from '../utils/usePaginatedList';
 import { getActiveWorkspace } from '../components/TopAppBar';
@@ -14,6 +14,7 @@ import {
   type NotifikasiItem,
   type NotifikasiSumber,
 } from '../data/marketplaceNotifikasiData';
+import { useMarketplaceNotifikasi } from '../hooks/useMarketplaceNotifikasi';
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -160,16 +161,57 @@ function NotifItem({
 
 // ─── Halaman Utama ────────────────────────────────────────────────────────────
 
+/** Convert a DB notification row to the shape NotifikasiItem expects. */
+function dbRowToNotifikasiItem(row: {
+  id: string;
+  notification_type: string;
+  title: string;
+  message: string;
+  icon: string | null;
+  action_route: string | null;
+  is_read: boolean;
+  created_at: string;
+}): NotifikasiItem {
+  let sumber: NotifikasiSumber = 'Sistem';
+  if (row.notification_type === 'Transaksi') sumber = 'Transaksi';
+
+  return {
+    id: `db-${row.id}`,
+    sumber,
+    judul: row.title,
+    ringkasan: row.message,
+    icon: row.icon ?? '🔔',
+    timestamp: row.created_at,
+    dibaca: row.is_read,
+    navigateTo: row.action_route ?? undefined,
+  };
+}
+
 export default function MarketplaceNotifikasi() {
   const navigate = useNavigate();
   const activeWs = getActiveWorkspace();
   const [filter, setFilter] = useState<FilterKey>('Semua');
   const [tick, setTick] = useState(0);
 
+  // DB notifications (supplements the in-memory aggregated items)
+  const { notifikasi: dbNotif, markRead: dbMarkRead, markAllRead: dbMarkAllRead } =
+    useMarketplaceNotifikasi(activeWs.id);
+
   function refresh() { setTick(t => t + 1); }
 
+  const memItems = getNotifikasi(activeWs.id);
+
+  // Merge: DB rows come first (newest), then in-memory items not already in DB
+  const dbIds = useMemo(() => new Set(dbNotif.map((r) => `db-${r.id}`)), [dbNotif]);
+  const allItems = useMemo((): NotifikasiItem[] => {
+    const dbConverted = dbNotif.map(dbRowToNotifikasiItem);
+    const memFiltered = memItems.filter((m) => !dbIds.has(m.id));
+    return [...dbConverted, ...memFiltered].sort(
+      (a, b) => b.timestamp.localeCompare(a.timestamp),
+    );
+  }, [dbNotif, memItems, dbIds]);
+
   const ringkasan = getRingkasanNotifikasi(activeWs.id);
-  const allItems = getNotifikasi(activeWs.id);
 
   const filtered = filter === 'Semua'
     ? allItems
@@ -178,11 +220,16 @@ export default function MarketplaceNotifikasi() {
   const { visible: notifVisible, hasMore: notifHasMore, sentinelRef: notifSentinel } = usePaginatedList(filtered, 20);
 
   function handleTandaiDibaca(id: string) {
-    tandaiDibaca(id);
+    if (id.startsWith('db-')) {
+      void dbMarkRead(id.slice(3));
+    } else {
+      tandaiDibaca(id);
+    }
     refresh();
   }
 
-  function handleTandaiSemuaDibaca() {
+  async function handleTandaiSemuaDibaca() {
+    await dbMarkAllRead();
     tandaiSemuaDibaca(activeWs.id);
     refresh();
   }

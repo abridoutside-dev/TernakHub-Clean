@@ -525,7 +525,212 @@ export async function repoDeleteWishlist(
   return { error: null };
 }
 
-// ─── Moderation ───────────────────────────────────────────────────────────────
+// ─── Moderation reads ─────────────────────────────────────────────────────────
+
+export interface MarketplaceModerasiDbRow {
+  id: string;
+  listing_id: string | null;
+  reported_by_workspace_id: string | null;
+  moderation_type: string | null;
+  reason: string | null;
+  status: string;            // 'Pending' | 'UnderReview' | 'Resolved' | 'Ditolak'
+  action_taken: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+/** Seluruh kasus moderasi — untuk halaman admin Moderasi. */
+export async function repoGetModerasiAll(): Promise<MarketplaceModerasiDbRow[]> {
+  const { data, error } = await supabase
+    .from('marketplace_moderations')
+    .select('id,listing_id,reported_by_workspace_id,moderation_type,reason,status,action_taken,reviewed_by,reviewed_at,created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceModerasiDbRow[];
+}
+
+/** Laporan yang dikirim oleh workspace tertentu (sebagai pelapor). */
+export async function repoGetLaporanByWorkspace(
+  workspaceId: string,
+): Promise<MarketplaceModerasiDbRow[]> {
+  const { data, error } = await supabase
+    .from('marketplace_moderations')
+    .select('id,listing_id,reported_by_workspace_id,moderation_type,reason,status,action_taken,reviewed_by,reviewed_at,created_at')
+    .eq('reported_by_workspace_id', workspaceId)
+    .order('created_at', { ascending: false });
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceModerasiDbRow[];
+}
+
+export async function repoUpdateModerasiStatus(
+  id: string,
+  status: string,
+  actionTaken?: string,
+): Promise<{ error: string | null }> {
+  await requireAuthSession();
+  const patch: Record<string, unknown> = { status };
+  if (actionTaken !== undefined) patch['action_taken'] = actionTaken;
+  const { error } = await supabase
+    .from('marketplace_moderations')
+    .update(patch)
+    .eq('id', id);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+// ─── Notifications reads ───────────────────────────────────────────────────────
+
+export interface MarketplaceNotifikasiDbRow {
+  id: string;
+  recipient_user_id: string;
+  recipient_workspace_id: string | null;
+  notification_type: string;  // 'Info'|'Peringatan'|'Kritis'|'Transaksi'|'Sistem'|'Promosi'
+  source_module: string | null;
+  source_entity_id: string | null;
+  title: string;
+  message: string;
+  icon: string | null;
+  action_label: string | null;
+  action_route: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+}
+
+/** Notifikasi untuk user tertentu, dibatasi ke workspace jika diberikan. */
+export async function repoGetNotifikasiByUser(
+  userId: string,
+  workspaceId?: string,
+): Promise<MarketplaceNotifikasiDbRow[]> {
+  let query = supabase
+    .from('notifications')
+    .select('id,recipient_user_id,recipient_workspace_id,notification_type,source_module,source_entity_id,title,message,icon,action_label,action_route,is_read,read_at,created_at')
+    .eq('recipient_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (workspaceId) {
+    query = query.eq('recipient_workspace_id', workspaceId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceNotifikasiDbRow[];
+}
+
+export async function repoMarkNotifikasiRead(
+  id: string,
+): Promise<{ error: string | null }> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true, read_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+export async function repoMarkAllNotifikasiRead(
+  userId: string,
+  workspaceId?: string,
+): Promise<{ error: string | null }> {
+  await requireAuthSession();
+  let query = supabase
+    .from('notifications')
+    .update({ is_read: true, read_at: new Date().toISOString() })
+    .eq('recipient_user_id', userId)
+    .eq('is_read', false);
+  if (workspaceId) {
+    query = (query as typeof query).eq('recipient_workspace_id', workspaceId);
+  }
+  const { error } = await query;
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+// ─── Activity Log reads ────────────────────────────────────────────────────────
+
+export interface MarketplaceActivityLogDbRow {
+  id: string;
+  workspace_id: string | null;
+  domain: string;
+  module: string;
+  entity_type: string;
+  entity_id: string | null;
+  action: string;
+  description: string | null;
+  actor_id: string | null;
+  metadata: Record<string, unknown> | null;
+  status: string;
+  severity: string;
+  created_at: string;
+}
+
+/** Riwayat aktivitas marketplace untuk workspace tertentu. */
+export async function repoGetActivityLogByWorkspace(
+  workspaceId: string,
+): Promise<MarketplaceActivityLogDbRow[]> {
+  const { data, error } = await supabase
+    .from('activity_log')
+    .select('id,workspace_id,domain,module,entity_type,entity_id,action,description,actor_id,metadata,status,severity,created_at')
+    .eq('workspace_id', workspaceId)
+    .eq('domain', 'marketplace')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceActivityLogDbRow[];
+}
+
+// ─── Trust Verifications reads ─────────────────────────────────────────────────
+
+export interface MarketplaceTrustVerifikasiDbRow {
+  id: string;
+  workspace_id: string;
+  verification_type: string;   // 'KTP'|'NPWP'|'SIUP'|'Sertifikat'|'LokasiUsaha'|'Rekening'|'Lainnya'
+  status: string;              // 'Draft'|'Submitted'|'UnderReview'|'Approved'|'Rejected'|...
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  expires_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Semua pengajuan verifikasi untuk workspace tertentu. */
+export async function repoGetTrustVerifikasiByWorkspace(
+  workspaceId: string,
+): Promise<MarketplaceTrustVerifikasiDbRow[]> {
+  const { data, error } = await supabase
+    .from('trust_verifications')
+    .select('id,workspace_id,verification_type,status,submitted_at,reviewed_at,rejection_reason,expires_at,notes,created_at,updated_at')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false });
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceTrustVerifikasiDbRow[];
+}
+
+export async function repoInsertTrustVerifikasi(
+  workspaceId: string,
+  verificationType: string,
+): Promise<{ data: { id: string } | null; error: string | null }> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('trust_verifications')
+    .insert({
+      workspace_id:      workspaceId,
+      verification_type: verificationType,
+      status:            'Submitted',
+      submitted_at:      new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+// ─── Moderation writes ─────────────────────────────────────────────────────────
 
 export interface MarketplaceModerasiInsert {
   listing_id: string | null;
