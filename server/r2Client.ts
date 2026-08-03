@@ -1,4 +1,4 @@
-// ─── Cloudflare R2 Client — ADMIN-PLATFORM-003B ───────────────────────────────
+// ─── Cloudflare R2 Client — ADMIN-PLATFORM-003C ───────────────────────────────
 //
 // Uses the Cloudflare REST API (Bearer token) — NOT the S3-compatible API.
 // Credentials are read at call-time from the mutable r2ConfigStore so that
@@ -8,6 +8,7 @@
 //   PUT  /accounts/{accountId}/r2/buckets/{bucket}/objects/{key}
 //   GET  /accounts/{accountId}/r2/buckets/{bucket}/objects/{key}
 //   HEAD /accounts/{accountId}/r2/buckets
+//   GET  /accounts/{accountId}/r2/buckets/{bucket}   ← bucket details
 //
 // SECURITY: This file MUST only be imported by server-side code.
 // Never import it in src/ (browser) code — credentials would be exposed.
@@ -70,48 +71,100 @@ export function buildPublicUrl(key: string): string {
 // ─── Bucket Health Check ──────────────────────────────────────────────────────
 
 export interface BucketHealthResult {
-  ok: boolean;
-  bucket: string;
-  message: string;
+  ok:               boolean;
+  bucket:           string;
+  message:          string;
+  latencyMs:        number;
+  bucketRegion:     string;
+  storageProvider:  string;
+  bucketVisibility: string;
+}
+
+interface CfBucketListResponse {
+  success: boolean;
+  result:  { buckets: Array<{ name: string }> };
+}
+
+interface CfBucketDetailResponse {
+  success: boolean;
+  result:  {
+    name:          string;
+    creation_date: string;
+    location?:     string;
+    storage_class?: string;
+  };
 }
 
 export async function checkBucketHealth(): Promise<BucketHealthResult> {
   const accountId = getAccountId();
   const bucket    = getBucket();
+  const cfg       = getR2Config();
+  const start     = Date.now();
+
+  const empty: Omit<BucketHealthResult, 'ok' | 'message'> = {
+    bucket,
+    latencyMs:        0,
+    bucketRegion:     'auto',
+    storageProvider:  'Cloudflare R2',
+    bucketVisibility: cfg.isPublicBucket ? 'Public' : 'Private',
+  };
 
   if (!accountId) {
-    return { ok: false, bucket, message: 'Account ID belum dikonfigurasi' };
+    return { ...empty, ok: false, latencyMs: 0, message: 'Account ID belum dikonfigurasi' };
   }
   if (!getApiToken()) {
-    return { ok: false, bucket, message: 'API Token / CF API Token belum dikonfigurasi' };
+    return { ...empty, ok: false, latencyMs: 0, message: 'API Token / CF API Token belum dikonfigurasi' };
   }
 
-  const url = `${CF_API}/accounts/${accountId}/r2/buckets`;
-  const res = await fetch(url, { headers: authHeaders() });
+  // ── Step 1: verify token by listing buckets ───────────────────────────────
+  const listUrl = `${CF_API}/accounts/${accountId}/r2/buckets`;
+  const listRes = await fetch(listUrl, { headers: authHeaders() });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    return { ok: false, bucket, message: `HTTP ${res.status}: ${text}` };
+  if (!listRes.ok) {
+    const text = await listRes.text().catch(() => listRes.statusText);
+    return { ...empty, ok: false, latencyMs: Date.now() - start, message: `HTTP ${listRes.status}: ${text}` };
   }
 
-  interface BucketsResponse {
-    success: boolean;
-    result: { buckets: Array<{ name: string }> };
-  }
-  const data  = await res.json() as BucketsResponse;
-  const found = data.result?.buckets?.some((b) => b.name === bucket);
+  const listData  = await listRes.json() as CfBucketListResponse;
+  const found     = listData.result?.buckets?.some((b) => b.name === bucket);
   if (!found) {
-    return { ok: false, bucket, message: `Bucket "${bucket}" tidak ditemukan di akun ini` };
+    return {
+      ...empty, ok: false, latencyMs: Date.now() - start,
+      message: `Bucket "${bucket}" tidak ditemukan di akun ini`,
+    };
   }
-  return { ok: true, bucket, message: `Bucket "${bucket}" reachable` };
+
+  // ── Step 2: fetch bucket details for region ───────────────────────────────
+  let bucketRegion = 'auto';
+  const detailUrl = `${CF_API}/accounts/${accountId}/r2/buckets/${encodeURIComponent(bucket)}`;
+  try {
+    const detailRes = await fetch(detailUrl, { headers: authHeaders() });
+    if (detailRes.ok) {
+      const detail = await detailRes.json() as CfBucketDetailResponse;
+      if (detail.result?.location) bucketRegion = detail.result.location;
+    }
+  } catch {
+    // non-fatal — use default 'auto'
+  }
+
+  const latencyMs = Date.now() - start;
+  return {
+    ok:               true,
+    bucket,
+    message:          `✓ Connected — bucket "${bucket}" reachable`,
+    latencyMs,
+    bucketRegion,
+    storageProvider:  'Cloudflare R2',
+    bucketVisibility: cfg.isPublicBucket ? 'Public' : 'Private',
+  };
 }
 
 // ─── Object Upload ────────────────────────────────────────────────────────────
 
 export interface UploadObjectResult {
-  ok: boolean;
-  key: string;
-  url: string;
+  ok:     boolean;
+  key:    string;
+  url:    string;
   error?: string;
 }
 
@@ -158,11 +211,57 @@ export async function uploadObject(
   return { ok: true, key, url: buildPublicUrl(key) };
 }
 
+// ─── Object Read ──────────────────────────────────────────────────────────────
+
+export interface ReadObjectResult {
+  ok:            boolean;
+  key:           string;
+  statusCode:    number;
+  contentLength: number;
+  contentType:   string;
+  error?:        string;
+}
+
+/**
+ * Read an object from Cloudflare R2 via the Cloudflare REST API.
+ * Used primarily for connectivity verification (test-upload / test-download).
+ *
+ * @param key - Object key (path inside the bucket)
+ */
+export async function readObject(key: string): Promise<ReadObjectResult> {
+  const url = r2ObjectApiUrl(key);
+
+  const res = await fetch(url, {
+    method:  'GET',
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    return {
+      ok: false, key,
+      statusCode:    res.status,
+      contentLength: 0,
+      contentType:   '',
+      error:         `HTTP ${res.status}: ${text}`,
+    };
+  }
+
+  const body = await res.arrayBuffer();
+  return {
+    ok:            true,
+    key,
+    statusCode:    res.status,
+    contentLength: body.byteLength,
+    contentType:   res.headers.get('content-type') ?? 'application/octet-stream',
+  };
+}
+
 // ─── Object Delete (rollback / cleanup) ──────────────────────────────────────
 
 export interface DeleteObjectResult {
-  ok: boolean;
-  key: string;
+  ok:     boolean;
+  key:    string;
   error?: string;
 }
 

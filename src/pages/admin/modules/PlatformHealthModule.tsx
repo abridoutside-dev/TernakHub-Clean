@@ -328,7 +328,7 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Storage (R2) Config Drawer — ADMIN-PLATFORM-003B ─────────────────────────
+// ─── Storage (R2) Config Drawer — ADMIN-PLATFORM-003C ─────────────────────────
 
 const ALL_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const CREDENTIAL_MASKED = '**masked**';
@@ -390,8 +390,29 @@ function CredentialField({
 interface OpResult { status: 'idle' | 'loading' | 'ok' | 'error'; message: string }
 const OP_IDLE: OpResult = { status: 'idle', message: '' };
 
+interface TestConnectionMeta {
+  latencyMs:        number;
+  bucketRegion:     string;
+  storageProvider:  string;
+  bucketVisibility: string;
+  lastTested:       string;
+}
+
+interface TestUploadSteps {
+  upload: { ok: boolean; latencyMs: number; bytes: number };
+  read:   { ok: boolean; latencyMs: number; bytes: number; httpStatus: number };
+  delete: { ok: boolean; latencyMs: number; error?: string };
+}
+
+interface TestDownloadMeta {
+  httpStatus:    number;
+  contentLength: number;
+  contentType:   string;
+  latencyMs:     number;
+}
+
 function OpBtn({ label, result, onClick }: { label: string; result: OpResult; onClick: () => void }) {
-  const busy = result.status === 'loading';
+  const busy  = result.status === 'loading';
   const color = result.status === 'ok' ? '#15803d' : result.status === 'error' ? '#b91c1c' : '#374151';
   return (
     <div style={{ marginBottom: 10 }}>
@@ -411,16 +432,66 @@ function OpBtn({ label, result, onClick }: { label: string; result: OpResult; on
   );
 }
 
-function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
-  const [cfg, setCfg]       = useState<StorageServiceConfig>(DEFAULT_STORAGE_CONFIG);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const [validationErr, setValidationErr] = useState<string | null>(null);
+/** Validate Account ID: 32 lowercase hex chars (Cloudflare format). */
+function validateAccountId(v: string): string | null {
+  if (!v) return 'Account ID wajib diisi';
+  if (!/^[a-f0-9]{32}$/i.test(v)) return 'Format Account ID tidak valid (harus 32 karakter hex)';
+  return null;
+}
 
-  const [testConn,    setTestConn]    = useState<OpResult>(OP_IDLE);
-  const [testUpload,  setTestUpload]  = useState<OpResult>(OP_IDLE);
-  const [testDownload,setTestDownload]= useState<OpResult>(OP_IDLE);
+/** Validate bucket name: 3–63 lowercase alphanumeric / hyphens. */
+function validateBucketName(v: string): string | null {
+  if (!v) return 'Bucket Name wajib diisi';
+  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(v))
+    return 'Nama bucket tidak valid (3–63 karakter: huruf kecil, angka, atau tanda hubung)';
+  return null;
+}
+
+/** Validate URL format for Custom Domain. */
+function validateCustomDomain(v: string): string | null {
+  if (!v) return null; // optional
+  try { new URL(v); return null; } catch { return 'Format URL tidak valid (contoh: https://cdn.yourdomain.com)'; }
+}
+
+/** Derive the S3-compatible endpoint from accountId. Always read-only unless useCustomEndpoint. */
+function deriveEndpoint(accountId: string): string {
+  return accountId ? `https://${accountId}.r2.cloudflarestorage.com` : '';
+}
+
+/** Derive effective Public URL from customDomain or bucket + accountId. */
+function derivePublicUrl(accountId: string, bucket: string, customDomain: string): string {
+  if (customDomain) return customDomain.replace(/\/$/, '');
+  if (accountId && bucket) return `https://${bucket}.${accountId}.r2.dev`;
+  return '';
+}
+
+function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
+  const [cfg, setCfg]             = useState<StorageServiceConfig>(DEFAULT_STORAGE_CONFIG);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [saveMsg, setSaveMsg]     = useState<string | null>(null);
+
+  // Field-level validation errors (realtime)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+
+  // Custom endpoint override
+  const [useCustomEndpoint, setUseCustomEndpoint] = useState(false);
+  const [customEndpointVal, setCustomEndpointVal] = useState('');
+
+  // Test operation results
+  const [testConn,     setTestConn]     = useState<OpResult>(OP_IDLE);
+  const [testUpload,   setTestUpload]   = useState<OpResult>(OP_IDLE);
+  const [testDownload, setTestDownload] = useState<OpResult>(OP_IDLE);
+
+  // Test result panel data (from last successful test-connection)
+  const [connMeta,    setConnMeta]    = useState<TestConnectionMeta | null>(null);
+  const [uploadSteps, setUploadSteps] = useState<TestUploadSteps | null>(null);
+  const [dlMeta,      setDlMeta]      = useState<TestDownloadMeta | null>(null);
+
+  // ── Derived / auto-computed values ─────────────────────────────────────────
+  const autoEndpoint = deriveEndpoint(cfg.accountId);
+  const autoPublicUrl = derivePublicUrl(cfg.accountId, cfg.bucket, cfg.customDomain ?? '');
+  const effectiveEndpoint = useCustomEndpoint ? customEndpointVal : autoEndpoint;
 
   // Load config from the admin API (credentials come back masked)
   useEffect(() => {
@@ -434,7 +505,14 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
         });
         if (res.ok) {
           const body = await res.json() as { success: boolean; config: StorageServiceConfig };
-          if (body.success) setCfg(body.config);
+          if (body.success) {
+            setCfg(body.config);
+            // If a custom endpoint was saved (not matching auto), enable the toggle
+            if (body.config.endpoint && body.config.endpoint !== deriveEndpoint(body.config.accountId)) {
+              setUseCustomEndpoint(true);
+              setCustomEndpointVal(body.config.endpoint);
+            }
+          }
         }
       } catch { /* fallback to defaults */ }
       setLoading(false);
@@ -455,47 +533,116 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
     }));
   };
 
+  // ── Realtime field validation ───────────────────────────────────────────────
+  const onAccountIdChange = (v: string) => {
+    setCfg(p => ({ ...p, accountId: v }));
+    setFieldErrors(e => ({ ...e, accountId: validateAccountId(v) }));
+  };
+  const onBucketChange = (v: string) => {
+    setCfg(p => ({ ...p, bucket: v }));
+    setFieldErrors(e => ({ ...e, bucket: validateBucketName(v) }));
+  };
+  const onCustomDomainChange = (v: string) => {
+    setCfg(p => ({ ...p, customDomain: v }));
+    setFieldErrors(e => ({ ...e, customDomain: validateCustomDomain(v) }));
+  };
+
+  // ── Aggregate validation before save ───────────────────────────────────────
   const validate = (): string | null => {
-    if (!cfg.accountId.trim()) return 'Account ID wajib diisi';
-    if (!cfg.bucket.trim())    return 'Bucket Name wajib diisi';
+    const accErr = validateAccountId(cfg.accountId);
+    if (accErr) return accErr;
+    const bktErr = validateBucketName(cfg.bucket);
+    if (bktErr) return bktErr;
+    if (cfg.customDomain) {
+      const cdErr = validateCustomDomain(cfg.customDomain);
+      if (cdErr) return cdErr;
+    }
     if (cfg.allowedMimeTypes.length === 0) return 'Pilih minimal satu MIME Type';
     return null;
   };
 
   const handleSave = async () => {
     const err = validate();
-    if (err) { setValidationErr(err); return; }
-    setValidationErr(null);
+    if (err) { setSaveMsg(`❌ ${err}`); return; }
     setSaving(true); setSaveMsg(null);
     try {
       const jwt = await getJwt();
+      // Build the payload: override endpoint + publicUrl with computed values
+      const payload: StorageServiceConfig = {
+        ...cfg,
+        endpoint:  effectiveEndpoint,
+        publicUrl: autoPublicUrl,
+      };
       const res = await fetch('/api/admin/storage-config', {
-        method: 'POST',
+        method:  'POST',
         headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(cfg),
+        body:    JSON.stringify(payload),
       });
       const body = await res.json() as { success: boolean; message?: string; error?: string };
-      setSaveMsg(body.success ? `✅ ${body.message ?? 'Konfigurasi disimpan'}` : `❌ ${body.error ?? 'Gagal menyimpan'}`);
+      setSaveMsg(body.success
+        ? `✅ ${body.message ?? 'Konfigurasi disimpan'}`
+        : `❌ ${body.error ?? 'Gagal menyimpan'}`);
     } catch (e) {
       setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
-  const callOp = async (
-    path: string,
-    setter: (r: OpResult) => void,
-  ) => {
+  // ── Test operation caller ───────────────────────────────────────────────────
+  const callOp = async (path: string, setter: (r: OpResult) => void) => {
     setter({ status: 'loading', message: '' });
     try {
       const jwt = await getJwt();
-      const res = await fetch(`/api/admin/storage-config/${path}`, {
-        method: 'POST',
+      const res  = await fetch(`/api/admin/storage-config/${path}`, {
+        method:  'POST',
         headers: { Authorization: `Bearer ${jwt}` },
       });
-      const body = await res.json() as { success: boolean; message?: string; error?: string };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body = await res.json() as Record<string, any>;
+
+      if (path === 'test-connection') {
+        if (body.success) {
+          setConnMeta({
+            latencyMs:        body.latencyMs        ?? 0,
+            bucketRegion:     body.bucketRegion     ?? 'auto',
+            storageProvider:  body.storageProvider  ?? 'Cloudflare R2',
+            bucketVisibility: body.bucketVisibility ?? '—',
+            lastTested:       body.lastTested       ?? new Date().toISOString(),
+          });
+          setter({ status: 'ok',    message: `✅ ${body.message ?? 'Connected'}` });
+        } else {
+          setter({ status: 'error', message: `❌ ${body.error ?? 'Gagal'}` });
+        }
+        return;
+      }
+
+      if (path === 'test-upload') {
+        if (body.success) {
+          if (body.steps) setUploadSteps(body.steps as TestUploadSteps);
+          setter({ status: 'ok', message: `✅ ${body.message ?? 'Upload OK'}` });
+        } else {
+          setter({ status: 'error', message: `❌ ${body.error ?? 'Gagal'}` });
+        }
+        return;
+      }
+
+      if (path === 'test-download') {
+        if (body.success) {
+          setDlMeta({
+            httpStatus:    body.httpStatus    ?? 200,
+            contentLength: body.contentLength ?? 0,
+            contentType:   body.contentType   ?? '',
+            latencyMs:     body.latencyMs     ?? 0,
+          });
+          setter({ status: 'ok', message: `✅ ${body.message ?? 'Download OK'}` });
+        } else {
+          setter({ status: 'error', message: `❌ ${body.error ?? 'Gagal'}` });
+        }
+        return;
+      }
+
       setter(body.success
         ? { status: 'ok',    message: `✅ ${body.message ?? 'Berhasil'}` }
-        : { status: 'error', message: `❌ ${body.error ?? 'Gagal'}` });
+        : { status: 'error', message: `❌ ${body.error   ?? 'Gagal'}` });
     } catch (e) {
       setter({ status: 'error', message: `❌ ${getErrorMessage(e)}` });
     }
@@ -503,6 +650,13 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
 
   const setBool = (key: keyof StorageServiceConfig) => (v: boolean) =>
     setCfg(p => ({ ...p, [key]: v }));
+
+  // ── Field error helper ──────────────────────────────────────────────────────
+  const FieldErr = ({ name }: { name: string }) => {
+    const err = fieldErrors[name];
+    if (!err) return null;
+    return <p style={{ fontSize: 11, color: '#dc2626', margin: '3px 0 0' }}>⚠ {err}</p>;
+  };
 
   return (
     <DrawerOverlay onClose={onClose}>
@@ -517,23 +671,71 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
           <>
             {/* ── IDENTITY ─────────────────────────────────────────────────── */}
             <SectionLabel>Identity</SectionLabel>
-            <Field label="Cloudflare Account ID">
-              <input style={fieldStyle} value={cfg.accountId} placeholder="abc123..." onChange={e => setCfg(p => ({ ...p, accountId: e.target.value.trim() }))} />
+
+            <Field label="Cloudflare Account ID" hint="32 karakter hex — tersedia di Cloudflare Dashboard › R2">
+              <input
+                style={{ ...fieldStyle, ...(fieldErrors.accountId ? { borderColor: '#fca5a5' } : {}) }}
+                value={cfg.accountId}
+                placeholder="a1b2c3d4e5f6…  (32 hex chars)"
+                onChange={e => onAccountIdChange(e.target.value.trim())}
+              />
+              <FieldErr name="accountId" />
             </Field>
+
             <Field label="Bucket Name">
-              <input style={fieldStyle} value={cfg.bucket} placeholder="ternakhub-images" onChange={e => setCfg(p => ({ ...p, bucket: e.target.value.trim() }))} />
+              <input
+                style={{ ...fieldStyle, ...(fieldErrors.bucket ? { borderColor: '#fca5a5' } : {}) }}
+                value={cfg.bucket}
+                placeholder="ternakhub-images"
+                onChange={e => onBucketChange(e.target.value.trim())}
+              />
+              <FieldErr name="bucket" />
             </Field>
-            <Field label="Endpoint URL">
-              <input style={fieldStyle} value={cfg.endpoint} placeholder="https://<accountid>.r2.cloudflarestorage.com" onChange={e => setCfg(p => ({ ...p, endpoint: e.target.value.trim() }))} />
+
+            {/* Endpoint — auto-generated; editable only when custom toggle is on */}
+            <Field label="Endpoint URL" hint={useCustomEndpoint ? 'Custom endpoint aktif — edit bebas' : 'Generate otomatis dari Account ID · read-only'}>
+              <input
+                style={useCustomEndpoint ? fieldStyle : fieldStyleRO}
+                readOnly={!useCustomEndpoint}
+                value={useCustomEndpoint ? customEndpointVal : autoEndpoint}
+                placeholder={useCustomEndpoint ? 'https://custom.endpoint.example.com' : 'Isi Account ID untuk generate otomatis'}
+                onChange={e => setCustomEndpointVal(e.target.value.trim())}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <Toggle value={useCustomEndpoint} onChange={v => {
+                  setUseCustomEndpoint(v);
+                  if (v && !customEndpointVal) setCustomEndpointVal(autoEndpoint);
+                }} />
+                <span style={{ fontSize: 11.5, color: '#64748b' }}>Use Custom Endpoint</span>
+              </div>
             </Field>
-            <Field label="Region">
-              <input style={fieldStyle} value={cfg.region} placeholder="auto" onChange={e => setCfg(p => ({ ...p, region: e.target.value.trim() || 'auto' }))} />
+
+            <Field label="Region" hint="R2 tidak memerlukan region eksplisit — biarkan 'auto' kecuali ada kebutuhan khusus">
+              <input
+                style={fieldStyle}
+                value={cfg.region}
+                placeholder="auto"
+                onChange={e => setCfg(p => ({ ...p, region: e.target.value.trim() || 'auto' }))}
+              />
             </Field>
-            <Field label="Public URL">
-              <input style={fieldStyle} value={cfg.publicUrl} placeholder="https://<accountid>.r2.dev" onChange={e => setCfg(p => ({ ...p, publicUrl: e.target.value.trim() }))} />
+
+            {/* Public URL — auto-derived from customDomain or bucket+accountId */}
+            <Field label="Public URL (efektif)" hint={cfg.customDomain ? 'Menggunakan Custom Domain' : 'Default R2.dev URL — aktifkan Custom Domain untuk menggantinya'}>
+              <input
+                style={fieldStyleRO}
+                readOnly
+                value={autoPublicUrl || '(isi Account ID dan Bucket untuk generate otomatis)'}
+              />
             </Field>
-            <Field label="Custom Domain">
-              <input style={fieldStyle} value={cfg.customDomain} placeholder="https://assets.example.com" onChange={e => setCfg(p => ({ ...p, customDomain: e.target.value.trim() }))} />
+
+            <Field label="Custom Domain" hint="Opsional — isi untuk mengganti Public URL dengan domain sendiri">
+              <input
+                style={{ ...fieldStyle, ...(fieldErrors.customDomain ? { borderColor: '#fca5a5' } : {}) }}
+                value={cfg.customDomain ?? ''}
+                placeholder="https://cdn.yourdomain.com"
+                onChange={e => onCustomDomainChange(e.target.value.trim())}
+              />
+              <FieldErr name="customDomain" />
             </Field>
 
             {/* ── CREDENTIAL ───────────────────────────────────────────────── */}
@@ -549,12 +751,12 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
               onChange={v => setCfg(p => ({ ...p, secretAccessKey: v }))}
             />
             <CredentialField
-              label="Cloudflare API Token"
+              label="Cloudflare API Token (Bearer)"
               value={cfg.cfApiToken}
               onChange={v => setCfg(p => ({ ...p, cfApiToken: v }))}
             />
 
-            {/* ── UPLOAD POLICY ─────────────────────────────────────────────── */}
+            {/* ── UPLOAD POLICY ────────────────────────────────────────────── */}
             <SectionLabel>Upload Policy</SectionLabel>
             <Field label="Enable Storage">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
@@ -627,10 +829,58 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
             <OpBtn label="Test Upload"     result={testUpload}   onClick={() => callOp('test-upload',     setTestUpload)} />
             <OpBtn label="Test Download"   result={testDownload} onClick={() => callOp('test-download',   setTestDownload)} />
 
-            {/* Validation error */}
-            {validationErr && (
-              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 12.5, marginTop: 8 }}>
-                ⚠️ {validationErr}
+            {/* ── UPLOAD STEPS DETAIL ───────────────────────────────────────── */}
+            {uploadSteps && testUpload.status !== 'idle' && (
+              <div style={{ marginTop: 4, marginBottom: 10, padding: '10px 14px', borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: '#374151', marginBottom: 6 }}>Upload Lifecycle</div>
+                {[
+                  { label: 'Upload',  ok: uploadSteps.upload?.ok, detail: `${uploadSteps.upload?.bytes ?? 0} bytes · ${uploadSteps.upload?.latencyMs ?? 0}ms` },
+                  { label: 'Read',    ok: uploadSteps.read?.ok,   detail: `HTTP ${uploadSteps.read?.httpStatus ?? '—'} · ${uploadSteps.read?.bytes ?? 0} bytes · ${uploadSteps.read?.latencyMs ?? 0}ms` },
+                  { label: 'Delete',  ok: uploadSteps.delete?.ok, detail: `${uploadSteps.delete?.latencyMs ?? 0}ms` + (uploadSteps.delete?.error ? ` · ${uploadSteps.delete.error}` : '') },
+                ].map(({ label, ok, detail }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontSize: 13 }}>{ok ? '✅' : '❌'}</span>
+                    <span style={{ fontWeight: 600, color: '#374151', minWidth: 48 }}>{label}</span>
+                    <span style={{ color: '#64748b' }}>{detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── DOWNLOAD DETAIL ───────────────────────────────────────────── */}
+            {dlMeta && testDownload.status !== 'idle' && (
+              <div style={{ marginTop: 4, marginBottom: 10, padding: '10px 14px', borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: '#374151', marginBottom: 6 }}>Download Details</div>
+                {[
+                  { label: 'HTTP Status',     value: String(dlMeta.httpStatus) },
+                  { label: 'Content-Length',  value: `${dlMeta.contentLength} bytes` },
+                  { label: 'Content-Type',    value: dlMeta.contentType || '—' },
+                  { label: 'Latency',         value: `${dlMeta.latencyMs}ms` },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
+                    <span style={{ color: '#64748b', minWidth: 110 }}>{label}</span>
+                    <span style={{ fontWeight: 600, color: '#374151' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── TEST RESULT PANEL ─────────────────────────────────────────── */}
+            {connMeta && (
+              <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 12 }}>
+                <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 8, fontSize: 12.5 }}>Test Result</div>
+                {[
+                  { label: 'Last Tested',       value: new Date(connMeta.lastTested).toLocaleString('id-ID') },
+                  { label: 'Latency',           value: `${connMeta.latencyMs}ms` },
+                  { label: 'Bucket Region',     value: connMeta.bucketRegion },
+                  { label: 'Storage Provider',  value: connMeta.storageProvider },
+                  { label: 'Bucket Visibility', value: connMeta.bucketVisibility },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
+                    <span style={{ color: '#166534', minWidth: 130 }}>{label}</span>
+                    <span style={{ fontWeight: 600, color: '#14532d' }}>{value}</span>
+                  </div>
+                ))}
               </div>
             )}
           </>

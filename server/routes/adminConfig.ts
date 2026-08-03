@@ -1,14 +1,15 @@
-// ─── Admin Storage Config Routes — ADMIN-PLATFORM-003B ────────────────────────
+// ─── Admin Storage Config Routes — ADMIN-PLATFORM-003C ────────────────────────
 //
 // Provides server-side API for managing Cloudflare R2 configuration from
 // the Admin Dashboard. All routes require an authenticated Platform Administrator.
 //
 // Routes:
-//   GET  /api/admin/storage-config              — read config (credentials masked)
-//   POST /api/admin/storage-config              — save config + hot-reload
-//   POST /api/admin/storage-config/test-connection — test bucket health
-//   POST /api/admin/storage-config/test-upload     — upload a small test object
-//   POST /api/admin/storage-config/test-download   — download the test object
+//   GET  /api/admin/storage-config                    — read config (credentials masked)
+//   POST /api/admin/storage-config                    — save config + hot-reload
+//   POST /api/admin/storage-config/test-connection    — test bucket health + return rich details
+//   POST /api/admin/storage-config/test-upload        — full cycle: upload → read → delete → report
+//   POST /api/admin/storage-config/test-download      — upload probe → GET → report HTTP/length/latency → delete
+//   POST /api/admin/storage-config/replace-credential — replace a single credential in-place
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router, Request, Response } from 'express';
@@ -22,8 +23,8 @@ import {
 import {
   checkBucketHealth,
   uploadObject,
-  r2ObjectApiUrl,
-  authHeaders,
+  readObject,
+  deleteObject,
 } from '../r2Client.js';
 import { getR2Config } from '../r2ConfigStore.js';
 
@@ -91,16 +92,33 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 // ─── POST /api/admin/storage-config/test-connection ──────────────────────────
+// Returns: { success, message, latencyMs, bucketRegion, storageProvider, bucketVisibility, lastTested }
 
 router.post('/test-connection', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const start  = Date.now();
     const result = await checkBucketHealth();
-    const ms     = Date.now() - start;
+    const lastTested = new Date().toISOString();
+
     if (result.ok) {
-      res.json({ success: true, message: `Bucket "${result.bucket}" reachable (${ms}ms)` });
+      res.json({
+        success:          true,
+        message:          result.message,
+        latencyMs:        result.latencyMs,
+        bucketRegion:     result.bucketRegion,
+        storageProvider:  result.storageProvider,
+        bucketVisibility: result.bucketVisibility,
+        lastTested,
+      });
     } else {
-      res.status(503).json({ success: false, error: result.message });
+      res.status(503).json({
+        success:          false,
+        error:            result.message,
+        latencyMs:        result.latencyMs,
+        bucketRegion:     result.bucketRegion,
+        storageProvider:  result.storageProvider,
+        bucketVisibility: result.bucketVisibility,
+        lastTested,
+      });
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -110,30 +128,68 @@ router.post('/test-connection', async (_req: Request, res: Response): Promise<vo
 });
 
 // ─── POST /api/admin/storage-config/test-upload ──────────────────────────────
+// Full lifecycle: upload small probe → read back → delete → report each step + latency
 
-const TEST_OBJECT_KEY = '__admin_test__/connectivity-probe.txt';
+const UPLOAD_PROBE_KEY = '__admin_test__/upload-probe.txt';
 
 router.post('/test-upload', async (_req: Request, res: Response): Promise<void> => {
   try {
     const cfg       = getR2Config();
     const timestamp = new Date().toISOString();
-    const content   = `TernakHub R2 connectivity probe\nTimestamp: ${timestamp}\nBucket: ${cfg.bucket}\n`;
+    const content   = `TernakHub R2 upload probe\nTimestamp: ${timestamp}\nBucket: ${cfg.bucket}\n`;
     const buffer    = Buffer.from(content, 'utf8');
 
-    const start  = Date.now();
-    const result = await uploadObject(TEST_OBJECT_KEY, buffer, 'text/plain');
-    const ms     = Date.now() - start;
+    const totalStart = Date.now();
 
-    if (result.ok) {
-      res.json({
-        success:  true,
-        message:  `Upload berhasil (${ms}ms) — ${buffer.length} bytes`,
-        key:      TEST_OBJECT_KEY,
-        url:      result.url,
+    // ── 1. Upload ─────────────────────────────────────────────────────────────
+    const uploadStart  = Date.now();
+    const uploadResult = await uploadObject(UPLOAD_PROBE_KEY, buffer, 'text/plain');
+    const uploadMs     = Date.now() - uploadStart;
+
+    if (!uploadResult.ok) {
+      res.status(502).json({
+        success: false,
+        error:   `Upload gagal: ${uploadResult.error}`,
+        steps:   { upload: false, read: false, delete: false },
+        latencyMs: Date.now() - totalStart,
       });
-    } else {
-      res.status(502).json({ success: false, error: result.error });
+      return;
     }
+
+    // ── 2. Read back ──────────────────────────────────────────────────────────
+    const readStart  = Date.now();
+    const readResult = await readObject(UPLOAD_PROBE_KEY);
+    const readMs     = Date.now() - readStart;
+
+    if (!readResult.ok) {
+      // Best-effort cleanup
+      await deleteObject(UPLOAD_PROBE_KEY).catch(() => undefined);
+      res.status(502).json({
+        success: false,
+        error:   `Baca kembali gagal: ${readResult.error}`,
+        steps:   { upload: true, read: false, delete: false },
+        latencyMs: Date.now() - totalStart,
+      });
+      return;
+    }
+
+    // ── 3. Delete ─────────────────────────────────────────────────────────────
+    const deleteStart  = Date.now();
+    const deleteResult = await deleteObject(UPLOAD_PROBE_KEY);
+    const deleteMs     = Date.now() - deleteStart;
+
+    const totalMs = Date.now() - totalStart;
+
+    res.json({
+      success: true,
+      message: `Upload OK · Read OK · Delete OK (total ${totalMs}ms)`,
+      steps: {
+        upload: { ok: true,            latencyMs: uploadMs,  bytes: buffer.length },
+        read:   { ok: true,            latencyMs: readMs,    bytes: readResult.contentLength, httpStatus: readResult.statusCode },
+        delete: { ok: deleteResult.ok, latencyMs: deleteMs,  error: deleteResult.error },
+      },
+      latencyMs: totalMs,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[AdminConfig] test-upload error:', err);
@@ -142,38 +198,51 @@ router.post('/test-upload', async (_req: Request, res: Response): Promise<void> 
 });
 
 // ─── POST /api/admin/storage-config/test-download ────────────────────────────
+// Uploads a fresh probe, GETs it, validates status/content-length/latency, deletes.
+
+const DOWNLOAD_PROBE_KEY = '__admin_test__/download-probe.txt';
 
 router.post('/test-download', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const cfg = getR2Config();
-    const url = r2ObjectApiUrl(TEST_OBJECT_KEY);
+    const cfg       = getR2Config();
+    const timestamp = new Date().toISOString();
+    const content   = `TernakHub R2 download probe\nTimestamp: ${timestamp}\nBucket: ${cfg.bucket}\n`;
+    const buffer    = Buffer.from(content, 'utf8');
 
-    const start = Date.now();
-    const r2Res = await fetch(url, {
-      method:  'GET',
-      headers: authHeaders(),
-    });
-    const ms = Date.now() - start;
-
-    if (r2Res.ok) {
-      const text    = await r2Res.text();
-      const preview = text.slice(0, 120).replace(/\n/g, ' ');
-      res.json({
-        success: true,
-        message: `Download berhasil (${ms}ms) — ${text.length} bytes`,
-        preview,
-        bucket: cfg.bucket,
-        key:    TEST_OBJECT_KEY,
-      });
-    } else if (r2Res.status === 404) {
-      res.status(404).json({
-        success: false,
-        error:   `Object "${TEST_OBJECT_KEY}" tidak ditemukan. Jalankan Test Upload terlebih dahulu.`,
-      });
-    } else {
-      const text = await r2Res.text().catch(() => r2Res.statusText);
-      res.status(r2Res.status).json({ success: false, error: `HTTP ${r2Res.status}: ${text}` });
+    // Upload probe first
+    const uploadResult = await uploadObject(DOWNLOAD_PROBE_KEY, buffer, 'text/plain');
+    if (!uploadResult.ok) {
+      res.status(502).json({ success: false, error: `Upload probe gagal: ${uploadResult.error}` });
+      return;
     }
+
+    // GET the object — measure download latency
+    const downloadStart = Date.now();
+    const readResult    = await readObject(DOWNLOAD_PROBE_KEY);
+    const latencyMs     = Date.now() - downloadStart;
+
+    // Always attempt cleanup
+    await deleteObject(DOWNLOAD_PROBE_KEY).catch(() => undefined);
+
+    if (!readResult.ok) {
+      res.status(502).json({
+        success:   false,
+        error:     `Download gagal: ${readResult.error}`,
+        httpStatus: readResult.statusCode,
+        latencyMs,
+      });
+      return;
+    }
+
+    res.json({
+      success:       true,
+      message:       `Download OK — HTTP ${readResult.statusCode} · ${readResult.contentLength} bytes · ${latencyMs}ms`,
+      httpStatus:    readResult.statusCode,
+      contentLength: readResult.contentLength,
+      contentType:   readResult.contentType,
+      latencyMs,
+      bucket:        cfg.bucket,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[AdminConfig] test-download error:', err);
