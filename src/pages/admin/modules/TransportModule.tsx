@@ -19,6 +19,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
+import { getErrorMessage } from '../../../utils/errorUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ export default function TransportModule() {
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          const msg = err instanceof Error ? err.message : String(err);
+          const msg = getErrorMessage(err);
           setError(msg);
         }
       } finally {

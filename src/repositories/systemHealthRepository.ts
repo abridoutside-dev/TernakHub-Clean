@@ -93,7 +93,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
       name: 'Database',
       status: 'down',
       latency_ms: Date.now() - start,
-      message: err instanceof Error ? err.message : String(err),
+      message: err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string,unknown>)['message']) : 'Database check failed'),
       checked_at: new Date().toISOString(),
     };
   }

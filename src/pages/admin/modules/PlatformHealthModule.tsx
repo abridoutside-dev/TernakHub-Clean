@@ -32,6 +32,7 @@ import {
   type AIProvider,
 } from '../../../repositories/platformConfigRepository';
 import { type ServiceCheck } from '../../../repositories/systemHealthRepository';
+import { getErrorMessage } from '../../../utils/errorUtils';
 
 // ─── Saved-config state type ──────────────────────────────────────────────────
 
@@ -273,7 +274,7 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
       await repoUpsertServiceConfig(CONFIG_KEYS.supabase, cfg as unknown as Record<string, unknown>, { description: 'Supabase service configuration', isPublic: false });
       setSaveMsg('✅ Konfigurasi disimpan');
     } catch (e) {
-      setSaveMsg(`❌ ${e instanceof Error ? e.message : 'Gagal menyimpan'}`);
+      setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
@@ -363,7 +364,7 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
       await repoUpsertServiceConfig(CONFIG_KEYS.storage, cfg as unknown as Record<string, unknown>, { description: 'Cloudflare R2 object storage configuration', isPublic: false });
       setSaveMsg('✅ Konfigurasi disimpan');
     } catch (e) {
-      setSaveMsg(`❌ ${e instanceof Error ? e.message : 'Gagal menyimpan'}`);
+      setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
@@ -464,7 +465,7 @@ function MessageQueueConfigDrawer({ onClose }: { onClose: () => void }) {
       await repoUpsertServiceConfig(CONFIG_KEYS.messageQueue, cfg as unknown as Record<string, unknown>, { description: 'Message queue service configuration', isPublic: false });
       setSaveMsg('✅ Konfigurasi disimpan');
     } catch (e) {
-      setSaveMsg(`❌ ${e instanceof Error ? e.message : 'Gagal menyimpan'}`);
+      setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
@@ -563,7 +564,7 @@ function AIServiceConfigDrawer({ onClose }: { onClose: () => void }) {
       await repoUpsertServiceConfig(CONFIG_KEYS.aiService, cfg as unknown as Record<string, unknown>, { description: 'AI service provider configuration', isPublic: false });
       setSaveMsg('✅ Konfigurasi disimpan');
     } catch (e) {
-      setSaveMsg(`❌ ${e instanceof Error ? e.message : 'Gagal menyimpan'}`);
+      setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
@@ -835,7 +836,7 @@ export default function PlatformHealthModule() {
           setLastSync(new Date().toLocaleTimeString('id-ID'));
         }
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(getErrorMessage(err));
       } finally {
         if (!cancelled) setLoading(false);
       }

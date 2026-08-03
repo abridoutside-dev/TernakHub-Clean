@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
+import { getErrorMessage } from '../../../utils/errorUtils';
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ export function TransportDeliveryAdmin() {
           });
         }
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(getErrorMessage(err));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -416,7 +417,7 @@ export function TransportReportsAdmin() {
           setLastSync(new Date().toLocaleTimeString('id-ID'));
         }
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(getErrorMessage(err));
       } finally {
         if (!cancelled) setLoading(false);
       }
