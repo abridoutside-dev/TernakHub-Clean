@@ -16,6 +16,7 @@ import {
   type ServiceStatus,
 } from '../../../repositories/systemHealthRepository';
 import {
+  repoGetConfig,
   repoGetServiceConfig,
   repoUpsertServiceConfig,
   CONFIG_KEYS,
@@ -30,6 +31,71 @@ import {
   type AIServiceConfig,
   type AIProvider,
 } from '../../../repositories/platformConfigRepository';
+import { type ServiceCheck } from '../../../repositories/systemHealthRepository';
+
+// ─── Saved-config state type ──────────────────────────────────────────────────
+
+interface SavedServiceConfigs {
+  storage:      StorageServiceConfig | null;
+  messageQueue: MessageQueueConfig   | null;
+  aiService:    AIServiceConfig      | null;
+}
+
+// ─── Config-overlay helpers ───────────────────────────────────────────────────
+//
+// These overlay saved platform_config values onto live probe results so that
+// service cards reflect what the admin has configured, not just env-var state.
+
+function overlayStorageConfig(
+  check: ServiceCheck,
+  cfg: StorageServiceConfig | null,
+): ServiceCheck {
+  if (!cfg) return check;
+  if (check.status === 'operational') return check; // R2 live → keep green
+  return {
+    ...check,
+    status: 'degraded',
+    message: `Bucket "${cfg.bucket}" dikonfigurasi · R2 credentials dibutuhkan di env`,
+  };
+}
+
+function overlayMQConfig(
+  check: ServiceCheck,
+  cfg: MessageQueueConfig | null,
+): ServiceCheck {
+  if (!cfg) return check;
+  if (cfg.enableQueue) {
+    return {
+      ...check,
+      status: 'degraded',
+      message: `Queue diaktifkan (batch=${cfg.batchSize}, concurrency=${cfg.workerConcurrency}) · worker belum berjalan`,
+    };
+  }
+  return {
+    ...check,
+    status: 'not_implemented',
+    message: `Queue dinonaktifkan · konfigurasi tersimpan`,
+  };
+}
+
+function overlayAIConfig(
+  check: ServiceCheck,
+  cfg: AIServiceConfig | null,
+): ServiceCheck {
+  if (!cfg) return check;
+  if (cfg.enableAI) {
+    return {
+      ...check,
+      status: 'degraded',
+      message: `AI diaktifkan · provider: ${cfg.provider} · backend belum terintegrasi`,
+    };
+  }
+  return {
+    ...check,
+    status: 'not_implemented',
+    message: `AI dinonaktifkan · provider: ${cfg.provider} · konfigurasi tersimpan`,
+  };
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -585,9 +651,9 @@ const STATUS_CFG: Record<ServiceStatus, { label: string; color: string; bg: stri
 };
 
 function ServiceRow({
-  name, status, latency_ms, message, loading, onConfigure,
+  name, status, statusLabel, latency_ms, message, loading, onConfigure,
 }: {
-  name: string; status: ServiceStatus; latency_ms: number | null;
+  name: string; status: ServiceStatus; statusLabel?: string; latency_ms: number | null;
   message: string; loading: boolean; onConfigure?: () => void;
 }) {
   if (loading) {
@@ -601,13 +667,14 @@ function ServiceRow({
   }
 
   const cfg = STATUS_CFG[status];
+  const label = statusLabel ?? cfg.label;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, background: cfg.bg, border: `1px solid ${cfg.border}`, marginBottom: 8 }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, flexShrink: 0, boxShadow: status === 'operational' ? `0 0 0 3px ${cfg.dot}28` : 'none' }} />
       <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>{SERVICE_ICONS[name] ?? '🔵'}</span>
       <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', minWidth: 100, flexShrink: 0 }}>{name}</span>
-      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#fff', color: cfg.color, border: `1px solid ${cfg.border}`, flexShrink: 0 }}>{cfg.label}</span>
+      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#fff', color: cfg.color, border: `1px solid ${cfg.border}`, flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 12, color: '#475569', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{message}</span>
       {latency_ms !== null && <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{latency_ms}ms</span>}
       {onConfigure && (
@@ -619,20 +686,42 @@ function ServiceRow({
   );
 }
 
-function SystemServicesHealthWidget({ health, loading, onConfigure }: {
-  health: SystemServicesHealth | null; loading: boolean; onConfigure: (key: ConfigDrawerKey) => void;
+function SystemServicesHealthWidget({ health, loading, savedConfigs, onConfigure }: {
+  health: SystemServicesHealth | null;
+  loading: boolean;
+  savedConfigs: SavedServiceConfigs;
+  onConfigure: (key: ConfigDrawerKey) => void;
 }) {
-  type ServiceEntry = { name: string; status: ServiceStatus; latency_ms: number | null; message: string };
+  type ServiceEntry = {
+    name: string;
+    status: ServiceStatus;
+    statusLabel?: string;
+    latency_ms: number | null;
+    message: string;
+  };
 
-  const services: ServiceEntry[] = health
+  // Apply config overlays once health probes are available
+  const storageCheck  = health ? overlayStorageConfig(health.storage,      savedConfigs.storage)      : null;
+  const mqCheck       = health ? overlayMQConfig(health.message_queue,      savedConfigs.messageQueue) : null;
+  const aiCheck       = health ? overlayAIConfig(health.ai_service,         savedConfigs.aiService)    : null;
+
+  // Derive a friendly statusLabel when a saved config changed the status
+  function configuredLabel(original: ServiceStatus, after: ServiceStatus): string | undefined {
+    if (original === 'not_implemented' && after === 'degraded') return 'configured';
+    if (original === 'not_implemented' && after === 'not_implemented') return undefined;
+    if (original !== 'operational' && after === 'degraded') return 'configured';
+    return undefined;
+  }
+
+  const services: ServiceEntry[] = health && storageCheck && mqCheck && aiCheck
     ? [
         health.database,
-        health.storage,
+        { ...storageCheck, statusLabel: configuredLabel(health.storage.status, storageCheck.status) },
         health.api,
         health.environment,
         health.platform_version,
-        health.message_queue,
-        health.ai_service,
+        { ...mqCheck,      statusLabel: configuredLabel(health.message_queue.status, mqCheck.status) },
+        { ...aiCheck,      statusLabel: configuredLabel(health.ai_service.status,    aiCheck.status) },
       ]
     : [
         { name: 'Database',      status: 'operational' as ServiceStatus, latency_ms: null, message: '' },
@@ -651,6 +740,7 @@ function SystemServicesHealthWidget({ health, loading, onConfigure }: {
           key={svc.name}
           name={svc.name}
           status={svc.status}
+          statusLabel={svc.statusLabel}
           latency_ms={svc.latency_ms}
           message={svc.message}
           loading={loading}
@@ -684,7 +774,34 @@ export default function PlatformHealthModule() {
   const [systemHealthLoading, setSystemHealthLoading] = useState(true);
 
   const [configDrawer, setConfigDrawer] = useState<ConfigDrawerKey | null>(null);
-  const closeDrawer = useCallback(() => setConfigDrawer(null), []);
+
+  // ── Saved service configs (from platform_config table) ──────────────────────
+  const [savedConfigs, setSavedConfigs] = useState<SavedServiceConfigs>({
+    storage: null, messageQueue: null, aiService: null,
+  });
+
+  const loadSavedConfigs = useCallback(async () => {
+    try {
+      const [sRow, mqRow, aiRow] = await Promise.all([
+        repoGetConfig(CONFIG_KEYS.storage),
+        repoGetConfig(CONFIG_KEYS.messageQueue),
+        repoGetConfig(CONFIG_KEYS.aiService),
+      ]);
+      setSavedConfigs({
+        storage:      sRow  ? { ...DEFAULT_STORAGE_CONFIG,       ...(sRow.value  as Partial<StorageServiceConfig>) } : null,
+        messageQueue: mqRow ? { ...DEFAULT_MESSAGE_QUEUE_CONFIG, ...(mqRow.value as Partial<MessageQueueConfig>)   } : null,
+        aiService:    aiRow ? { ...DEFAULT_AI_SERVICE_CONFIG,    ...(aiRow.value as Partial<AIServiceConfig>)      } : null,
+      });
+    } catch { /* non-blocking — widget still shows live probe results */ }
+  }, []);
+
+  useEffect(() => { loadSavedConfigs(); }, [loadSavedConfigs]);
+
+  // Reload saved configs whenever a drawer closes (user may have just saved)
+  const closeDrawer = useCallback(() => {
+    setConfigDrawer(null);
+    void loadSavedConfigs();
+  }, [loadSavedConfigs]);
 
   // ── Platform data ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -775,6 +892,7 @@ export default function PlatformHealthModule() {
           <SystemServicesHealthWidget
             health={systemHealth}
             loading={systemHealthLoading}
+            savedConfigs={savedConfigs}
             onConfigure={setConfigDrawer}
           />
         </SectionCard>
