@@ -129,8 +129,8 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     widgets: [
       w('uw-workspace',     'Workspace Summary',     '🏢', LIVE),
       w('uw-users',         'Users Summary',         '👤', LIVE),
-      w('uw-verification',  'Verification Summary',  '✅', DUM),
-      w('uw-subscription',  'Subscription Summary',  '⭐', DUM),
+      w('uw-verification',  'Verification Summary',  '✅', LIVE),
+      w('uw-subscription',  'Subscription Summary',  '⭐', LIVE),
       w('uw-blocked',       'Blocked Workspaces',    '🚫'),
       w('uw-pending',       'Pending Requests',      '⏳'),
     ],

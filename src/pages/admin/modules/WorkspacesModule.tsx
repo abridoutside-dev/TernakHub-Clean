@@ -41,12 +41,12 @@ interface WorkspaceRow {
   notes?: string | null;
 }
 
-const VALID_TYPES: WsType[] = ['Peternakan', 'Klinik Hewan', 'Dokter Hewan', 'Transportasi'];
+const VALID_TYPES: WsType[] = ['Farm', 'FeedStore', 'VeterinaryClinic', 'VeterinaryDoctor', 'Transport', 'Marketplace'];
 const VALID_STATUSES: WorkspaceStatus[] = ['Active', 'Suspended', 'Archived'];
 const VALID_PLANS: WorkspacePlanTier[] = ['Free', 'Basic', 'Pro', 'Enterprise'];
 
 function adaptWorkspace(w: WorkspaceRow): AdminWorkspaceRecord {
-  const wsType: WsType = VALID_TYPES.includes(w.type as WsType) ? (w.type as WsType) : 'Peternakan';
+  const wsType: WsType = VALID_TYPES.includes(w.type as WsType) ? (w.type as WsType) : 'Farm';
   const wsStatus: WorkspaceStatus = VALID_STATUSES.includes(w.status as WorkspaceStatus) ? (w.status as WorkspaceStatus) : 'Active';
   const wsPlan: WorkspacePlanTier = VALID_PLANS.includes(w.plan as WorkspacePlanTier) ? (w.plan as WorkspacePlanTier) : 'Free';
   return {
@@ -97,10 +97,10 @@ function PlanBadge({ plan }: { plan: WorkspacePlanTier }) {
 }
 
 function TypeBadge({ type }: { type: WsType }) {
-  const c = WS_TYPE_CONFIG[type] ?? WS_TYPE_CONFIG['Peternakan'];
+  const c = WS_TYPE_CONFIG[type] ?? WS_TYPE_CONFIG['Farm'];
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
-      {c.icon} {type}
+      {c.icon} {c.label}
     </span>
   );
 }
@@ -150,7 +150,7 @@ function WorkspaceDetailDrawer({ ws, onClose }: { ws: AdminWorkspaceRecord; onCl
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
-  const tc = WS_TYPE_CONFIG[ws.type] ?? WS_TYPE_CONFIG['Peternakan'];
+  const tc = WS_TYPE_CONFIG[ws.type] ?? WS_TYPE_CONFIG['Farm'];
 
   return (
     <>
@@ -252,10 +252,22 @@ export default function WorkspacesModule() {
   const pageStart  = (safePage - 1) * PAGE_SIZE;
   const pageRows   = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
+  const typeBreakdown = useMemo(() => {
+    const m: Partial<Record<WsType, number>> = {};
+    rows.forEach(r => { m[r.type] = (m[r.type] ?? 0) + 1; });
+    return m;
+  }, [rows]);
+
   const statCards = [
-    { label: 'Total Workspaces', value: totalCount.toLocaleString(), icon: '🏢', color: '#3b82f6', delta: 'Semua workspace' },
-    { label: 'Dimuat',           value: rows.length.toLocaleString(), icon: '📋', color: '#10b981', delta: 'Dari Supabase' },
-    { label: 'Filter Aktif',     value: filtered.length.toLocaleString(), icon: '🔍', color: '#8b5cf6', delta: 'Setelah filter' },
+    { label: 'Total Workspaces',    value: totalCount.toLocaleString(),                             icon: '🏢', color: '#3b82f6', delta: 'Semua workspace' },
+    { label: 'Dimuat',              value: rows.length.toLocaleString(),                             icon: '📋', color: '#10b981', delta: 'Dari Supabase' },
+    { label: 'Filter Aktif',        value: filtered.length.toLocaleString(),                         icon: '🔍', color: '#8b5cf6', delta: 'Setelah filter' },
+    { label: 'Peternakan',          value: (typeBreakdown['Farm']             ?? 0).toLocaleString(), icon: '🐄', color: '#059669', delta: 'Farm' },
+    { label: 'Toko Pakan',          value: (typeBreakdown['FeedStore']        ?? 0).toLocaleString(), icon: '🌾', color: '#d97706', delta: 'FeedStore' },
+    { label: 'Klinik Hewan',        value: (typeBreakdown['VeterinaryClinic'] ?? 0).toLocaleString(), icon: '🏥', color: '#0ea5e9', delta: 'VeterinaryClinic' },
+    { label: 'Dokter Hewan',        value: (typeBreakdown['VeterinaryDoctor'] ?? 0).toLocaleString(), icon: '👨‍⚕️', color: '#8b5cf6', delta: 'VeterinaryDoctor' },
+    { label: 'Transportasi',        value: (typeBreakdown['Transport']        ?? 0).toLocaleString(), icon: '🚛', color: '#f59e0b', delta: 'Transport' },
+    { label: 'Marketplace',         value: (typeBreakdown['Marketplace']      ?? 0).toLocaleString(), icon: '🛒', color: '#ec4899', delta: 'Marketplace' },
   ];
 
   return (
@@ -309,9 +321,13 @@ export default function WorkspacesModule() {
               { value: 'Basic', label: 'Basic' }, { value: 'Pro', label: 'Pro' }, { value: 'Enterprise', label: 'Enterprise' },
             ]} />
             <SelectField label="Tipe" value={filterType} onChange={setType} options={[
-              { value: 'All', label: 'Semua Tipe' }, { value: 'Peternakan', label: '🐄 Peternakan' },
-              { value: 'Klinik Hewan', label: '🏥 Klinik Hewan' }, { value: 'Dokter Hewan', label: '👨‍⚕️ Dokter Hewan' },
-              { value: 'Transportasi', label: '🚛 Transportasi' },
+              { value: 'All',               label: 'Semua Tipe' },
+              { value: 'Farm',              label: '🐄 Peternakan' },
+              { value: 'FeedStore',         label: '🌾 Toko Pakan' },
+              { value: 'VeterinaryClinic',  label: '🏥 Klinik Hewan' },
+              { value: 'VeterinaryDoctor',  label: '👨‍⚕️ Dokter Hewan' },
+              { value: 'Transport',         label: '🚛 Transportasi' },
+              { value: 'Marketplace',       label: '🛒 Marketplace' },
             ]} />
             {hasFilter && <button onClick={resetFilters} style={{ alignSelf: 'flex-end', padding: '7px 14px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>✕ Reset</button>}
           </div>
@@ -350,7 +366,7 @@ export default function WorkspacesModule() {
                     </td>
                   </tr>
                 ) : pageRows.map((ws, idx) => {
-                  const tc = WS_TYPE_CONFIG[ws.type] ?? WS_TYPE_CONFIG['Peternakan'];
+                  const tc = WS_TYPE_CONFIG[ws.type] ?? WS_TYPE_CONFIG['Farm'];
                   return (
                     <tr key={ws.id} onClick={() => setSelectedWs(ws)}
                       style={{ cursor: 'pointer', background: idx % 2 === 0 ? '#fff' : '#fafbfc', borderBottom: '1px solid #f1f5f9', transition: 'background 0.12s' }}

@@ -23,10 +23,14 @@ const PAGE_SIZE = 20;
 type WsTypeDisplay = keyof typeof WS_TYPE_CONFIG;
 
 const TYPE_MAP: Record<string, WsTypeDisplay> = {
-  Farm:       'Peternakan',
-  FeedStore:  'Peternakan',
-  Veterinary: 'Klinik Hewan',
-  Transport:  'Transportasi',
+  Farm:              'Farm',
+  FeedStore:         'FeedStore',
+  VeterinaryClinic:  'VeterinaryClinic',
+  VeterinaryDoctor:  'VeterinaryDoctor',
+  Transport:         'Transport',
+  Marketplace:       'Marketplace',
+  // Legacy aliases from old workspace service types
+  Veterinary:        'VeterinaryClinic',
 };
 
 const STATUS_MAP: Record<string, WorkspaceStatus> = {
@@ -38,7 +42,7 @@ const STATUS_MAP: Record<string, WorkspaceStatus> = {
 const VALID_PLANS: WorkspacePlanTier[] = ['Free', 'Basic', 'Pro', 'Enterprise'];
 
 function adaptWorkspaceRecord(w: WorkspaceRecord): AdminWorkspaceRecord {
-  const wsType: WsTypeDisplay  = TYPE_MAP[w.workspace_type]    ?? 'Peternakan';
+  const wsType: WsTypeDisplay  = TYPE_MAP[w.workspace_type]    ?? 'Farm';
   const wsStatus: WorkspaceStatus = STATUS_MAP[w.workspace_status] ?? 'Active';
   const wsPlan: WorkspacePlanTier =
     VALID_PLANS.includes(w.workspace_plan as WorkspacePlanTier)

@@ -1,0 +1,2 @@
+- [Workspace type enum alignment](workspace-type-enum.md) — DB enum uses English keys (Farm, FeedStore, VeterinaryClinic, VeterinaryDoctor, Transport, Marketplace); UI labels are Indonesian.
+- [Admin RLS constraint](admin-rls-constraint.md) — workspace_subscriptions and trust_verifications are RLS-blocked for cross-workspace admin reads; must show RLS notice and query real data (0 rows if not workspace member).
