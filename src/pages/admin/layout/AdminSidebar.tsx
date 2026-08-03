@@ -590,12 +590,15 @@ export default function AdminSidebar({
 
         {/* Navigation — 14 domains */}
         <nav
+          className="adm-sidebar-nav"
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
             padding: '6px 0',
             scrollbarWidth: 'none',
+            scrollBehavior: 'smooth',
           }}
         >
           {ADMIN_NAV_DOMAINS.map((domain) => (

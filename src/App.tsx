@@ -230,6 +230,7 @@ import AnnouncementsModule from './pages/admin/modules/AnnouncementsModule';
 import NotificationsModule from './pages/admin/modules/NotificationsModule';
 import ReportsModule from './pages/admin/modules/ReportsModule';
 import MonitoringModule from './pages/admin/modules/MonitoringModule';
+import PlatformHealthModule from './pages/admin/modules/PlatformHealthModule';
 import BackupModule from './pages/admin/modules/BackupModule';
 import ActivityCenterModule from './pages/admin/modules/ActivityCenterModule';
 import DataMasterModule from './pages/admin/modules/DataMasterModule';
@@ -661,7 +662,8 @@ export default function App() {
         <Route path="/admin/announcements"  element={<AnnouncementsModule />} />
         <Route path="/admin/notifications"  element={<NotificationsModule />} />
         <Route path="/admin/reports"        element={<ReportsModule />} />
-        <Route path="/admin/monitoring"     element={<MonitoringModule />} />
+        <Route path="/admin/monitoring"       element={<MonitoringModule />} />
+        <Route path="/admin/platform-health" element={<PlatformHealthModule />} />
         <Route path="/admin/data-master"    element={<DataMasterModule />} />
         <Route path="/admin/settings"       element={<SettingsModule />} />
         <Route path="/admin/activity"       element={<ActivityCenterModule />} />

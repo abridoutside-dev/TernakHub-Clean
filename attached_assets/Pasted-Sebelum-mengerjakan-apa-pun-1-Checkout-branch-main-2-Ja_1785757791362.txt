@@ -1,0 +1,80 @@
+Sebelum mengerjakan apa pun:
+
+1. Checkout branch main.
+2. Jalankan git pull origin main.
+3. Pastikan commit terakhir adalah commit terbaru hasil ADMIN-SYNC-008.
+
+=========================================================
+ADMIN-PLATFORM-001
+Scrollable Admin Sidebar
+=========================================================
+
+STOP mengerjakan workspace lain.
+
+Fokus hanya pada Dashboard Admin.
+
+=========================================================
+
+Task 1
+
+Perbaiki Sidebar Admin agar:
+
+- Header (logo TernakHub) tetap.
+- Footer (versi aplikasi) tetap.
+- Hanya daftar menu yang dapat di-scroll.
+- Scroll halus.
+- Tidak mengubah struktur menu.
+- Tidak mengubah arsitektur Dashboard Admin.
+- Tidak mengubah routing.
+- Tidak mengubah icon.
+- Tidak mengubah urutan menu.
+- Tidak mengubah warna/theme.
+
+=========================================================
+
+Setelah Sidebar selesai,
+
+lanjutkan:
+
+=========================================================
+ADMIN-PLATFORM-002
+Platform Health
+=========================================================
+
+Sinkronkan halaman Platform Health dengan data platform yang SUDAH ADA.
+
+ATURAN:
+
+- Jangan membuat dummy.
+- Jangan membuat placeholder.
+- Jangan membuat fake statistics.
+- Jangan membuat mock repository.
+- Gunakan repository dan tabel Supabase yang sudah tersedia.
+- Bila ada widget yang belum dapat LIVE karena dependency platform memang belum tersedia, tandai sebagai BLOCKED disertai:
+  - reason
+  - dependency
+  - priority
+- AI Insight bukan blocker. Jika belum ada integrasi AI service gunakan status:
+  not_implemented
+
+Validasi:
+
+- npm run build
+- tsc -b
+- ESLint
+
+JANGAN membuat REPORT.md atau file dokumentasi baru.
+
+Laporan akhir cukup di chat dengan format:
+
+1. Files modified
+2. Repository yang digunakan
+3. Tabel Supabase yang digunakan
+4. Widget LIVE
+5. Widget BLOCKED (jika ada)
+6. Remaining blocker (reason, dependency, priority)
+7. Build Status
+8. TypeScript Status
+9. ESLint Status
+
+Jangan mengerjakan Global Statistics, Quick Actions, Recent Activity, maupun Global Search sebelum Platform Health selesai.

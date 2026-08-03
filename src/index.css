@@ -188,6 +188,11 @@ select {
   display: flex;
 }
 
+/* Scrollable nav — hide scrollbar cross-browser */
+.adm-sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+
 /* Environment badge */
 .adm-env-badge {
   display: inline-block;

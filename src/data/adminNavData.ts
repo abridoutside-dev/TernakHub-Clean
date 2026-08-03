@@ -133,8 +133,8 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Platform Health',
         icon: '❤️',
         path: '/admin/platform-health',
-        syncStatus: 'not_implemented',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
       },
       {
         key: 'platform-stats',
