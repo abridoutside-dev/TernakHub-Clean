@@ -454,7 +454,7 @@ export interface MediaInsertBrowserInput {
  * Returns the UUID of the newly-created media row.
  * Uses the current Supabase session (RLS-enforced via the user's JWT).
  */
-export async function repoInsertMediaBrowser(
+export async function repoInsertMedia(
   input: MediaInsertBrowserInput,
 ): Promise<string> {
   const extraTags = input.tags ?? [];

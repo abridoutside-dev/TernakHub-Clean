@@ -1,0 +1,382 @@
+FOUNDATION-STORAGE-004
+Final Migration
+Dashboard Admin Storage Configuration
+(Final Constitution Revision)
+
+STATUS
+
+Tahap ini memigrasikan seluruh Storage Configuration pada Dashboard Admin
+ke arsitektur baru.
+
+WAJIB mengikuti seluruh Konstitusi TernakHub.
+
+JANGAN mengambil keputusan arsitektur sendiri.
+
+=========================================================
+TUJUAN
+=========================================================
+
+Hilangkan seluruh ketergantungan Dashboard Admin terhadap Express.
+
+Seluruh operasi Storage Configuration menggunakan SATU Edge Function:
+
+r2-storage
+
+=========================================================
+ATURAN WAJIB
+=========================================================
+
+Storage hanya memiliki SATU Edge Function.
+
+Nama:
+
+r2-storage
+
+Seluruh operasi menggunakan:
+
+action
+
+JANGAN membuat Edge Function baru.
+
+=========================================================
+Action yang digunakan
+=========================================================
+
+- get-config
+
+- save-config
+
+- replace-credential
+
+- test-connection
+
+- test-upload
+
+- test-download
+
+JANGAN membuat endpoint lain.
+
+=========================================================
+Dashboard Admin
+=========================================================
+
+Migrasikan seluruh operasi berikut:
+
+Load Configuration
+
+↓
+
+get-config
+
+-----------------------------------
+
+Save Configuration
+
+↓
+
+save-config
+
+-----------------------------------
+
+Replace Credential
+
+↓
+
+replace-credential
+
+-----------------------------------
+
+Test Connection
+
+↓
+
+test-connection
+
+-----------------------------------
+
+Test Upload
+
+↓
+
+test-upload
+
+-----------------------------------
+
+Test Download
+
+↓
+
+test-download
+
+=========================================================
+Health Check
+=========================================================
+
+checkR2Health()
+
+WAJIB menggunakan:
+
+Edge Function
+
+↓
+
+action=test-connection
+
+JANGAN lagi menggunakan:
+
+/api/upload/health
+
+Express tidak boleh dipakai lagi untuk health storage.
+
+=========================================================
+Repository
+=========================================================
+
+Repository TIDAK BOLEH mengetahui siapa caller.
+
+JANGAN menggunakan nama:
+
+repoInsertMediaBrowser()
+
+Gunakan nama netral.
+
+Contoh:
+
+insertMedia()
+
+repoInsertMedia()
+
+atau nama lain yang tidak bergantung caller.
+
+=========================================================
+Object Key
+=========================================================
+
+Generator object key WAJIB mendukung audit.
+
+Gunakan struktur:
+
+workspace_uuid/
+
+category/
+
+entity_type/
+
+entity_uuid/
+
+YYYY/
+
+MM/
+
+filename
+
+Contoh:
+
+workspace_uuid/
+
+livestock/
+
+sheep/
+
+livestock_uuid/
+
+2026/
+
+08/
+
+uuid.webp
+
+atau
+
+workspace_uuid/
+
+marketplace/
+
+listing/
+
+listing_uuid/
+
+2026/
+
+08/
+
+uuid.webp
+
+JANGAN hanya:
+
+workspace/category/YYYY/MM/
+
+=========================================================
+Upload Finalization
+=========================================================
+
+Buat abstraction:
+
+finalizeUpload()
+
+Tujuan:
+
+Jika:
+
+upload berhasil
+
+↓
+
+insert metadata gagal
+
+maka tersedia SATU titik untuk:
+
+- rollback
+
+- reconciliation
+
+- retry
+
+JANGAN menyebarkan logika upload di banyak tempat.
+
+=========================================================
+Platform Configuration
+=========================================================
+
+Image Quality
+
+Compression
+
+Max Resolution
+
+Thumbnail
+
+WAJIB dibaca melalui abstraction.
+
+Contoh:
+
+getPlatformImageConfig()
+
+JANGAN ada:
+
+80
+
+0.8
+
+1920
+
+hardcode tersebar.
+
+=========================================================
+Security
+=========================================================
+
+Credential tetap menggunakan:
+
+Supabase Edge Function Secrets.
+
+JANGAN kirim credential ke browser.
+
+=========================================================
+UI
+=========================================================
+
+JANGAN mengubah UI.
+
+JANGAN mengubah layout.
+
+JANGAN mengubah workflow.
+
+User tidak boleh mengetahui bahwa backend berubah.
+
+=========================================================
+Database
+=========================================================
+
+JANGAN mengubah:
+
+media
+
+livestock_photos
+
+workspace
+
+marketplace
+
+platform_config
+
+Tidak ada migration.
+
+=========================================================
+Express
+=========================================================
+
+Express tetap Legacy Mode.
+
+JANGAN:
+
+hapus server/
+
+hapus dependency
+
+hapus vite proxy
+
+hapus workflow
+
+Belum waktunya.
+
+=========================================================
+Acceptance Criteria
+=========================================================
+
+✓ Dashboard Admin menggunakan Edge Function.
+
+✓ Tidak ada request ke /api/upload/health.
+
+✓ Semua operasi Storage Config memakai r2-storage.
+
+✓ Repository tetap netral.
+
+✓ Object key mengikuti struktur audit.
+
+✓ finalizeUpload tersedia.
+
+✓ Workspace tidak berubah.
+
+✓ Dashboard UI tidak berubah.
+
+✓ Database tidak berubah.
+
+✓ Build PASS.
+
+✓ TypeScript PASS.
+
+✓ ESLint PASS.
+
+=========================================================
+Laporan Wajib
+=========================================================
+
+1.
+Files Created
+
+2.
+Files Modified
+
+3.
+Daftar operasi yang telah dimigrasikan
+
+4.
+Daftar endpoint Express yang sudah tidak dipakai
+
+5.
+Build Status
+
+6.
+TypeScript Status
+
+7.
+ESLint Status
+
+8.
+Remaining Express Dependency
+
+9.
+Risiko FOUNDATION-STORAGE-005
+
+JANGAN mengerjakan FOUNDATION-STORAGE-005.

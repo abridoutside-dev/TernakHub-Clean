@@ -503,39 +503,25 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   const autoPublicUrl = derivePublicUrl(cfg.accountId, cfg.bucket, cfg.customDomain ?? '');
   const effectiveEndpoint = useCustomEndpoint ? customEndpointVal : autoEndpoint;
 
-  // Load config from the admin API (credentials come back masked)
+  // Load config from r2-storage Edge Function (credentials come back masked)
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const { data: { session } } = await (await import('../../../lib/supabase')).supabase.auth.getSession();
-        const jwt = session?.access_token ?? '';
-        const res = await fetch('/api/admin/storage-config', {
-          headers: { Authorization: `Bearer ${jwt}` },
-        });
-        if (res.ok) {
-          // DEBUG ADMIN-PLATFORM-003G — remove after root cause confirmed
-          console.log('[DEBUG 003G] useEffect GET /api/admin/storage-config — status:', res.status);
-          console.log('[DEBUG 003G] useEffect GET raw body:', await res.clone().text());
-          const body = await res.json() as { success: boolean; config: StorageServiceConfig };
-          if (body.success) {
-            setCfg(body.config);
-            // If a custom endpoint was saved (not matching auto), enable the toggle
-            if (body.config.endpoint && body.config.endpoint !== deriveEndpoint(body.config.accountId)) {
-              setUseCustomEndpoint(true);
-              setCustomEndpointVal(body.config.endpoint);
-            }
+        const { data, error } = await supabase.functions.invoke<{
+          ok: boolean; config: StorageServiceConfig; source?: string;
+        }>('r2-storage', { body: { action: 'get-config' } });
+        if (!error && data?.ok && data.config) {
+          setCfg(data.config);
+          if (data.config.endpoint && data.config.endpoint !== deriveEndpoint(data.config.accountId)) {
+            setUseCustomEndpoint(true);
+            setCustomEndpointVal(data.config.endpoint);
           }
         }
       } catch { /* fallback to defaults */ }
       setLoading(false);
     })();
   }, []);
-
-  const getJwt = async (): Promise<string> => {
-    const { data: { session } } = await (await import('../../../lib/supabase')).supabase.auth.getSession();
-    return session?.access_token ?? '';
-  };
 
   const toggleMime = (mime: string) => {
     setCfg(p => ({
@@ -579,44 +565,43 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
     if (err) { setSaveMsg(`❌ ${err}`); return; }
     setSaving(true); setSaveMsg(null);
     try {
-      const jwt = await getJwt();
-      // Build the payload: override endpoint + publicUrl with computed values
       const payload: StorageServiceConfig = {
         ...cfg,
         endpoint:  effectiveEndpoint,
         publicUrl: autoPublicUrl,
       };
-      const res = await fetch('/api/admin/storage-config', {
-        method:  'POST',
-        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
-      });
-      // DEBUG ADMIN-PLATFORM-003G — remove after root cause confirmed
-      console.log('[DEBUG 003G] handleSave POST /api/admin/storage-config — status:', res.status);
-      console.log('[DEBUG 003G] handleSave POST raw body:', await res.clone().text());
-      const body = await res.json() as { success: boolean; message?: string; error?: string };
-      setSaveMsg(body.success
-        ? `✅ ${body.message ?? 'Konfigurasi disimpan'}`
-        : `❌ ${body.error ?? 'Gagal menyimpan'}`);
+      const { data, error } = await supabase.functions.invoke<{
+        ok: boolean; message?: string; error?: string;
+      }>('r2-storage', { body: { action: 'save-config', config: payload } });
+      if (error) {
+        setSaveMsg(`❌ ${error.message}`);
+      } else {
+        setSaveMsg(data?.ok
+          ? `✅ ${data.message ?? 'Konfigurasi disimpan'}`
+          : `❌ ${data?.error ?? 'Gagal menyimpan'}`);
+      }
     } catch (e) {
       setSaveMsg(`❌ ${getErrorMessage(e)}`);
     } finally { setSaving(false); }
   };
 
   // ── Test operation caller ───────────────────────────────────────────────────
+  // Uses r2-storage Edge Function — action maps directly to path.
   const callOp = async (path: string, setter: (r: OpResult) => void) => {
     setter({ status: 'loading', message: '' });
     try {
-      const jwt = await getJwt();
-      const res  = await fetch(`/api/admin/storage-config/${path}`, {
-        method:  'POST',
-        headers: { Authorization: `Bearer ${jwt}` },
-      });
-      // DEBUG ADMIN-PLATFORM-003G — remove after root cause confirmed
-      console.log(`[DEBUG 003G] callOp POST /api/admin/storage-config/${path} — status:`, res.status);
-      console.log(`[DEBUG 003G] callOp ${path} raw body:`, await res.clone().text());
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body = await res.json() as Record<string, any>;
+      const { data: raw, error: fnError } = await supabase.functions.invoke<Record<string, any>>(
+        'r2-storage',
+        { body: { action: path } },
+      );
+      if (fnError) {
+        setter({ status: 'error', message: `❌ ${fnError.message}` });
+        return;
+      }
+      // Normalize: Edge Function uses 'ok'; existing handlers check 'success'.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: Record<string, any> = { ...raw, success: raw?.ok ?? false };
 
       if (path === 'test-connection') {
         if (body.success) {

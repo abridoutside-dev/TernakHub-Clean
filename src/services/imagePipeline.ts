@@ -1,4 +1,4 @@
-// ─── Browser Image Pipeline — FOUNDATION-STORAGE-001 ─────────────────────────
+// ─── Browser Image Pipeline — FOUNDATION-STORAGE-001/004 ─────────────────────
 //
 // Validates, resizes, compresses, and generates object keys for image uploads.
 // All processing runs in the browser via Canvas API — no server round-trip.
@@ -10,7 +10,10 @@
 // USAGE:
 //   const config  = getPlatformImageConfig();
 //   const result  = await imagePipeline.process(file);
-//   const key     = imagePipeline.generateObjectKey(wsUuid, category, file.name, result.original.ext);
+//   const key     = imagePipeline.generateObjectKey({
+//     workspaceUuid, category, entityType: 'livestock', entityUuid: id,
+//     originalFilename: file.name, ext: result.original.ext,
+//   });
 //   const thumbKey = imagePipeline.generateThumbnailKey(key);
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -117,47 +120,93 @@ function sanitizeSegment(name: string): string {
     .slice(0, 80);
 }
 
+export interface ObjectKeyOptions {
+  /** UUID of the owning workspace */
+  workspaceUuid: string;
+  /** MediaCategory or upload category string */
+  category: MediaCategory | string;
+  /**
+   * Entity type sub-segment for audit support.
+   * Examples: 'livestock', 'sheep', 'listing', 'profile'.
+   * Omit (or pass '') to skip this segment.
+   */
+  entityType?: string;
+  /**
+   * UUID of the specific entity this image belongs to.
+   * Used for cleanup, lifecycle, and audit queries.
+   * Omit (or pass '') to skip this segment.
+   */
+  entityUuid?: string;
+  /** Original filename — extension is stripped and replaced with `ext`. */
+  originalFilename: string;
+  /** Output extension derived from the processed MIME type. */
+  ext?: '.webp' | '.jpg';
+}
+
 /**
  * Generates a structured, workspace-scoped R2 object key.
  *
- * Format: {workspaceUuid}/{category}/{YYYY}/{MM}/{uuid}-{sanitized-name}{ext}
+ * Full format (with entity):
+ *   {workspaceUuid}/{category}/{entityType}/{entityUuid}/{YYYY}/{MM}/{uuid}{ext}
  *
- * This structure supports:
- *   - workspace-scoped cleanup and lifecycle policies
+ * Short format (without entity):
+ *   {workspaceUuid}/{category}/{YYYY}/{MM}/{uuid}-{sanitized-name}{ext}
+ *
+ * The entity segments enable:
+ *   - entity-scoped cleanup and lifecycle policies
  *   - date-range audit, backup, and restore operations
- *   - category-based access control and analytics
- *
- * @param workspaceUuid - UUID of the owning workspace
- * @param category      - MediaCategory or upload category string
- * @param originalFilename - Original filename (extension is stripped and replaced with ext)
- * @param ext           - Output extension derived from the processed MIME type
+ *   - category-based access controls and analytics
  */
-export function generateObjectKey(
-  workspaceUuid: string,
-  category: MediaCategory | string,
-  originalFilename: string,
-  ext: '.webp' | '.jpg' = '.webp',
-): string {
+export function generateObjectKey(opts: ObjectKeyOptions): string {
+  const {
+    workspaceUuid,
+    category,
+    entityType,
+    entityUuid,
+    originalFilename,
+    ext = '.webp',
+  } = opts;
+
   const now  = new Date();
   const yyyy = now.getFullYear().toString();
   const mm   = String(now.getMonth() + 1).padStart(2, '0');
   const uuid = crypto.randomUUID();
   const base = sanitizeSegment(originalFilename.replace(/\.[^.]+$/, '')) || 'image';
-  return `${workspaceUuid}/${category}/${yyyy}/${mm}/${uuid}-${base}${ext}`;
+
+  const segments: string[] = [workspaceUuid, String(category)];
+
+  const hasEntity = entityType && entityUuid;
+  if (hasEntity) {
+    segments.push(sanitizeSegment(entityType), entityUuid);
+  }
+
+  segments.push(yyyy, mm);
+
+  const filename = hasEntity
+    ? `${uuid}${ext}`
+    : `${uuid}-${base}${ext}`;
+
+  return [...segments, filename].join('/');
 }
 
 /**
  * Derives the thumbnail key from an original object key.
  *
- * Inserts a `thumbs` segment after the category:
- *   ws/cat/2026/08/uuid-name.webp → ws/cat/thumbs/2026/08/uuid-name.webp
+ * Inserts a `thumbs` segment before the date segments (YYYY).
+ *
+ * Examples:
+ *   ws/cat/entityType/entityUuid/2026/08/uuid.webp
+ *   → ws/cat/entityType/entityUuid/thumbs/2026/08/uuid.webp
+ *
+ *   ws/cat/2026/08/uuid-name.webp
+ *   → ws/cat/thumbs/2026/08/uuid-name.webp
  */
 export function generateThumbnailKey(originalKey: string): string {
-  // Parts: [workspaceUuid, category, YYYY, MM, filename]
   const parts = originalKey.split('/');
-  if (parts.length >= 3) {
-    // Insert 'thumbs' right after category (index 1)
-    parts.splice(2, 0, 'thumbs');
+  // Find the first 4-digit year segment and insert 'thumbs' before it.
+  const yearIdx = parts.findIndex(p => /^\d{4}$/.test(p));
+  if (yearIdx !== -1) {
+    parts.splice(yearIdx, 0, 'thumbs');
   }
   return parts.join('/');
 }
@@ -266,10 +315,7 @@ export async function process(file: File): Promise<PipelineResult> {
   } catch (err) {
     bitmap.close();
     if (err instanceof PipelineError) throw err;
-    throw new PipelineError(
-      'Gagal memproses gambar di browser.',
-      'RENDER',
-    );
+    throw new PipelineError('Gagal memproses gambar di browser.', 'RENDER');
   }
 
   bitmap.close();

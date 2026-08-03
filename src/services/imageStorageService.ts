@@ -1,14 +1,13 @@
-// ─── Image Storage Service — FOUNDATION-STORAGE-003 ──────────────────────────
+// ─── Image Storage Service — FOUNDATION-STORAGE-003/004 ──────────────────────
 //
 // Browser-side abstraction for image uploads to Cloudflare R2.
 // Migrated from Express proxy to browser pipeline + Supabase Edge Function.
 //
 // NEW PIPELINE:
-//   1. imagePipeline.process()       — validate, resize, compress, strip EXIF (browser)
-//   2. imagePipeline.generateObjectKey() — structured workspace/category/date/uuid key
+//   1. imagePipeline.process()         — validate, resize, compress, strip EXIF (browser)
+//   2. imagePipeline.generateObjectKey() — structured workspace/entity/date/uuid key
 //   3. invoke r2-storage Edge Function (presign-upload) — get signed PUT URL
-//   4. Browser PUT directly to Cloudflare R2
-//   5. repoInsertMediaBrowser()      — persist metadata to Supabase (browser JWT / RLS)
+//   4. finalizeUpload()                — PUT to R2, insert Supabase metadata, relations
 //
 // PUBLIC API: unchanged — all callers outside this file need zero modifications.
 //
@@ -35,9 +34,10 @@ import {
   generateObjectKey,
   generateThumbnailKey,
   PipelineError,
+  type PipelineResult,
 } from './imagePipeline';
 import {
-  repoInsertMediaBrowser,
+  repoInsertMedia,
   repoInsertLivestockPhoto,
   repoGetMediaByUuid,
 } from '../repositories/mediaRepository';
@@ -97,11 +97,11 @@ export type UploadImageOutcome = UploadImageResult | UploadImageError;
 // ─── Edge Function invocation ─────────────────────────────────────────────────
 
 interface EdgePresignResponse {
-  ok:          boolean;
-  uploadUrl?:  string;
-  publicUrl?:  string;
-  expiresAt?:  string;
-  error?:      string;
+  ok:         boolean;
+  uploadUrl?: string;
+  publicUrl?: string;
+  expiresAt?: string;
+  error?:     string;
 }
 
 /**
@@ -115,12 +115,10 @@ async function requestPresignedUpload(
   const { data, error } = await supabase.functions.invoke<EdgePresignResponse>('r2-storage', {
     body: { action: 'presign-upload', objectKey, contentType },
   });
-
   if (error) throw new Error(`Edge Function error: ${error.message}`);
   if (!data?.ok || !data.uploadUrl) {
     throw new Error(data?.error ?? 'Presign gagal: respons tidak valid');
   }
-
   return { uploadUrl: data.uploadUrl, publicUrl: data.publicUrl ?? '' };
 }
 
@@ -140,6 +138,109 @@ async function putToR2(uploadUrl: string, blob: Blob, contentType: string): Prom
   }
 }
 
+// ─── finalizeUpload ───────────────────────────────────────────────────────────
+//
+// Single coordination point for all post-upload steps:
+//   PUT to R2 → insert Supabase metadata → insert relations
+//
+// Placing all three steps here means rollback, reconciliation, and retry
+// logic has exactly one place to live when those are implemented.
+
+interface FinalizeAssets {
+  objectKey:    string;
+  thumbnailKey: string;
+  original:  { blob: Blob; mimeType: string; uploadUrl: string; publicUrl: string };
+  thumbnail: { blob: Blob; mimeType: string; uploadUrl: string; publicUrl: string } | null;
+}
+
+interface FinalizeInput {
+  assets:   FinalizeAssets;
+  options:  UploadImageOptions;
+  filename: string;
+  pipeline: PipelineResult;
+}
+
+async function finalizeUpload(input: FinalizeInput): Promise<UploadImageOutcome> {
+  const { assets, options, filename, pipeline } = input;
+
+  // ── 1. PUT original to R2 ─────────────────────────────────────────────────
+  await putToR2(assets.original.uploadUrl, assets.original.blob, assets.original.mimeType);
+
+  // ── 2. PUT thumbnail to R2 (non-fatal) ───────────────────────────────────
+  let thumbPublicUrl = assets.original.publicUrl;
+  if (assets.thumbnail) {
+    await putToR2(
+      assets.thumbnail.uploadUrl,
+      assets.thumbnail.blob,
+      assets.thumbnail.mimeType,
+    ).catch((err) => {
+      console.warn('[finalizeUpload] Thumbnail upload failed (non-fatal):', err);
+    });
+    thumbPublicUrl = assets.thumbnail.publicUrl || assets.original.publicUrl;
+  }
+
+  const originalUrl  = assets.original.publicUrl;
+  const thumbnailUrl = thumbPublicUrl;
+
+  // ── 3. Insert media metadata (non-fatal on failure) ───────────────────────
+  // If metadata insert fails the files are still in R2. A future reconciliation
+  // job can re-insert orphaned rows. All retry/rollback logic lives here.
+  let media_uuid: string | null = null;
+  try {
+    media_uuid = await repoInsertMedia({
+      category:         options.category,
+      originalFilename: filename,
+      mimeType:         pipeline.original.mimeType,
+      fileSizeBytes:    pipeline.original.fileSizeBytes,
+      width:            pipeline.original.width,
+      height:           pipeline.original.height,
+      storageUrl:       originalUrl,
+      thumbnailUrl,
+      objectKey:        assets.objectKey,
+      thumbnailKey:     assets.thumbnailKey,
+      ownerWorkspaceId: options.ownerWorkspaceUuid,
+      uploadedBy:       options.uploadedBy,
+      altText:          options.altText  ?? null,
+      tags:             options.tags     ?? [],
+    });
+  } catch (metaErr) {
+    console.error('[finalizeUpload] Metadata insert failed (file is in R2):', metaErr);
+    // TODO(FOUNDATION-STORAGE-005): enqueue for reconciliation / retry
+  }
+
+  // ── 4. Livestock photo relation (non-fatal) ───────────────────────────────
+  if (options.category === 'livestock' && options.livestockId) {
+    repoInsertLivestockPhoto({
+      livestock_uuid: options.livestockId,
+      storage_url:    originalUrl,
+      thumbnail_url:  thumbnailUrl,
+      uploaded_by:    options.uploadedBy,
+      is_cover:       options.isCover      ?? false,
+      display_order:  options.displayOrder ?? 0,
+      caption:        options.caption      ?? null,
+      taken_at:       options.takenAt      ?? null,
+    }).catch((err) => {
+      console.error('[finalizeUpload] livestock_photos insert failed (non-fatal):', err);
+    });
+  }
+
+  return {
+    success:            true,
+    original_url:       originalUrl,
+    thumbnail_url:      thumbnailUrl,
+    key:                assets.objectKey,
+    thumbnail_key:      assets.thumbnailKey,
+    file_size:          pipeline.original.fileSizeBytes,
+    original_file_size: pipeline.originalFileSizeBytes,
+    mime_type:          pipeline.original.mimeType,
+    width:              pipeline.original.width,
+    height:             pipeline.original.height,
+    thumb_width:        pipeline.thumbnail.width,
+    thumb_height:       pipeline.thumbnail.height,
+    media_uuid,
+  };
+}
+
 // ─── Core upload ──────────────────────────────────────────────────────────────
 
 /**
@@ -147,11 +248,9 @@ async function putToR2(uploadUrl: string, blob: Blob, contentType: string): Prom
  *
  * Flow:
  *   1. Process image in browser (resize, compress, strip EXIF)
- *   2. Generate structured R2 object keys
+ *   2. Generate structured R2 object keys (workspace/category/entity/date/uuid)
  *   3. Get presigned PUT URLs from r2-storage Edge Function
- *   4. PUT both original and thumbnail directly to R2 from browser
- *   5. Insert media metadata into Supabase (browser JWT, RLS-enforced)
- *   6. Insert livestock_photos relation if applicable
+ *   4. finalizeUpload() — PUT to R2, Supabase metadata, livestock relation
  */
 export async function uploadImage(
   file: File,
@@ -160,15 +259,20 @@ export async function uploadImage(
   try {
     // ── 1. Process image ───────────────────────────────────────────────────────
     const pipeline = await pipelineProcess(file);
+    const filename = options.filename ?? file.name;
 
     // ── 2. Generate object keys ────────────────────────────────────────────────
-    const filename    = options.filename ?? file.name;
-    const objectKey   = generateObjectKey(
-      options.ownerWorkspaceUuid,
-      options.category,
-      filename,
-      pipeline.original.ext,
-    );
+    // Include entity segments when a livestock ID is available for audit support.
+    const objectKey = generateObjectKey({
+      workspaceUuid:    options.ownerWorkspaceUuid,
+      category:         options.category,
+      entityType:       options.category === 'livestock' && options.livestockId
+                          ? 'livestock' : undefined,
+      entityUuid:       options.category === 'livestock' && options.livestockId
+                          ? options.livestockId : undefined,
+      originalFilename: filename,
+      ext:              pipeline.original.ext,
+    });
     const thumbnailKey = generateThumbnailKey(objectKey);
 
     // ── 3. Request presigned upload URLs ───────────────────────────────────────
@@ -184,82 +288,25 @@ export async function uploadImage(
       return { success: false, error: reason };
     }
 
-    const { uploadUrl: origUploadUrl, publicUrl: origPublicUrl }  = origPresign.value;
-    const thumbOk = thumbPresign.status === 'fulfilled';
-    const thumbUploadUrl  = thumbOk ? thumbPresign.value.uploadUrl  : null;
-    const thumbPublicUrl  = thumbOk ? thumbPresign.value.publicUrl  : origPublicUrl;
+    const { uploadUrl: origUploadUrl,  publicUrl: origPublicUrl }  = origPresign.value;
+    const thumbOk      = thumbPresign.status === 'fulfilled';
+    const thumbUpload  = thumbOk ? thumbPresign.value.uploadUrl  : '';
+    const thumbPublic  = thumbOk ? thumbPresign.value.publicUrl  : origPublicUrl;
 
-    // ── 4. PUT to R2 ───────────────────────────────────────────────────────────
-    await putToR2(origUploadUrl, pipeline.original.blob, pipeline.original.mimeType);
-
-    if (thumbUploadUrl) {
-      await putToR2(thumbUploadUrl, pipeline.thumbnail.blob, pipeline.thumbnail.mimeType)
-        .catch((err) => {
-          // Thumbnail failure is non-fatal — original is the source of truth.
-          console.warn('[ImageStorageService] Thumbnail upload failed (non-fatal):', err);
-        });
-    }
-
-    const originalUrl  = origPublicUrl;
-    const thumbnailUrl = thumbPublicUrl || origPublicUrl;
-
-    // ── 5. Insert media metadata ───────────────────────────────────────────────
-    let media_uuid: string | null = null;
-    try {
-      media_uuid = await repoInsertMediaBrowser({
-        category:           options.category,
-        originalFilename:   filename,
-        mimeType:           pipeline.original.mimeType,
-        fileSizeBytes:      pipeline.original.fileSizeBytes,
-        width:              pipeline.original.width,
-        height:             pipeline.original.height,
-        storageUrl:         originalUrl,
-        thumbnailUrl:       thumbnailUrl,
+    // ── 4. Finalize ────────────────────────────────────────────────────────────
+    return await finalizeUpload({
+      assets: {
         objectKey,
         thumbnailKey,
-        ownerWorkspaceId:   options.ownerWorkspaceUuid,
-        uploadedBy:         options.uploadedBy,
-        altText:            options.altText ?? null,
-        tags:               options.tags    ?? [],
-      });
-    } catch (metaErr) {
-      // Metadata insert failed. Log it, but do not throw — the files are in R2.
-      // Future: implement a reconciliation job to clean up orphaned R2 objects.
-      console.error('[ImageStorageService] Metadata insert failed:', metaErr);
-    }
-
-    // ── 6. Livestock photo relation ────────────────────────────────────────────
-    if (options.category === 'livestock' && options.livestockId) {
-      repoInsertLivestockPhoto({
-        livestock_uuid: options.livestockId,
-        storage_url:    originalUrl,
-        thumbnail_url:  thumbnailUrl,
-        uploaded_by:    options.uploadedBy,
-        is_cover:       options.isCover       ?? false,
-        display_order:  options.displayOrder   ?? 0,
-        caption:        options.caption        ?? null,
-        taken_at:       options.takenAt        ?? null,
-      }).catch((err) => {
-        // Non-fatal: livestock_photos relation failure does not invalidate the upload.
-        console.error('[ImageStorageService] livestock_photos insert failed (non-fatal):', err);
-      });
-    }
-
-    return {
-      success:            true,
-      original_url:       originalUrl,
-      thumbnail_url:      thumbnailUrl,
-      key:                objectKey,
-      thumbnail_key:      thumbnailKey,
-      file_size:          pipeline.original.fileSizeBytes,
-      original_file_size: pipeline.originalFileSizeBytes,
-      mime_type:          pipeline.original.mimeType,
-      width:              pipeline.original.width,
-      height:             pipeline.original.height,
-      thumb_width:        pipeline.thumbnail.width,
-      thumb_height:       pipeline.thumbnail.height,
-      media_uuid,
-    };
+        original:  { blob: pipeline.original.blob,  mimeType: pipeline.original.mimeType,  uploadUrl: origUploadUrl,  publicUrl: origPublicUrl },
+        thumbnail: thumbOk
+          ? { blob: pipeline.thumbnail.blob, mimeType: pipeline.thumbnail.mimeType, uploadUrl: thumbUpload, publicUrl: thumbPublic }
+          : null,
+      },
+      options,
+      filename,
+      pipeline,
+    });
   } catch (err) {
     const message = err instanceof PipelineError
       ? err.message
@@ -279,7 +326,6 @@ export async function uploadAvatar(
     avatarCategory: 'profile' | 'workspace';
   },
 ): Promise<UploadImageOutcome> {
-  // avatarCategory is a valid MediaCategory — delegate to uploadImage.
   const { avatarCategory, ...rest } = options;
   return uploadImage(file, { ...rest, category: avatarCategory });
 }
@@ -288,7 +334,6 @@ export async function uploadCover(
   file: File,
   options: UploadImageOptions,
 ): Promise<UploadImageOutcome> {
-  // Identical flow to uploadImage — delegate directly.
   return uploadImage(file, options);
 }
 
@@ -322,11 +367,11 @@ export interface R2HealthResult {
 export async function checkR2Health(): Promise<R2HealthResult> {
   try {
     const { data, error } = await supabase.functions.invoke<{
-      ok: boolean;
-      status?: string;
-      bucket?: string;
+      ok:       boolean;
+      status?:  string;
+      bucket?:  string;
       message?: string;
-      error?: string;
+      error?:   string;
     }>('r2-storage', { body: { action: 'test-connection' } });
 
     if (error) {
@@ -343,8 +388,8 @@ export async function checkR2Health(): Promise<R2HealthResult> {
 
     return {
       status:  'error',
-      bucket:  data?.bucket ?? 'unknown',
-      message: data?.error ?? data?.message ?? 'R2 tidak terhubung',
+      bucket:  data?.bucket  ?? 'unknown',
+      message: data?.error   ?? data?.message ?? 'R2 tidak terhubung',
     };
   } catch (err) {
     return {

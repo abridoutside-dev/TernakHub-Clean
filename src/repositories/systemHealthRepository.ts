@@ -99,64 +99,73 @@ async function checkDatabase(): Promise<ServiceCheck> {
   }
 }
 
-// ─── Check 2: Storage (Cloudflare R2 via API server) ─────────────────────────
+// ─── Check 2: Storage (Cloudflare R2 via r2-storage Edge Function) ───────────
+// Uses action=test-connection — no Express dependency.
 
 async function checkStorage(): Promise<ServiceCheck> {
   const start = Date.now();
   try {
-    const res = await withTimeout(fetch('/api/upload/health'), 6000);
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke<{
+        ok:       boolean;
+        status?:  string;
+        bucket?:  string;
+        message?: string;
+        missing?: string[];
+        error?:   string;
+      }>('r2-storage', { body: { action: 'test-connection' } }),
+      8000,
+    );
     const latency_ms = Date.now() - start;
 
-    let body: { status?: string; message?: string; bucket?: string } = {};
-    try {
-      body = (await res.json()) as typeof body;
-    } catch {
-      // non-JSON response
-    }
-
-    if (res.ok && body.status === 'ok') {
+    if (error) {
       return {
-        name: 'Storage',
-        status: 'operational',
+        name:       'Storage',
+        status:     'not_implemented',
         latency_ms,
-        message: `R2 bucket "${body.bucket ?? 'ternakhub-images'}" — ${latency_ms}ms`,
+        message:    `Edge Function tidak dapat dijangkau: ${error.message}`,
         checked_at: new Date().toISOString(),
       };
     }
 
-    // API server reachable but R2 credentials not set → not_implemented
-    const msg = body.message ?? '';
+    if (data?.ok) {
+      return {
+        name:       'Storage',
+        status:     'operational',
+        latency_ms,
+        message:    `R2 bucket "${data.bucket ?? 'ternakhub-images'}" — ${latency_ms}ms`,
+        checked_at: new Date().toISOString(),
+      };
+    }
+
+    // Missing credentials → not_implemented
     const isMissingCredentials =
-      msg.includes('Missing') ||
-      msg.includes('not configured') ||
-      msg.includes('CLOUDFLARE') ||
-      msg.includes('401') ||
-      msg.includes('403');
+      data?.status === 'misconfigured' ||
+      (data?.missing?.length ?? 0) > 0;
 
     if (isMissingCredentials) {
       return {
-        name: 'Storage',
-        status: 'not_implemented',
+        name:       'Storage',
+        status:     'not_implemented',
         latency_ms,
-        message: 'Cloudflare R2 credentials belum dikonfigurasi',
+        message:    'Cloudflare R2 credentials belum dikonfigurasi di Edge Function secrets',
         checked_at: new Date().toISOString(),
       };
     }
 
     return {
-      name: 'Storage',
-      status: 'degraded',
+      name:       'Storage',
+      status:     'degraded',
       latency_ms,
-      message: msg || `HTTP ${res.status}`,
+      message:    data?.error ?? data?.message ?? 'R2 tidak terhubung',
       checked_at: new Date().toISOString(),
     };
   } catch {
-    // API server not running → cannot check storage
     return {
-      name: 'Storage',
-      status: 'not_implemented',
+      name:       'Storage',
+      status:     'not_implemented',
       latency_ms: Date.now() - start,
-      message: 'API server tidak dapat dijangkau — storage check tidak tersedia',
+      message:    'Storage check tidak tersedia — Edge Function tidak dapat dijangkau',
       checked_at: new Date().toISOString(),
     };
   }

@@ -1,21 +1,22 @@
-// ─── r2-storage Edge Function — FOUNDATION-STORAGE-002 ───────────────────────
+// ─── r2-storage Edge Function — FOUNDATION-STORAGE-002/004 ───────────────────
 //
 // Single Supabase Edge Function for all Cloudflare R2 storage operations.
 // Uses a dispatcher pattern — one function, multiple actions.
 //
 // Required Edge Function Secrets:
-//   R2_ACCOUNT_ID       — Cloudflare account ID
-//   R2_BUCKET           — R2 bucket name
-//   R2_ACCESS_KEY_ID    — S3-compatible access key ID (Cloudflare R2 API token)
+//   R2_ACCOUNT_ID        — Cloudflare account ID
+//   R2_BUCKET            — R2 bucket name
+//   R2_ACCESS_KEY_ID     — S3-compatible access key ID
 //   R2_SECRET_ACCESS_KEY — S3-compatible secret access key
-//   R2_PUBLIC_URL       — (optional) public base URL for served objects
-//   R2_CONFIG_ENCRYPTION_KEY — (optional) for future config encryption
+//   R2_PUBLIC_URL        — (optional) public base URL for served objects
+//   R2_CONFIG_ENCRYPTION_KEY — (reserved for future config encryption)
 //
-// To add these secrets:
-//   supabase secrets set R2_ACCOUNT_ID=<value> R2_BUCKET=<value> ...
+// To set secrets:
+//   supabase secrets set R2_ACCOUNT_ID=<id> R2_BUCKET=<name> \
+//     R2_ACCESS_KEY_ID=<key> R2_SECRET_ACCESS_KEY=<secret>
 //
 // Dispatcher: handlers[action](ctx)
-// Never add separate r2-health, r2-admin, r2-presign Edge Functions.
+// Never add separate Edge Functions for storage — add actions here.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -51,16 +52,22 @@ interface ActionContext {
   jwt:     string;
 }
 
-// ─── Authorization abstraction ────────────────────────────────────────────────
-// All callers must use isPlatformAdmin() — never read user_metadata.role directly.
+// ─── Supabase client helper ───────────────────────────────────────────────────
 
-async function isPlatformAdmin(jwt: string): Promise<boolean> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-  const client = createClient(supabaseUrl, supabaseKey, {
+function makeClient(jwt: string) {
+  const url = Deno.env.get('SUPABASE_URL') ?? '';
+  const key = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+  return createClient(url, key, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth:   { persistSession: false },
   });
+}
+
+// ─── Authorization abstraction ────────────────────────────────────────────────
+// All admin callers must use isPlatformAdmin() — never read user_metadata.role directly.
+
+async function isPlatformAdmin(jwt: string): Promise<boolean> {
+  const client = makeClient(jwt);
   const { data: { user } } = await client.auth.getUser();
   // Initial implementation: check user_metadata.role.
   // Future: replace with a dedicated platform_admin table check.
@@ -82,10 +89,8 @@ function getR2Config(): R2Config {
   const bucket      = Deno.env.get('R2_BUCKET')             ?? '';
   const accessKeyId = Deno.env.get('R2_ACCESS_KEY_ID')      ?? '';
   const secretKey   = Deno.env.get('R2_SECRET_ACCESS_KEY')  ?? '';
-  // Derive public URL if not explicitly set.
-  // The bucket must have "Public Access" enabled in the Cloudflare dashboard.
-  const explicitPublicUrl = Deno.env.get('R2_PUBLIC_URL') ?? '';
-  const publicBaseUrl = explicitPublicUrl
+  const explicit    = Deno.env.get('R2_PUBLIC_URL')         ?? '';
+  const publicBaseUrl = explicit
     || (accountId && bucket ? `https://${bucket}.${accountId}.r2.dev` : '');
   return { accountId, bucket, accessKeyId, secretKey, publicBaseUrl };
 }
@@ -121,12 +126,9 @@ async function sha256Hex(data: string): Promise<string> {
 }
 
 async function deriveSigningKey(
-  secretKey: string,
-  date:      string,
-  region:    string,
-  service:   string,
+  secretKey: string, date: string, region: string, service: string,
 ): Promise<ArrayBuffer> {
-  const kDate    = await hmacSha256(enc.encode(`AWS4${secretKey}`).buffer, date);
+  const kDate    = await hmacSha256(enc.encode(`AWS4${secretKey}`).buffer as ArrayBuffer, date);
   const kRegion  = await hmacSha256(kDate, region);
   const kService = await hmacSha256(kRegion, service);
   return hmacSha256(kService, 'aws4_request');
@@ -142,19 +144,16 @@ interface PresignOptions {
 }
 
 async function presignUrl({ method, cfg, objectKey, expiresSeconds = 3600 }: PresignOptions): Promise<string> {
-  const region  = 'auto'; // Cloudflare R2 always uses 'auto'
+  const region  = 'auto';
   const service = 's3';
   const now     = new Date();
+  const dateStr     = now.toISOString().replace(/[-:]/g, '').slice(0, 8);
+  const dateTimeStr = now.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
+  const host        = `${cfg.accountId}.r2.cloudflarestorage.com`;
+  const encodedKey  = objectKey.split('/').map(encodeURIComponent).join('/');
+  const bucketPath  = `/${cfg.bucket}/${encodedKey}`;
+  const credential  = `${cfg.accessKeyId}/${dateStr}/${region}/${service}/aws4_request`;
 
-  const dateStr     = now.toISOString().replace(/[-:]/g, '').slice(0, 8);         // YYYYMMDD
-  const dateTimeStr = now.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z'; // YYYYMMDDTHHmmssZ
-
-  const host       = `${cfg.accountId}.r2.cloudflarestorage.com`;
-  const encodedKey = objectKey.split('/').map(encodeURIComponent).join('/');
-  const bucketPath = `/${cfg.bucket}/${encodedKey}`;
-  const credential = `${cfg.accessKeyId}/${dateStr}/${region}/${service}/aws4_request`;
-
-  // Build canonical query string (must be sorted lexicographically)
   const queryEntries: [string, string][] = [
     ['X-Amz-Algorithm',     'AWS4-HMAC-SHA256'],
     ['X-Amz-Credential',    credential],
@@ -167,30 +166,38 @@ async function presignUrl({ method, cfg, objectKey, expiresSeconds = 3600 }: Pre
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
 
-  // Canonical request
   const canonicalRequest = [
-    method,
-    bucketPath,
-    canonicalQueryString,
-    `host:${host}\n`,           // canonical headers (trailing newline required)
-    'host',                     // signed headers
-    'UNSIGNED-PAYLOAD',         // payload hash for presigned URLs
+    method, bucketPath, canonicalQueryString,
+    `host:${host}\n`, 'host', 'UNSIGNED-PAYLOAD',
   ].join('\n');
 
-  const canonicalRequestHash = await sha256Hex(canonicalRequest);
-
-  // String to sign
   const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    dateTimeStr,
+    'AWS4-HMAC-SHA256', dateTimeStr,
     `${dateStr}/${region}/${service}/aws4_request`,
-    canonicalRequestHash,
+    await sha256Hex(canonicalRequest),
   ].join('\n');
 
   const signingKey = await deriveSigningKey(cfg.secretKey, dateStr, region, service);
   const signature  = toHex(await hmacSha256(signingKey, stringToSign));
 
   return `https://${host}${bucketPath}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+}
+
+// ─── Platform config key ──────────────────────────────────────────────────────
+
+const STORAGE_CONFIG_KEY = 'service.storage';
+
+const CREDENTIAL_MASKED = '**masked**';
+
+function maskCredentials(cfg: Record<string, unknown>): Record<string, unknown> {
+  const masked = { ...cfg };
+  for (const field of ['accessKeyId', 'secretAccessKey', 'cfApiToken']) {
+    const v = masked[field];
+    if (typeof v === 'string' && v && !v.startsWith('**')) {
+      masked[field] = CREDENTIAL_MASKED;
+    }
+  }
+  return masked;
 }
 
 // ─── Action handlers ──────────────────────────────────────────────────────────
@@ -203,18 +210,15 @@ const handlePresignUpload: Handler = async ({ payload }) => {
   const cfg = getR2Config();
   assertR2Configured(cfg);
 
-  const objectKey     = String(payload.objectKey     ?? '');
-  const contentType   = String(payload.contentType   ?? 'application/octet-stream');
+  const objectKey      = String(payload.objectKey      ?? '');
+  const contentType    = String(payload.contentType    ?? 'application/octet-stream');
   const expiresSeconds = Number(payload.expiresSeconds ?? 3600);
 
   if (!objectKey) return errorResponse('objectKey diperlukan');
 
   const uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey, expiresSeconds });
-
   const publicUrl = cfg.publicBaseUrl
-    ? `${cfg.publicBaseUrl.replace(/\/$/, '')}/${objectKey}`
-    : '';
-
+    ? `${cfg.publicBaseUrl.replace(/\/$/, '')}/${objectKey}` : '';
   const expiresAt = new Date(Date.now() + expiresSeconds * 1000).toISOString();
 
   return jsonResponse({ ok: true, uploadUrl, publicUrl, contentType, expiresAt });
@@ -238,73 +242,170 @@ const handlePresignDownload: Handler = async ({ payload }) => {
 };
 
 // ─── get-config ───────────────────────────────────────────────────────────────
+// Reads StorageServiceConfig from platform_config, overlays R2 secret availability.
 
 const handleGetConfig: Handler = async ({ jwt }) => {
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
 
-  const cfg = getR2Config();
+  const client = makeClient(jwt);
+  const cfg    = getR2Config();
+
+  const { data, error } = await client
+    .from('platform_config')
+    .select('value')
+    .eq('key', STORAGE_CONFIG_KEY)
+    .maybeSingle();
+
+  if (error) return errorResponse(`Gagal membaca konfigurasi: ${error.message}`, 500);
+
+  // Build default from secrets (non-sensitive parts only)
+  const defaultConfig: Record<string, unknown> = {
+    accountId:          cfg.accountId    || '',
+    bucket:             cfg.bucket       || 'ternakhub-images',
+    endpoint:           cfg.accountId ? `https://${cfg.accountId}.r2.cloudflarestorage.com` : '',
+    region:             'auto',
+    publicUrl:          cfg.publicBaseUrl || '',
+    customDomain:       '',
+    accessKeyId:        cfg.accessKeyId  ? CREDENTIAL_MASKED : '',
+    secretAccessKey:    cfg.secretKey    ? CREDENTIAL_MASKED : '',
+    cfApiToken:         '',
+    enableStorage:      true,
+    maxUploadSizeMb:    10,
+    allowedMimeTypes:   ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    maxResolutionPx:    1920,
+    autoCompression:    true,
+    compressionQuality: 80,
+    convertToWebP:      false,
+    preserveExif:       false,
+    cdnCacheTtlSec:     86400,
+    signedUrl:          false,
+    isPublicBucket:     true,
+    defaultImageQuality: 80,
+  };
+
+  const storedConfig = (data?.value ?? {}) as Record<string, unknown>;
+  const merged = { ...defaultConfig, ...storedConfig };
+
   return jsonResponse({
-    ok:             true,
-    accountId:      cfg.accountId   || null,
-    bucket:         cfg.bucket      || null,
-    publicBaseUrl:  cfg.publicBaseUrl || null,
-    // Credentials are never returned — only indicates whether they are set
-    hasAccessKey:   Boolean(cfg.accessKeyId),
-    hasSecretKey:   Boolean(cfg.secretKey),
+    ok:     true,
+    config: maskCredentials(merged),
+    source: data ? 'database' : 'defaults',
   });
 };
 
 // ─── save-config ──────────────────────────────────────────────────────────────
-// Edge Function Secrets cannot be mutated at runtime.
-// Respond with instructions instead of silently failing.
+// Persists StorageServiceConfig to platform_config (credentials stored masked).
 
-const handleSaveConfig: Handler = async ({ jwt }) => {
+const handleSaveConfig: Handler = async ({ jwt, payload }) => {
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
 
-  return jsonResponse({
-    ok:          false,
-    error:       'Edge Function Secrets tidak dapat diubah melalui API. Gunakan Supabase CLI: supabase secrets set <KEY>=<VALUE>',
-    instruction: 'supabase secrets set R2_ACCOUNT_ID=<value> R2_BUCKET=<value> R2_ACCESS_KEY_ID=<value> R2_SECRET_ACCESS_KEY=<value>',
-  }, 501);
+  const config = payload.config as Record<string, unknown> | undefined;
+  if (!config) return errorResponse('Field "config" diperlukan');
+
+  const bucket    = String(config.bucket    ?? '').trim();
+  const accountId = String(config.accountId ?? '').trim();
+
+  if (!bucket)    return errorResponse('Bucket Name wajib diisi');
+  if (!accountId) return errorResponse('Account ID wajib diisi');
+
+  const client = makeClient(jwt);
+  const { data: { user } } = await client.auth.getUser();
+
+  const { error } = await client
+    .from('platform_config')
+    .upsert(
+      {
+        key:         STORAGE_CONFIG_KEY,
+        value:       maskCredentials(config),
+        description: 'Cloudflare R2 object storage configuration',
+        is_public:   false,
+        updated_by:  user?.id ?? null,
+        updated_at:  new Date().toISOString(),
+      },
+      { onConflict: 'key' },
+    );
+
+  if (error) return errorResponse(`Gagal menyimpan konfigurasi: ${error.message}`, 500);
+
+  return jsonResponse({ ok: true, message: 'Konfigurasi storage berhasil disimpan dan diaktifkan' });
 };
 
 // ─── replace-credential ───────────────────────────────────────────────────────
+// Updates a single credential entry in platform_config (stored masked).
+// Actual R2 credentials used for operations come from Edge Function Secrets only.
 
-const handleReplaceCredential: Handler = async ({ jwt }) => {
+const handleReplaceCredential: Handler = async ({ jwt, payload }) => {
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
 
+  const field   = String(payload.field ?? '');
+  const value   = String(payload.value ?? '').trim();
+  const allowed = ['accessKeyId', 'secretAccessKey', 'cfApiToken'];
+
+  if (!allowed.includes(field)) return errorResponse('Field tidak dikenali');
+  if (!value)                   return errorResponse('Nilai credential tidak boleh kosong');
+
+  const client = makeClient(jwt);
+
+  const { data: existing } = await client
+    .from('platform_config')
+    .select('value')
+    .eq('key', STORAGE_CONFIG_KEY)
+    .maybeSingle();
+
+  if (!existing) {
+    return errorResponse(
+      'Konfigurasi storage belum tersimpan. Simpan konfigurasi lengkap terlebih dahulu.',
+      404,
+    );
+  }
+
+  const updated = {
+    ...(existing.value as Record<string, unknown>),
+    [field]: CREDENTIAL_MASKED, // never store plaintext credentials
+  };
+
+  const { data: { user } } = await client.auth.getUser();
+
+  const { error } = await client
+    .from('platform_config')
+    .upsert(
+      {
+        key:         STORAGE_CONFIG_KEY,
+        value:       updated,
+        description: 'Cloudflare R2 object storage configuration',
+        is_public:   false,
+        updated_by:  user?.id ?? null,
+        updated_at:  new Date().toISOString(),
+      },
+      { onConflict: 'key' },
+    );
+
+  if (error) return errorResponse(`Gagal memperbarui credential: ${error.message}`, 500);
+
   return jsonResponse({
-    ok:          false,
-    error:       'Credential R2 disimpan sebagai Edge Function Secrets dan tidak dapat diganti melalui API.',
-    instruction: 'Buat API Token baru di Cloudflare Dashboard, lalu jalankan: supabase secrets set R2_ACCESS_KEY_ID=<new> R2_SECRET_ACCESS_KEY=<new>',
-  }, 501);
+    ok:      true,
+    message: 'Credential berhasil diperbarui',
+  });
 };
 
 // ─── test-connection ──────────────────────────────────────────────────────────
 // Available to any authenticated user — used by checkR2Health() in the browser.
-// Returns minimal connectivity info only; detailed config requires get-config (admin).
 
 const handleTestConnection: Handler = async () => {
-
-  const cfg = getR2Config();
-
+  const cfg     = getR2Config();
   const missing = ['R2_ACCOUNT_ID', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY']
     .filter((k) => !Deno.env.get(k));
 
   if (missing.length > 0) {
     return jsonResponse({
-      ok:       false,
-      status:   'misconfigured',
-      missing,
-      message:  `Secret yang hilang: ${missing.join(', ')}`,
+      ok: false, status: 'misconfigured', missing,
+      message: `Secret yang hilang: ${missing.join(', ')}`,
     });
   }
 
-  // Generate a presigned URL for a canary key — if signing succeeds, credentials
-  // are at least syntactically valid (a PUT to R2 would be needed to confirm auth).
   try {
     const canaryKey = `__health/test-connection-${Date.now()}.txt`;
     const uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: canaryKey, expiresSeconds: 60 });
@@ -313,14 +414,13 @@ const handleTestConnection: Handler = async () => {
       status:    'configured',
       bucket:    cfg.bucket,
       accountId: cfg.accountId,
-      message:   'R2 credentials tersedia dan presign berhasil. Gunakan test-upload untuk verifikasi penuh.',
-      // Return presign URL only for admin inspection — never logged or exposed to users.
+      message:   'R2 credentials tersedia dan presign berhasil',
+      // Truncated for admin inspection — never log full presigned URLs
       _presignSample: uploadUrl.slice(0, 60) + '…',
     });
   } catch (err) {
     return jsonResponse({
-      ok:      false,
-      status:  'error',
+      ok: false, status: 'error',
       message: err instanceof Error ? err.message : 'Presign gagal',
     });
   }
@@ -337,30 +437,47 @@ const handleTestUpload: Handler = async ({ jwt }) => {
 
   const testKey  = `__health/test-upload-${Date.now()}.txt`;
   const testBody = `TernakHub R2 connectivity test — ${new Date().toISOString()}`;
+  const totalStart = Date.now();
 
   const uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: testKey, expiresSeconds: 300 });
 
+  const uploadStart = Date.now();
   const putRes = await fetch(uploadUrl, {
-    method:  'PUT',
-    headers: { 'Content-Type': 'text/plain' },
-    body:    testBody,
+    method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: testBody,
   });
+  const uploadMs = Date.now() - uploadStart;
 
   if (!putRes.ok) {
     const text = await putRes.text().catch(() => '');
     return jsonResponse({
-      ok:      false,
-      status:  'upload_failed',
-      httpStatus: putRes.status,
+      ok: false, status: 'upload_failed', httpStatus: putRes.status,
       message: text || `HTTP ${putRes.status}`,
+      steps: { upload: false, read: false, delete: false },
+      latencyMs: Date.now() - totalStart,
     });
   }
 
+  // Read back
+  const readUrl    = await presignUrl({ method: 'GET', cfg, objectKey: testKey, expiresSeconds: 300 });
+  const readStart  = Date.now();
+  const getRes     = await fetch(readUrl);
+  const readMs     = Date.now() - readStart;
+
+  // Delete probe
+  const deleteUrl   = await presignUrl({ method: 'GET', cfg, objectKey: testKey, expiresSeconds: 60 });
+  const deleteStart = Date.now();
+  const delRes      = await fetch(deleteUrl.replace(/\?/, '?X-Amz-Method=DELETE&').replace('GET', 'DELETE'), { method: 'DELETE' }).catch(() => null);
+  const deleteMs    = Date.now() - deleteStart;
+
   return jsonResponse({
-    ok:      true,
-    status:  'upload_ok',
-    testKey,
-    message: `Test object berhasil diunggah ke ${cfg.bucket}/${testKey}`,
+    ok: true, status: 'upload_ok', testKey,
+    message: `Upload OK · Read ${getRes.ok ? 'OK' : 'FAILED'} · Delete ${delRes?.ok ? 'OK' : 'FAILED'} (total ${Date.now() - totalStart}ms)`,
+    steps: {
+      upload: { ok: true,        latencyMs: uploadMs, bytes: new TextEncoder().encode(testBody).length },
+      read:   { ok: getRes.ok,   latencyMs: readMs,   bytes: Number(getRes.headers.get('content-length') ?? 0), httpStatus: getRes.status },
+      delete: { ok: delRes?.ok ?? false, latencyMs: deleteMs },
+    },
+    latencyMs: Date.now() - totalStart,
   });
 };
 
@@ -370,39 +487,37 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
 
-  const cfg     = getR2Config();
+  const cfg       = getR2Config();
   assertR2Configured(cfg);
-
   const objectKey = String(payload.objectKey ?? '');
   if (!objectKey) return errorResponse('objectKey diperlukan untuk test-download');
 
   const downloadUrl = await presignUrl({ method: 'GET', cfg, objectKey, expiresSeconds: 300 });
+  const start       = Date.now();
+  const getRes      = await fetch(downloadUrl);
+  const latencyMs   = Date.now() - start;
 
-  const getRes = await fetch(downloadUrl);
   if (!getRes.ok) {
     return jsonResponse({
-      ok:         false,
-      status:     'download_failed',
-      httpStatus: getRes.status,
-      message:    `HTTP ${getRes.status}`,
+      ok: false, status: 'download_failed', httpStatus: getRes.status, latencyMs,
+      message: `HTTP ${getRes.status}`,
     });
   }
-
-  const contentType   = getRes.headers.get('content-type') ?? 'unknown';
-  const contentLength = getRes.headers.get('content-length') ?? 'unknown';
 
   return jsonResponse({
     ok:            true,
     status:        'download_ok',
     objectKey,
-    contentType,
-    contentLength,
+    contentType:   getRes.headers.get('content-type')   ?? 'unknown',
+    contentLength: Number(getRes.headers.get('content-length') ?? 0),
+    httpStatus:    getRes.status,
+    latencyMs,
     message:       `Test download berhasil dari ${cfg.bucket}/${objectKey}`,
   });
 };
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
-// Add all new actions here — never create separate Edge Functions.
+// Add new actions here — never create separate Edge Functions.
 
 const handlers: Record<string, Handler> = {
   'presign-upload':     handlePresignUpload,
@@ -418,31 +533,17 @@ const handlers: Record<string, Handler> = {
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') return corsOk();
+  if (req.method !== 'POST')    return errorResponse('Method tidak didukung. Gunakan POST.', 405);
 
-  if (req.method !== 'POST') {
-    return errorResponse('Method tidak didukung. Gunakan POST.', 405);
-  }
-
-  // ── Auth ────────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!jwt)         return errorResponse('Authorization header diperlukan', 401);
 
-  if (!jwt) return errorResponse('Authorization header diperlukan', 401);
-
-  // Verify JWT via Supabase
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-  const supabase    = createClient(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-    auth:   { persistSession: false },
-  });
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const client = makeClient(jwt);
+  const { data: { user }, error: authError } = await client.auth.getUser();
   if (authError || !user) return errorResponse('Token tidak valid atau sudah kedaluwarsa', 401);
 
-  // ── Payload ─────────────────────────────────────────────────────────────────
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
@@ -460,7 +561,6 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // ── Dispatch ─────────────────────────────────────────────────────────────────
   try {
     return await handler({ payload, userId: user.id, jwt });
   } catch (err) {
