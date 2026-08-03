@@ -525,6 +525,54 @@ export async function repoDeleteWishlist(
   return { error: null };
 }
 
+// ─── listing_reports reads ────────────────────────────────────────────────────
+
+export interface ListingReportDbRow {
+  id: string;
+  listing_id: string;
+  reported_by_workspace_id: string | null;
+  reported_by_user_id: string | null;
+  reason: string | null;
+  description: string | null;
+  status: string;            // 'Pending' | 'Reviewed' | 'Resolved' | 'Dismissed'
+  created_at: string;
+  updated_at: string | null;
+}
+
+/** Semua laporan listing — untuk halaman admin Moderasi. */
+export async function repoGetListingReports(
+  listingId?: string,
+): Promise<ListingReportDbRow[]> {
+  let query = supabase
+    .from('listing_reports')
+    .select('id,listing_id,reported_by_workspace_id,reported_by_user_id,reason,description,status,created_at,updated_at')
+    .order('created_at', { ascending: false });
+  if (listingId) query = query.eq('listing_id', listingId);
+  const { data, error } = await query;
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as ListingReportDbRow[];
+}
+
+// ─── v_marketplace_report_summary reads ───────────────────────────────────────
+
+export interface MarketplaceReportSummaryRow {
+  listing_id: string;
+  total_reports: number;
+  pending_reports: number;
+  resolved_reports: number;
+  primary_reason: string | null;
+  last_reported_at: string | null;
+}
+
+/** Ringkasan laporan per listing dari view v_marketplace_report_summary. */
+export async function repoGetMarketplaceReportSummary(): Promise<MarketplaceReportSummaryRow[]> {
+  const { data, error } = await supabase
+    .from('v_marketplace_report_summary')
+    .select('listing_id,total_reports,pending_reports,resolved_reports,primary_reason,last_reported_at');
+  if (error) throw new MarketplaceRepoError(error.message);
+  return (data ?? []) as MarketplaceReportSummaryRow[];
+}
+
 // ─── Moderation reads ─────────────────────────────────────────────────────────
 
 export interface MarketplaceModerasiDbRow {

@@ -15,6 +15,10 @@ import {
   type LivestockSpecies,
   type VerificationStatus,
 } from '../../../data/adminMarketplaceData';
+import {
+  repoGetMarketplaceReportSummary,
+  type MarketplaceReportSummaryRow,
+} from '../../../repositories/marketplaceRepository';
 
 // ─── Supabase row shape (same as MarketplaceModule) ──────────────────────────
 
@@ -347,11 +351,12 @@ export function MarketplaceReportsPage() {
   const [error, setError]       = useState<string | null>(null);
 
   // Stats
-  const [statReported, setStatReported] = useState(0);
-  const [statHidden, setStatHidden]     = useState(0);
-  const [statTotal, setStatTotal]       = useState(0);
-  const [statActive, setStatActive]     = useState(0);
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [statReported, setStatReported]         = useState(0);
+  const [statHidden, setStatHidden]             = useState(0);
+  const [statTotal, setStatTotal]               = useState(0);
+  const [statActive, setStatActive]             = useState(0);
+  const [statTotalReports, setStatTotalReports] = useState(0);
+  const [statsLoading, setStatsLoading]         = useState(true);
 
   const [search, setSearch]           = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -361,15 +366,44 @@ export function MarketplaceReportsPage() {
     (async () => {
       try {
         setLoading(true); setError(null);
-        const { data, error: fetchErr } = await supabase
-          .from('marketplace_listings')
-          .select('*')
-          .eq('status', 'Reported')
-          .order('updated_at', { ascending: false })
-          .limit(500);
+        const [{ data, error: fetchErr }, summaries] = await Promise.all([
+          supabase
+            .from('marketplace_listings')
+            .select('*')
+            .eq('status', 'Reported')
+            .order('updated_at', { ascending: false })
+            .limit(500),
+          repoGetMarketplaceReportSummary().catch((): MarketplaceReportSummaryRow[] => []),
+        ]);
         if (cancelled) return;
         if (fetchErr) { setError(fetchErr.message); return; }
-        setRows((data ?? []).map(adaptListing));
+
+        // Build summary map keyed by listing_id
+        const summaryMap = new Map<string, MarketplaceReportSummaryRow>(
+          summaries.map(s => [s.listing_id, s]),
+        );
+
+        // Enrich each listing with real report data from v_marketplace_report_summary
+        const enriched = (data ?? []).map(r => {
+          const base = adaptListing(r);
+          const s = summaryMap.get(r.id);
+          if (s) {
+            base.reportSummary = {
+              totalReports:    s.total_reports    ?? 0,
+              pendingReports:  s.pending_reports  ?? 0,
+              resolvedReports: s.resolved_reports ?? 0,
+              reasons:         s.primary_reason ? [s.primary_reason] : [],
+              lastReportedAt:  s.last_reported_at ?? null,
+            };
+          }
+          return base;
+        });
+
+        setRows(enriched);
+
+        // Total reports = sum of all total_reports across the view
+        const totalReports = summaries.reduce((acc, s) => acc + (s.total_reports ?? 0), 0);
+        setStatTotalReports(totalReports);
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
       } finally {
@@ -439,10 +473,11 @@ export function MarketplaceReportsPage() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
-          <StatCard label="Dilaporkan"    value={statReported} icon="🚨" color="#ef4444" loading={statsLoading} />
-          <StatCard label="Disembunyikan" value={statHidden}   icon="🙈" color="#374151" loading={statsLoading} />
-          <StatCard label="Total Listing" value={statTotal}    icon="📋" color="#64748b" loading={statsLoading} />
-          <StatCard label="Aktif"         value={statActive}   icon="✅" color="#10b981" loading={statsLoading} />
+          <StatCard label="Dilaporkan"    value={statReported}     icon="🚨" color="#ef4444" loading={statsLoading} />
+          <StatCard label="Disembunyikan" value={statHidden}       icon="🙈" color="#374151" loading={statsLoading} />
+          <StatCard label="Total Listing" value={statTotal}        icon="📋" color="#64748b" loading={statsLoading} />
+          <StatCard label="Aktif"         value={statActive}       icon="✅" color="#10b981" loading={statsLoading} />
+          <StatCard label="Total Laporan" value={statTotalReports} icon="📊" color="#f59e0b" loading={loading} />
         </div>
 
         <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid #f1f5f9', marginBottom: 20 }}>
