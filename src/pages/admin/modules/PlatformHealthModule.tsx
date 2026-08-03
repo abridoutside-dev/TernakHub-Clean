@@ -1,11 +1,11 @@
-// ─── Admin Platform Health — ADMIN-PLATFORM-002 ───────────────────────────────
+// ─── Admin Platform Health — ADMIN-PLATFORM-002 / CORE-PLATFORM-001 ──────────
 // Sinkronisasi data kesehatan platform dengan sumber data NYATA dari Supabase.
 //
 // Widget status:
 //   LIVE → Workspace Overview     (workspaces — count by type & status)
 //   LIVE → Marketplace Health     (marketplace_listings, marketplace_transactions)
 //   LIVE → Recent Activity        (activity_log)
-//   BLOCKED → System Services     (tidak ada tabel infrastructure metrics)
+//   LIVE → System Services Health (real-time probes — DB, Storage, API, Env, Version)
 //   BLOCKED → Auth Stats          (auth.users RLS-blocked dari client)
 //   BLOCKED → Background Jobs     (tidak ada tabel job_queue)
 //   N/I  → AI Service Status      (AI backend belum diintegrasikan)
@@ -13,6 +13,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
+import {
+  fetchSystemServicesHealth,
+  type SystemServicesHealth,
+  type ServiceStatus,
+} from '../../../repositories/systemHealthRepository';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +144,128 @@ function BlockedWidget({ title, reason, dependency, priority }: {
   );
 }
 
+// ─── System Services Health Widget ────────────────────────────────────────────
+
+const SERVICE_ICONS: Record<string, string> = {
+  Database:         '🗄️',
+  Storage:          '📦',
+  API:              '⚡',
+  Environment:      '🔧',
+  Platform:         '🏷️',
+};
+
+const STATUS_CFG: Record<ServiceStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  operational:     { label: 'operational',     color: '#15803d', bg: 'rgba(22,163,74,0.08)',  border: 'rgba(22,163,74,0.2)',  dot: '#16a34a' },
+  degraded:        { label: 'degraded',        color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
+  down:            { label: 'down',            color: '#b91c1c', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.2)',  dot: '#ef4444' },
+  not_implemented: { label: 'not_implemented', color: '#475569', bg: 'rgba(71,85,105,0.07)', border: 'rgba(71,85,105,0.15)', dot: '#94a3b8' },
+};
+
+function ServiceRow({
+  name, status, latency_ms, message, loading,
+}: {
+  name: string;
+  status: ServiceStatus;
+  latency_ms: number | null;
+  message: string;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, background: '#f8fafc', border: '1px solid #f1f5f9', marginBottom: 8 }}>
+        <span style={{ fontSize: 16, width: 24, textAlign: 'center' }}>{SERVICE_ICONS[name] ?? '🔵'}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', minWidth: 110 }}>{name}</span>
+        <div style={{ flex: 1 }}><SkeletonBox height={16} /></div>
+      </div>
+    );
+  }
+
+  const cfg = STATUS_CFG[status];
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '11px 14px', borderRadius: 9,
+      background: cfg.bg, border: `1px solid ${cfg.border}`,
+      marginBottom: 8,
+    }}>
+      {/* Dot indicator */}
+      <span style={{
+        width: 8, height: 8, borderRadius: '50%',
+        background: cfg.dot, flexShrink: 0,
+        boxShadow: status === 'operational' ? `0 0 0 3px ${cfg.dot}28` : 'none',
+      }} />
+      {/* Icon + name */}
+      <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>
+        {SERVICE_ICONS[name] ?? '🔵'}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', minWidth: 100, flexShrink: 0 }}>
+        {name}
+      </span>
+      {/* Status badge */}
+      <span style={{
+        fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
+        background: '#fff', color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+        flexShrink: 0,
+      }}>
+        {cfg.label}
+      </span>
+      {/* Message */}
+      <span style={{ fontSize: 12, color: '#475569', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {message}
+      </span>
+      {/* Latency */}
+      {latency_ms !== null && (
+        <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+          {latency_ms}ms
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SystemServicesHealthWidget({ health, loading }: {
+  health: SystemServicesHealth | null;
+  loading: boolean;
+}) {
+  const services = health
+    ? [
+        health.database,
+        health.storage,
+        health.api,
+        health.environment,
+        health.platform_version,
+      ]
+    : [
+        { name: 'Database', status: 'operational' as ServiceStatus, latency_ms: null, message: '', checked_at: '' },
+        { name: 'Storage',  status: 'operational' as ServiceStatus, latency_ms: null, message: '', checked_at: '' },
+        { name: 'API',      status: 'operational' as ServiceStatus, latency_ms: null, message: '', checked_at: '' },
+        { name: 'Environment',      status: 'operational' as ServiceStatus, latency_ms: null, message: '', checked_at: '' },
+        { name: 'Platform', status: 'operational' as ServiceStatus, latency_ms: null, message: '', checked_at: '' },
+      ];
+
+  return (
+    <div>
+      {services.map((svc) => (
+        <ServiceRow
+          key={svc.name}
+          name={svc.name}
+          status={svc.status}
+          latency_ms={svc.latency_ms}
+          message={svc.message}
+          loading={loading}
+        />
+      ))}
+      {!loading && health && (
+        <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 4, textAlign: 'right' }}>
+          Diperiksa: {new Date(health.database.checked_at).toLocaleTimeString('id-ID')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Workspace type labels (DB enum → UI) ─────────────────────────────────────
 
 const WS_TYPE_LABELS: Record<string, string> = {
@@ -174,6 +301,10 @@ export default function PlatformHealthModule() {
   const [error,    setError]    = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
+  const [systemHealth,        setSystemHealth]        = useState<SystemServicesHealth | null>(null);
+  const [systemHealthLoading, setSystemHealthLoading] = useState(true);
+
+  // ── Platform data (workspaces, marketplace, activity) ──────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -181,7 +312,7 @@ export default function PlatformHealthModule() {
         setLoading(true);
         setError(null);
 
-        // ── 1. Workspace stats ─────────────────────────────────────────────────
+        // 1. Workspace stats
         const { data: wsRows, error: wsErr } = await supabase
           .from('workspaces')
           .select('id,type,status');
@@ -202,14 +333,10 @@ export default function PlatformHealthModule() {
           byType,
         };
 
-        // ── 2. Marketplace stats ───────────────────────────────────────────────
+        // 2. Marketplace stats
         const [listingRes, txRes] = await Promise.all([
-          supabase
-            .from('marketplace_listings')
-            .select('id,status'),
-          supabase
-            .from('marketplace_transactions')
-            .select('id,status'),
+          supabase.from('marketplace_listings').select('id,status'),
+          supabase.from('marketplace_transactions').select('id,status'),
         ]);
         if (listingRes.error) throw listingRes.error;
         if (txRes.error)      throw txRes.error;
@@ -225,7 +352,7 @@ export default function PlatformHealthModule() {
           pendingTransactions:   txs.filter((t) => ['Menunggu', 'Diproses', 'Negosiasi'].includes(t.status)).length,
         };
 
-        // ── 3. Recent activity ─────────────────────────────────────────────────
+        // 3. Recent activity
         const { data: actData, error: actErr } = await supabase
           .from('activity_log')
           .select('id,action_type,description,severity,domain,created_at,workspace_id')
@@ -234,11 +361,7 @@ export default function PlatformHealthModule() {
         if (actErr) throw actErr;
 
         if (!cancelled) {
-          setData({
-            workspaces,
-            marketplace,
-            recentActivity: (actData ?? []) as ActivityRow[],
-          });
+          setData({ workspaces, marketplace, recentActivity: (actData ?? []) as ActivityRow[] });
           setLastSync(new Date().toLocaleTimeString('id-ID'));
         }
       } catch (err: unknown) {
@@ -247,6 +370,23 @@ export default function PlatformHealthModule() {
         }
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── System services health probes ──────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSystemHealthLoading(true);
+      try {
+        const health = await fetchSystemServicesHealth();
+        if (!cancelled) setSystemHealth(health);
+      } catch {
+        // Individual checks already handle their own errors; this is a safety net.
+      } finally {
+        if (!cancelled) setSystemHealthLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -290,7 +430,6 @@ export default function PlatformHealthModule() {
             <StatTile label="Pending"         value={data?.workspaces.pending ?? 0} icon="⏳" color="#f59e0b" loading={loading} />
           </div>
 
-          {/* By type breakdown */}
           <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Distribusi per Tipe</div>
             {loading ? (
@@ -335,7 +474,26 @@ export default function PlatformHealthModule() {
           </div>
         </SectionCard>
 
-        {/* ── 3. Recent Platform Activity ─────────────────────────────────────── */}
+        {/* ── 3. System Services Health ───────────────────────────────────────── */}
+        <SectionCard
+          title="System Services Health"
+          icon="🖥️"
+          badge={
+            <>
+              <LiveBadge />
+              <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>
+                Sumber: real-time probes
+              </span>
+            </>
+          }
+        >
+          <SystemServicesHealthWidget
+            health={systemHealth}
+            loading={systemHealthLoading}
+          />
+        </SectionCard>
+
+        {/* ── 4. Recent Platform Activity ─────────────────────────────────────── */}
         <SectionCard title="Aktivitas Platform Terbaru" icon="📋" badge={<><LiveBadge /><span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>Sumber: activity_log</span></>}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -376,14 +534,8 @@ export default function PlatformHealthModule() {
           )}
         </SectionCard>
 
-        {/* ── 4. Blocked Widgets ──────────────────────────────────────────────── */}
+        {/* ── 5. Remaining Blocked Widgets ────────────────────────────────────── */}
         <SectionCard title="Blocked Widgets" icon="🚫" badge={<BlockedBadge />}>
-          <BlockedWidget
-            title="System Services Health"
-            reason="Tidak ada tabel infrastructure metrics di Supabase. Monitoring backend service (API Gateway, latency, error rate) membutuhkan server-side metrics pipeline yang belum tersedia."
-            dependency="infrastructure_metrics (service_id, response_time_ms, error_rate, uptime_pct, checked_at) atau integrasi monitoring provider (e.g. Datadog, Prometheus)"
-            priority="high"
-          />
           <BlockedWidget
             title="User Authentication Stats"
             reason="auth.users tidak dapat diakses dari client-side Supabase (RLS). Statistik pengguna (total, aktif, baru) membutuhkan query server-side atau Supabase admin API."
