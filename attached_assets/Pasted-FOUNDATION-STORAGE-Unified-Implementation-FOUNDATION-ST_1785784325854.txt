@@ -1,0 +1,472 @@
+FOUNDATION-STORAGE
+Unified Implementation
+(FOUNDATION-STORAGE-001 + 002 + 003)
+
+STATUS
+
+Menggabungkan seluruh implementasi Browser Image Pipeline,
+Supabase Edge Function,
+dan migrasi imageStorageService
+dalam SATU pekerjaan.
+
+Setelah selesai baru dibuat SATU commit.
+
+==========================================================
+KONSTITUSI TERNAKHUB (WAJIB)
+==========================================================
+
+Seluruh implementasi WAJIB mengikuti Konstitusi dan Filosofi TernakHub.
+
+Prioritas:
+
+1.
+Sederhana.
+
+2.
+Jangan menambah komponen yang tidak diperlukan.
+
+3.
+Workspace tidak boleh berubah.
+
+4.
+Dashboard tidak boleh berubah.
+
+5.
+Database tidak boleh berubah.
+
+6.
+Public API tidak boleh berubah.
+
+7.
+Express BELUM dihapus.
+
+Express masuk Legacy Mode.
+
+==========================================================
+TUJUAN
+==========================================================
+
+Menghilangkan ketergantungan upload gambar terhadap Express.
+
+Target arsitektur:
+
+Browser
+
+↓
+
+Image Pipeline
+
+↓
+
+Supabase Edge Function
+
+↓
+
+Cloudflare R2
+
+↓
+
+Supabase Metadata
+
+==========================================================
+BAGIAN 1
+Browser Image Pipeline
+==========================================================
+
+Buat:
+
+src/services/imagePipeline.ts
+
+Pipeline bertanggung jawab terhadap:
+
+- validate
+- resize
+- thumbnail
+- compress
+- convert WebP
+- strip EXIF
+- generateObjectKey
+
+==========================================================
+Object Key
+==========================================================
+
+Object key TIDAK BOLEH:
+
+randomUUID.webp
+
+Gunakan struktur folder TernakHub.
+
+Minimal:
+
+workspace_uuid/
+category/
+YYYY/
+MM/
+filename
+
+Object key harus mendukung:
+
+- cleanup
+- lifecycle
+- audit
+- backup
+- restore
+
+==========================================================
+Image Quality
+==========================================================
+
+JANGAN hardcode:
+
+80
+
+0.8
+
+Buat abstraction:
+
+getPlatformImageConfig()
+
+Saat ini boleh mengembalikan default.
+
+Seluruh pipeline hanya membaca melalui abstraction tersebut.
+
+Tidak boleh ada angka kualitas tersebar.
+
+==========================================================
+Browser Fallback
+==========================================================
+
+Urutan:
+
+WebP
+
+↓
+
+JPEG
+
+↓
+
+Original
+
+Upload tidak boleh gagal hanya karena browser.
+
+==========================================================
+BAGIAN 2
+Supabase Edge Function
+==========================================================
+
+Hanya boleh ada SATU Edge Function.
+
+Nama:
+
+r2-storage
+
+JANGAN membuat:
+
+- r2-health
+- r2-admin
+- r2-presign
+
+Gunakan dispatcher.
+
+Bukan switch panjang.
+
+Contoh:
+
+handlers[action]
+
+==========================================================
+Action
+==========================================================
+
+Siapkan:
+
+- presign-upload
+- presign-download
+- get-config
+- save-config
+- replace-credential
+- test-connection
+- test-upload
+- test-download
+
+==========================================================
+Authorization
+==========================================================
+
+JANGAN menggunakan:
+
+user_metadata.role
+
+secara langsung di seluruh kode.
+
+Buat abstraction:
+
+isPlatformAdmin()
+
+Implementasi awal boleh memakai mekanisme lama.
+
+Seluruh caller WAJIB memakai abstraction.
+
+==========================================================
+Secret
+==========================================================
+
+Gunakan Edge Function Secrets.
+
+Contoh:
+
+R2_CONFIG_ENCRYPTION_KEY
+
+R2_ACCOUNT_ID
+
+R2_BUCKET
+
+R2_ACCESS_KEY_ID
+
+R2_SECRET_ACCESS_KEY
+
+JANGAN memakai:
+
+SESSION_SECRET
+
+untuk seluruh kebutuhan.
+
+==========================================================
+BAGIAN 3
+Migrasi imageStorageService
+==========================================================
+
+API PUBLIC TIDAK BOLEH BERUBAH.
+
+WAJIB tetap:
+
+uploadImage()
+
+uploadAvatar()
+
+uploadCover()
+
+uploadGalleryBatch()
+
+checkR2Health()
+
+getMediaByUuid()
+
+Parameter dan return type tetap.
+
+Seluruh Workspace harus tetap compile.
+
+==========================================================
+Flow Baru
+==========================================================
+
+uploadImage()
+
+↓
+
+imagePipeline.process()
+
+↓
+
+imagePipeline.generateObjectKey()
+
+↓
+
+invoke Edge Function
+
+r2-storage
+
+action:
+
+presign-upload
+
+↓
+
+uploadUrl
+
+↓
+
+Browser PUT langsung ke Cloudflare R2
+
+↓
+
+insert metadata ke Supabase
+
+↓
+
+return UploadImageOutcome
+
+==========================================================
+Database
+==========================================================
+
+JANGAN mengubah:
+
+- media
+
+- livestock_photos
+
+- workspace
+
+- marketplace
+
+- platform_config
+
+Tidak ada migration.
+
+==========================================================
+Workspace
+==========================================================
+
+JANGAN mengubah:
+
+Farm
+
+Marketplace
+
+Feed Store
+
+Veterinary
+
+Transport
+
+==========================================================
+Dashboard
+==========================================================
+
+JANGAN mengubah UI.
+
+==========================================================
+Express
+==========================================================
+
+Express tetap Legacy Mode.
+
+JANGAN:
+
+hapus server/
+
+hapus dependency
+
+hapus vite proxy
+
+hapus workflow
+
+Belum waktunya.
+
+==========================================================
+Coding Rules
+==========================================================
+
+1.
+
+Gunakan abstraction.
+
+JANGAN hardcode.
+
+2.
+
+JANGAN duplicate code.
+
+3.
+
+Semua helper reusable.
+
+4.
+
+Tidak boleh ada magic number.
+
+5.
+
+Tidak boleh ada credential di browser.
+
+6.
+
+Response Edge Function harus konsisten.
+
+7.
+
+Error handling harus konsisten.
+
+8.
+
+Seluruh kode wajib mengikuti arsitektur Workspace TernakHub.
+
+==========================================================
+Acceptance Criteria
+==========================================================
+
+✓ Browser Image Pipeline selesai.
+
+✓ r2-storage selesai.
+
+✓ imageStorageService selesai.
+
+✓ Public API tidak berubah.
+
+✓ Workspace tidak berubah.
+
+✓ Dashboard tidak berubah.
+
+✓ Database tidak berubah.
+
+✓ Express masih Legacy.
+
+✓ Browser upload berhasil.
+
+✓ Metadata berhasil masuk Supabase.
+
+✓ File berhasil masuk Cloudflare R2.
+
+✓ Build PASS.
+
+✓ TypeScript PASS.
+
+✓ ESLint PASS.
+
+==========================================================
+Commit
+==========================================================
+
+Buat SATU commit saja.
+
+Pesan commit:
+
+feat(storage): migrate image upload from Express to browser pipeline + Supabase Edge Function + Cloudflare R2
+
+==========================================================
+Laporan Wajib
+==========================================================
+
+1.
+Files Created
+
+2.
+Files Modified
+
+3.
+Flow Arsitektur Baru
+
+4.
+Public API Compatibility
+
+5.
+Rollback Plan
+
+6.
+Build Status
+
+7.
+TypeScript Status
+
+8.
+ESLint Status
+
+9.
+Known Limitation
+
+10.
+Remaining Work
+(JANGAN mengerjakan tahap berikutnya)
