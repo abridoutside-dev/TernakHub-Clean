@@ -514,6 +514,9 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
           headers: { Authorization: `Bearer ${jwt}` },
         });
         if (res.ok) {
+          // DEBUG ADMIN-PLATFORM-003G — remove after root cause confirmed
+          console.log('[DEBUG 003G] useEffect GET /api/admin/storage-config — status:', res.status);
+          console.log('[DEBUG 003G] useEffect GET raw body:', await res.clone().text());
           const body = await res.json() as { success: boolean; config: StorageServiceConfig };
           if (body.success) {
             setCfg(body.config);
@@ -588,6 +591,9 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
         headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       });
+      // DEBUG ADMIN-PLATFORM-003G — remove after root cause confirmed
+      console.log('[DEBUG 003G] handleSave POST /api/admin/storage-config — status:', res.status);
+      console.log('[DEBUG 003G] handleSave POST raw body:', await res.clone().text());
       const body = await res.json() as { success: boolean; message?: string; error?: string };
       setSaveMsg(body.success
         ? `✅ ${body.message ?? 'Konfigurasi disimpan'}`
@@ -606,6 +612,9 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
         method:  'POST',
         headers: { Authorization: `Bearer ${jwt}` },
       });
+      // DEBUG ADMIN-PLATFORM-003G — remove after root cause confirmed
+      console.log(`[DEBUG 003G] callOp POST /api/admin/storage-config/${path} — status:`, res.status);
+      console.log(`[DEBUG 003G] callOp ${path} raw body:`, await res.clone().text());
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = await res.json() as Record<string, any>;
 
