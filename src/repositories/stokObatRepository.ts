@@ -148,6 +148,48 @@ export async function repoInsertStokKeluar(
   return data as StokObatKeluarDbRow;
 }
 
+// ─── stok_obat_masuk — read ──────────────────────────────────────────────────
+
+/**
+ * All stok_obat_masuk rows for a workspace, ordered by received_date descending.
+ * Used by DrugStore Dashboard to show inbound stock transactions.
+ */
+export async function repoGetStokMasukByWorkspace(
+  workspaceId: string,
+  limit = 100,
+): Promise<StokObatMasukDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('stok_obat_masuk')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('received_date', { ascending: false })
+    .limit(limit);
+  guard(error);
+  return (data ?? []) as StokObatMasukDbRow[];
+}
+
+// ─── stok_obat_keluar — read ─────────────────────────────────────────────────
+
+/**
+ * All stok_obat_keluar rows for a workspace, ordered by usage_date descending.
+ * Used by DrugStore Dashboard to show outbound stock transactions.
+ */
+export async function repoGetStokKeluarByWorkspace(
+  workspaceId: string,
+  limit = 100,
+): Promise<StokObatKeluarDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('stok_obat_keluar')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('usage_date', { ascending: false })
+    .limit(limit);
+  guard(error);
+  return (data ?? []) as StokObatKeluarDbRow[];
+}
+
 // ─── stok_obat_adjustments ───────────────────────────────────────────────────
 
 /**
