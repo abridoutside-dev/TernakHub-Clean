@@ -1571,24 +1571,260 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Edge Functions Config Drawer (stub) ──────────────────────────────────────
+// ─── Edge Functions Control Panel — PH-005 ────────────────────────────────────
+//
+// REAL RUNTIME (Supabase JS Client — supabase.functions.invoke):
+//   Section 1: Edge Function Status — invoke r2-storage (get-config) probe on mount
+//              → service status (operational/degraded/down), latency_ms, checked_at
+//   Section 2: Deployed Functions   — r2-storage known from runtime invoke result
+//   Section 3: Runtime              — Runtime Status, Region (from VITE_SUPABASE_URL),
+//              Invocation Status, Last Response — all from invoke probe
+//
+// NOT YET IMPLEMENTED (requires Supabase Management API + SUPABASE_ACCESS_TOKEN):
+//   Section 2: Full function list — GET /v1/projects/{ref}/functions
+//   Section 4: Secrets           — GET /v1/projects/{ref}/secrets
+//   Section 6: Logs              — GET /v1/projects/{ref}/analytics/endpoints/logs.all
+//
+// MANAGED BY SUPABASE DASHBOARD (task spec — Section 5):
+//   Deployment Configuration     — Dashboard → Edge Functions → [function] → Details
+//
+// REMOVED FROM STUB (were hardcoded — not real runtime data):
+//   "Deno (Supabase Edge Functions)"         — runtime implementation detail, not readable
+//   "Access-Control-Allow-Origin: *"          — CORS header value, not browser-readable
+//   r2-storage capability list                — source code inference, not runtime data
+
+const EF_NYI  = 'Not Yet Implemented';
+const EF_DASH = 'Managed by Supabase Dashboard';
 
 function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
+  // ── Probe state (all populated by a single invoke call on mount) ───────────
+  const [probeState, setProbeState]           = useState<ProbeState>('probing');
+  const [probeLatency, setProbeLatency]       = useState<number | null>(null);
+  const [probeCheckedAt, setProbeCheckedAt]   = useState<string | null>(null);
+  const [invokeStatusMsg, setInvokeStatusMsg] = useState<string>('Probing…');
+
+  // Region: Edge Functions run in the same Supabase project region.
+  // Derived from VITE_SUPABASE_URL — same logic as SupabaseConfigDrawer.
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+  const regionMatch = supabaseUrl.match(/https?:\/\/[\w-]+\.([\w-]+)\.supabase\.co/);
+  const region      = regionMatch?.[1] ?? '—';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const start = Date.now();
+      try {
+        const { error } = await supabase.functions.invoke('r2-storage', { body: { action: 'get-config' } });
+        const ms        = Date.now() - start;
+        const checkedAt = new Date().toLocaleString('id-ID');
+        if (cancelled) return;
+
+        if (error) {
+          setProbeState('degraded');
+          setProbeLatency(ms);
+          setProbeCheckedAt(checkedAt);
+          setInvokeStatusMsg(`Degraded — ${error.message}`);
+        } else {
+          setProbeState('operational');
+          setProbeLatency(ms);
+          setProbeCheckedAt(checkedAt);
+          setInvokeStatusMsg(`Operational — ${ms}ms`);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const ms = Date.now() - start;
+          setProbeState('down');
+          setProbeLatency(ms);
+          setProbeCheckedAt(new Date().toLocaleString('id-ID'));
+          setInvokeStatusMsg(err instanceof Error ? err.message : 'Edge Functions unreachable');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const probePalette: Record<ProbeState, { color: string; bg: string; border: string }> = {
+    probing:     { color: '#475569', bg: 'rgba(71,85,105,0.07)',  border: '#e2e8f0' },
+    operational: { color: '#15803d', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.2)' },
+    degraded:    { color: '#b45309', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.2)' },
+    down:        { color: '#b91c1c', bg: 'rgba(239,68,68,0.07)',  border: 'rgba(239,68,68,0.2)' },
+  };
+  const pp = probePalette[probeState];
+
+  const probeLabel =
+    probeState === 'probing'     ? 'Probing Edge Functions…'                  :
+    probeState === 'operational' ? `Operational — ${probeLatency}ms`          :
+    probeState === 'degraded'    ? 'Degraded — invoke responded with error'   :
+                                   'Down — Edge Functions unreachable';
+
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="⚡" title="Supabase Edge Functions Configuration" badge={<LiveBadge />} onClose={onClose} />
+      <DrawerHeader icon="⚡" title="Supabase Edge Functions — Control Panel" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', fontSize: 12, color: '#15803d', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ Secrets Edge Function (R2_ACCOUNT_ID, R2_BUCKET, dll.) dikelola via <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>supabase secrets set …</code>
+
+        {/* Live status banner */}
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: pp.bg, border: `1px solid ${pp.border}`, fontSize: 12, color: pp.color, marginTop: 8, marginBottom: 16 }}>
+          ⚡ Edge Functions: <strong>{probeLabel}</strong>
+          {probeCheckedAt && (
+            <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {probeCheckedAt}</span>
+          )}
         </div>
-        <SectionLabel>Deployed Functions</SectionLabel>
-        <Field label="r2-storage"><input style={fieldStyleRO} readOnly value="Dispatcher — presign-upload, presign-download, test-connection, get-config, save-config" /></Field>
-        <SectionLabel>Runtime</SectionLabel>
-        <Field label="Runtime"><input style={fieldStyleRO} readOnly value="Deno (Supabase Edge Functions)" /></Field>
-        <Field label="CORS"><input style={fieldStyleRO} readOnly value="Access-Control-Allow-Origin: *" /></Field>
+
+        {/* ── Section 1: Edge Function Status ──────────────────────────────── */}
+        <SectionLabel>1 — Edge Function Status</SectionLabel>
+        <Field label="Service Status"
+          hint="supabase.functions.invoke('r2-storage', { action: 'get-config' }) — operational if no error, degraded on invoke error, down on network failure">
+          <input style={fieldStyleRO} readOnly
+            value={probeState === 'probing' ? 'Probing…' : probeLabel}
+          />
+        </Field>
+        <Field label="Latency"
+          hint="Round-trip time for supabase.functions.invoke() measured on drawer open">
+          <input style={fieldStyleRO} readOnly
+            value={probeLatency !== null ? `${probeLatency}ms` : 'Probing…'}
+          />
+        </Field>
+        <Field label="Last Checked"
+          hint="Timestamp when this drawer was opened and the probe completed">
+          <input style={fieldStyleRO} readOnly
+            value={probeCheckedAt ?? 'Probing…'}
+          />
+        </Field>
+
+        {/* ── Section 2: Deployed Functions ────────────────────────────────── */}
+        <SectionLabel>2 — Deployed Functions</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Daftar lengkap deployed functions memerlukan Supabase Management API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/functions
+          </code>
+        </div>
+        <Field label="r2-storage"
+          hint="Diketahui dari runtime: supabase.functions.invoke('r2-storage') berhasil dipanggil saat probe di Section 1">
+          <input style={fieldStyleRO} readOnly
+            value={
+              probeState === 'probing'     ? 'Probing…'                      :
+              probeState === 'operational' ? `Deployed · ${probeLatency}ms`  :
+              probeState === 'degraded'    ? 'Deployed (invoke error)'        :
+                                             'Unreachable'
+            }
+          />
+        </Field>
+        <Field label="Other Functions"
+          hint="Management API: GET /v1/projects/{ref}/functions — memerlukan SUPABASE_ACCESS_TOKEN (server-side only)">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+
+        {/* ── Section 3: Runtime ───────────────────────────────────────────── */}
+        <SectionLabel>3 — Runtime</SectionLabel>
+        <Field label="Runtime Status"
+          hint="Derived from supabase.functions.invoke('r2-storage') probe result">
+          <input style={fieldStyleRO} readOnly
+            value={probeState === 'probing' ? 'Probing…' : probeLabel}
+          />
+        </Field>
+        <Field label="Region"
+          hint="Derived from VITE_SUPABASE_URL: regional subdomain (e.g. https://id.ap-southeast-1.supabase.co → ap-southeast-1). Standard projects without a region subdomain show 'Standard (no region subdomain)'.">
+          <input style={fieldStyleRO} readOnly
+            value={region !== '—' ? region : 'Standard (no region subdomain)'}
+          />
+        </Field>
+        <Field label="Invocation Status"
+          hint="HTTP response class from supabase.functions.invoke() call: OK (2xx) or error">
+          <input style={fieldStyleRO} readOnly
+            value={
+              probeState === 'probing'     ? 'Probing…'       :
+              probeState === 'operational' ? 'OK (2xx)'        :
+              probeState === 'degraded'    ? 'Error (invoke)'  :
+                                             'Unreachable'
+            }
+          />
+        </Field>
+        <Field label="Last Response"
+          hint="Status message from the most recent supabase.functions.invoke() call in this drawer session">
+          <input style={fieldStyleRO} readOnly value={invokeStatusMsg} />
+        </Field>
+
+        {/* ── Section 4: Secrets ───────────────────────────────────────────── */}
+        <SectionLabel>4 — Secrets</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Secrets tidak boleh diekspos ke browser. Kelola via Supabase Management API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/secrets
+          </code>
+        </div>
+        <Field label="Secrets Count"
+          hint="Management API: GET /v1/projects/{ref}/secrets → array.length">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+        <Field label="Secret Names"
+          hint="Management API: GET /v1/projects/{ref}/secrets → [{ name, created_at }]">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+        <Field label="Last Updated"
+          hint="Management API: GET /v1/projects/{ref}/secrets → max(created_at)">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+
+        {/* ── Section 5: Deployment ────────────────────────────────────────── */}
+        <SectionLabel>5 — Deployment</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Konfigurasi deployment Edge Functions dikelola di{' '}
+          <strong>Supabase Dashboard → Edge Functions → [function] → Details</strong>
+        </div>
+        <Field label="Current Version"
+          hint="Supabase Dashboard → Edge Functions → [function] → Deployments">
+          <input style={fieldStyleRO} readOnly value={EF_DASH} />
+        </Field>
+        <Field label="Previous Version"
+          hint="Supabase Dashboard → Edge Functions → [function] → Deployments (previous entry)">
+          <input style={fieldStyleRO} readOnly value={EF_DASH} />
+        </Field>
+        <Field label="Deploy Time"
+          hint="Supabase Dashboard → Edge Functions → [function] → Deployments → created_at">
+          <input style={fieldStyleRO} readOnly value={EF_DASH} />
+        </Field>
+        <Field label="Rollback"
+          hint="Supabase Dashboard → Edge Functions → [function] → Deployments → Rollback button">
+          <input style={fieldStyleRO} readOnly value={EF_DASH} />
+        </Field>
+
+        {/* ── Section 6: Logs ──────────────────────────────────────────────── */}
+        <SectionLabel>6 — Logs</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Log invocations memerlukan Supabase Management API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/analytics/endpoints/logs.all?service=edge-functions
+          </code>
+        </div>
+        <Field label="Invocation Count"
+          hint="Management API: logs.all?service=edge-functions → total invocation log events">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+        <Field label="Error Count"
+          hint="Management API: logs.all?service=edge-functions → filter status_code >= 500">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+        <Field label="Last Error"
+          hint="Management API: logs.all?service=edge-functions → latest log entry with error_type IS NOT NULL">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+        <Field label="Execution Time"
+          hint="Management API: logs.all?service=edge-functions → execution_time_ms field">
+          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        </Field>
+
       </div>
       <DrawerFooter>
         <div style={{ flex: 1 }} />
+        <a
+          href="https://supabase.com/dashboard/project/_/functions"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          Supabase Dashboard ↗
+        </a>
         <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </DrawerFooter>
     </DrawerOverlay>
