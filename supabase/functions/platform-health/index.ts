@@ -415,7 +415,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsOk();
   if (req.method !== 'POST')    return errorResponse('Method tidak didukung. Gunakan POST.', 405);
 
-  // ── Auth ───────────────────────────────────────────────────────────────────
+  // ── Parse body first — needed to check action before auth ─────────────────
+  let payload: Record<string, unknown>;
+  try {
+    payload = await req.json();
+  } catch {
+    return errorResponse('Request body harus berupa JSON');
+  }
+
+  const action = String(payload.action ?? '');
+  if (!action) return errorResponse('Field "action" diperlukan');
+
+  // ── ping — no auth required; confirms the function is reachable ────────────
+  if (action === 'ping') {
+    return jsonResponse({ ok: true, timestamp: new Date().toISOString() });
+  }
+
+  // ── Auth (required for all other actions) ──────────────────────────────────
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!jwt) return errorResponse('Authorization header diperlukan', 401);
@@ -426,17 +442,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const isAdmin = user?.user_metadata?.role === 'platform_admin';
   if (!isAdmin) return errorResponse('Akses ditolak: platform admin only', 403);
-
-  // ── Parse body ─────────────────────────────────────────────────────────────
-  let payload: Record<string, unknown>;
-  try {
-    payload = await req.json();
-  } catch {
-    return errorResponse('Request body harus berupa JSON');
-  }
-
-  const action = String(payload.action ?? '');
-  if (!action) return errorResponse('Field "action" diperlukan');
 
   const handler = handlers[action];
   if (!handler) {

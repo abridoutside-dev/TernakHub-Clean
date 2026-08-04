@@ -94,13 +94,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.replace(/^Bearer\s+/i, '');
 
+  // Auth failures return HTTP 200 so supabase.functions.invoke can read the JSON
+  // body (non-2xx responses are converted to opaque FunctionsHttpError by the
+  // Supabase JS client before the caller sees any body content).
   if (!jwt) {
-    return jsonResponse({ ok: false, error: 'Authorization header diperlukan' }, 401);
+    return jsonResponse({ ok: false, status: 'not_configured', message: 'Authorization header diperlukan', project: null });
   }
 
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) {
-    return jsonResponse({ ok: false, error: 'Akses ditolak: platform admin only' }, 403);
+    return jsonResponse({ ok: false, status: 'not_configured', message: 'Akses ditolak: platform admin only', project: null });
   }
 
   // ── Secrets ───────────────────────────────────────────────────────────────────

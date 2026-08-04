@@ -6,14 +6,14 @@
 //   Cloudflare Pages    → React SPA static hosting
 //   Supabase PostgreSQL → database
 //   Supabase Auth       → authentication
-//   Supabase Edge Fns   → backend logic (r2-storage dispatcher)
+//   Supabase Edge Fns   → backend logic (platform-health dispatcher)
 //   Cloudflare R2       → image object storage
 //
 // Services checked:
-//   1. Cloudflare Pages    — not_implemented (no public health endpoint from browser)
+//   1. Cloudflare Pages    — real probe: invoke cloudflare-pages-status Edge Function
 //   2. Supabase Database   — real probe: HEAD query on workspaces table
 //   3. Supabase Auth       — real probe: supabase.auth.getSession()
-//   4. Edge Functions      — real probe: invoke r2-storage (get-config, no R2 creds needed)
+//   4. Edge Functions      — real probe: invoke platform-health (ping, no auth required)
 //   5. Cloudflare R2       — real probe: invoke r2-storage (test-connection)
 //   6. Environment         — sync check: VITE_ vars present and non-placeholder
 //
@@ -228,15 +228,15 @@ async function checkSupabaseAuth(): Promise<ServiceCheck> {
 }
 
 // ─── Check 4: Supabase Edge Functions ────────────────────────────────────────
-// Uses the lightweight get-config action on r2-storage — reads platform_config
-// from the DB, no R2 credentials required.  If the function responds at all,
-// the Edge Functions runtime is operational.
+// Uses the ping action on platform-health — no auth required, no secrets
+// needed.  If the function responds at all, the Edge Functions runtime is
+// operational.
 
 async function checkEdgeFunctions(): Promise<ServiceCheck> {
   const start = Date.now();
   try {
     const { error } = await withTimeout(
-      supabase.functions.invoke('r2-storage', { body: { action: 'get-config' } }),
+      supabase.functions.invoke('platform-health', { body: { action: 'ping' } }),
       8000,
     );
     const latency_ms = Date.now() - start;
@@ -255,7 +255,7 @@ async function checkEdgeFunctions(): Promise<ServiceCheck> {
       name:       'Supabase Edge Functions',
       status:     'operational',
       latency_ms,
-      message:    `Edge Functions online · r2-storage aktif · ${latency_ms}ms`,
+      message:    `Edge Functions online · platform-health aktif · ${latency_ms}ms`,
       checked_at: new Date().toISOString(),
     };
   } catch {
