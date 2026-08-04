@@ -200,32 +200,99 @@ function SaveFeedback({ msg }: { msg: string | null }) {
 
 // ─── Supabase Config Drawer ───────────────────────────────────────────────────
 
+// ─── Supabase Database Control Panel — PH-003 ────────────────────────────────
+//
+// REAL RUNTIME (browser, no Edge Function needed):
+//   • Project URL    — VITE_SUPABASE_URL env var
+//   • Project ID     — derived: first subdomain segment of VITE_SUPABASE_URL
+//   • Project Region — derived: second subdomain segment of VITE_SUPABASE_URL
+//   • Database Status + Latency — live probe: supabase.from('workspaces').select(head:true)
+//
+// MANAGED BY TERNAKHUB (NYI) — requires Edge Function → Supabase service role
+// or Supabase Management API (SUPABASE_ACCESS_TOKEN not yet configured):
+//   All other fields: Database Version, Connection/Backup/Database/Security/Monitoring sections.
+//   Each field hint documents the exact Edge Function action or Management API endpoint needed.
+//
+// REMOVED (was hardcoded in previous version):
+//   • "Database Version: PostgreSQL 15" — replaced with NYI label
+
+const DB_NYI = 'Managed by TernakHub (Not Yet Implemented)';
+
+type ProbeState = 'probing' | 'operational' | 'degraded' | 'down';
+
 function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
-  const [cfg, setCfg]       = useState<SupabaseServiceConfig>(DEFAULT_SUPABASE_CONFIG);
+  // ── Existing state (unchanged) ─────────────────────────────────────────────
+  const [cfg, setCfg]         = useState<SupabaseServiceConfig>(DEFAULT_SUPABASE_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
-  const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL as string | undefined ?? '';
-  const projectId    = supabaseUrl.replace(/^https?:\/\//, '').split('.')[0] ?? '';
-  const regionMatch  = supabaseUrl.match(/\.([\w-]+)\.supabase\.co/);
-  const region       = regionMatch ? regionMatch[1] : '—';
+  // ── Runtime data: from VITE_SUPABASE_URL (no network call needed) ──────────
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+  // Project ID: first subdomain of the Supabase project URL
+  // e.g. https://abcxyz.supabase.co → "abcxyz"
+  const projectId = supabaseUrl.replace(/^https?:\/\//, '').split('.')[0] ?? '—';
+  // Region: second subdomain for regional projects, falls back to 'us-east-1' (default region)
+  // e.g. https://abcxyz.us-east-1.supabase.co → "us-east-1"
+  // Standard (non-regional) projects have no region sub-domain → '—'
+  const regionMatch = supabaseUrl.match(/https?:\/\/[\w-]+\.([\w-]+)\.supabase\.co/);
+  const region = regionMatch?.[1] ?? '—';
+
+  // ── Live DB probe (runs on mount, parallel with config load) ───────────────
+  const [probeState, setProbeState]     = useState<ProbeState>('probing');
+  const [probeLatency, setProbeLatency] = useState<number | null>(null);
+  const [probeMsg, setProbeMsg]         = useState<string>('Probing…');
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      setLoading(true);
-      const saved = await repoGetServiceConfig<SupabaseServiceConfig>(CONFIG_KEYS.supabase, DEFAULT_SUPABASE_CONFIG);
-      setCfg(saved);
-      setLoading(false);
+      // Run config load and DB probe in parallel
+      const [saved] = await Promise.all([
+        repoGetServiceConfig<SupabaseServiceConfig>(CONFIG_KEYS.supabase, DEFAULT_SUPABASE_CONFIG),
+        (async () => {
+          const start = Date.now();
+          try {
+            const { error } = await supabase
+              .from('workspaces')
+              .select('id', { count: 'exact', head: true });
+            const ms = Date.now() - start;
+            if (!cancelled) {
+              if (error) {
+                setProbeState('degraded');
+                setProbeMsg(`Degraded — ${error.message}`);
+              } else {
+                setProbeState('operational');
+                setProbeLatency(ms);
+                setProbeMsg(`Operational — ${ms}ms`);
+              }
+            }
+          } catch (err) {
+            if (!cancelled) {
+              setProbeState('down');
+              setProbeMsg(err instanceof Error ? err.message : 'Connection failed');
+            }
+          }
+        })(),
+      ]);
+      if (!cancelled) {
+        setCfg(saved);
+        setLoading(false);
+      }
     })();
+    return () => { cancelled = true; };
   }, []);
 
+  // ── Existing handlers (unchanged) ─────────────────────────────────────────
   const handleSave = async () => {
     setSaving(true); setSaveMsg(null);
     try {
-      await repoUpsertServiceConfig(CONFIG_KEYS.supabase, cfg as unknown as Record<string, unknown>, { description: 'Supabase service configuration', isPublic: false });
+      await repoUpsertServiceConfig(
+        CONFIG_KEYS.supabase,
+        cfg as unknown as Record<string, unknown>,
+        { description: 'Supabase service configuration', isPublic: false },
+      );
       setSaveMsg('✅ Konfigurasi disimpan');
     } catch (e) {
       setSaveMsg(`❌ ${getErrorMessage(e)}`);
@@ -236,7 +303,9 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
     setTesting(true); setTestResult(null);
     try {
       const start = Date.now();
-      const { error } = await supabase.from('workspaces').select('id', { count: 'exact', head: true });
+      const { error } = await supabase
+        .from('workspaces')
+        .select('id', { count: 'exact', head: true });
       const ms = Date.now() - start;
       setTestResult(error ? `❌ ${error.message}` : `✅ Connected (${ms}ms)`);
     } catch (e) {
@@ -244,13 +313,170 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
     } finally { setTesting(false); }
   };
 
+  // ── Probe status styling ───────────────────────────────────────────────────
+  const probeCfg: Record<ProbeState, { color: string; bg: string; border: string }> = {
+    probing:     { color: '#475569', bg: 'rgba(71,85,105,0.07)',  border: '#e2e8f0' },
+    operational: { color: '#15803d', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.2)' },
+    degraded:    { color: '#b45309', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.2)' },
+    down:        { color: '#b91c1c', bg: 'rgba(239,68,68,0.07)',  border: 'rgba(239,68,68,0.2)' },
+  };
+  const pc = probeCfg[probeState];
+
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="🗄️" title="Supabase Configuration" badge={<LiveBadge />} onClose={onClose} />
+      <DrawerHeader icon="🗄️" title="Supabase Database — Control Panel" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
-        {loading ? <SkeletonBox height={200} /> : (
+
+        {/* Live status banner */}
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: pc.bg, border: `1px solid ${pc.border}`, fontSize: 12, color: pc.color, marginTop: 8, marginBottom: 16 }}>
+          🗄️ Database: <strong>{probeMsg}</strong>
+          {probeState !== 'probing' && (
+            <span style={{ marginLeft: 8, opacity: 0.7 }}>
+              · Field bertanda <em>"{DB_NYI}"</em> memerlukan Edge Function → Supabase service role / Management API.
+            </span>
+          )}
+        </div>
+
+        {loading ? <SkeletonBox height={300} /> : (
           <>
-            <SectionLabel>Editable Settings</SectionLabel>
+            {/* ── Section 1: General ────────────────────────────────────────── */}
+            <SectionLabel>1 — General</SectionLabel>
+            <Field label="Project Name"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref (Supabase Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Project ID"
+              hint="Derived from VITE_SUPABASE_URL: first subdomain segment">
+              <input style={fieldStyleRO} readOnly value={projectId || '(tidak dikonfigurasi)'} />
+            </Field>
+            <Field label="Project Region"
+              hint="Derived from VITE_SUPABASE_URL hostname. Blank (—) = default US East region.">
+              <input style={fieldStyleRO} readOnly value={region} />
+            </Field>
+            <Field label="Database Version"
+              hint={`Edge Function action needed: "db-info" → SELECT version() via service role`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Database Status"
+              hint="Live probe: supabase.from('workspaces').select(head:true)">
+              <input style={fieldStyleRO} readOnly value={probeState === 'probing' ? 'Probing…' : probeMsg} />
+            </Field>
+            <Field label="Project URL"
+              hint="From VITE_SUPABASE_URL environment variable">
+              <input style={fieldStyleRO} readOnly value={supabaseUrl || '(tidak dikonfigurasi)'} />
+            </Field>
+
+            {/* ── Section 2: Connection ─────────────────────────────────────── */}
+            <SectionLabel>2 — Connection</SectionLabel>
+            <Field label="Pooling"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/database/pooling`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Connection Limit"
+              hint={`Edge Function action needed: "db-info" → pg_catalog.pg_settings WHERE name = 'max_connections'`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Active Connection"
+              hint={`Edge Function action needed: "db-info" → SELECT count(*) FROM pg_stat_activity (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Database Size"
+              hint={`Edge Function action needed: "db-info" → SELECT pg_database_size(current_database()) (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Storage Usage"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+
+            {/* ── Section 3: Backup ────────────────────────────────────────── */}
+            <SectionLabel>3 — Backup</SectionLabel>
+            <Field label="Backup Status"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Last Backup"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Point In Time Recovery"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Retention"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+
+            {/* ── Section 4: Database ───────────────────────────────────────── */}
+            <SectionLabel>4 — Database</SectionLabel>
+            <Field label="Extensions"
+              hint={`Edge Function action needed: "db-info" → SELECT extname, extversion FROM pg_catalog.pg_extension (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Schema Version"
+              hint={`Edge Function action needed: "db-info" → SELECT schema_name FROM information_schema.schemata (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Migration Version"
+              hint={`Edge Function action needed: "db-info" → SELECT version FROM supabase_migrations.schema_migrations ORDER BY 1 DESC LIMIT 1 (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Replication"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/database/replication (Management API)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+
+            {/* ── Section 5: Security ───────────────────────────────────────── */}
+            <SectionLabel>5 — Security</SectionLabel>
+            <Field label="RLS Status"
+              hint={`Edge Function action needed: "db-info" → SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Database Encryption"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref (Management API) → project.db_encryption`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="SSL"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/database (Management API) → ssl_enforced`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="API Protection"
+              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/auth (Management API) → jwt_secret status`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+
+            {/* ── Section 6: Monitoring ─────────────────────────────────────── */}
+            <SectionLabel>6 — Monitoring</SectionLabel>
+            <Field label="Latency"
+              hint="Live probe: measured round-trip for supabase.from('workspaces').select(head:true)">
+              <input
+                style={fieldStyleRO}
+                readOnly
+                value={
+                  probeState === 'probing'
+                    ? 'Probing…'
+                    : probeLatency !== null
+                      ? `${probeLatency}ms`
+                      : probeMsg
+                }
+              />
+            </Field>
+            <Field label="Query Health"
+              hint={`Edge Function action needed: "db-info" → SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10 (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Slow Query"
+              hint={`Edge Function action needed: "db-info" → SELECT * FROM pg_stat_statements WHERE mean_time > 1000 (service role + pg_stat_statements extension)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+            <Field label="Error Count"
+              hint={`Edge Function action needed: "db-info" → SELECT count(*) FROM pg_stat_activity WHERE state = 'idle in transaction (aborted)' (service role)`}>
+              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+            </Field>
+
+            {/* ── Settings (existing editable config — unchanged) ───────────── */}
+            <SectionLabel>Settings</SectionLabel>
             <Field label="Display Name">
               <input style={fieldStyle} value={cfg.displayName} onChange={e => setCfg(p => ({ ...p, displayName: e.target.value }))} />
             </Field>
@@ -263,12 +489,6 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
             <Field label="Auto Refresh Interval (detik)" hint="Interval refresh otomatis data Platform Health. Default: 60 detik.">
               <input style={fieldStyle} type="number" min={10} max={3600} step={10} value={cfg.autoRefreshIntervalSec} onChange={e => setCfg(p => ({ ...p, autoRefreshIntervalSec: parseInt(e.target.value) || 60 }))} />
             </Field>
-
-            <SectionLabel>Read-Only Info</SectionLabel>
-            <Field label="Project URL"><input style={fieldStyleRO} readOnly value={supabaseUrl || '(tidak dikonfigurasi)'} /></Field>
-            <Field label="Region"><input style={fieldStyleRO} readOnly value={region} /></Field>
-            <Field label="Database Version"><input style={fieldStyleRO} readOnly value="PostgreSQL 15" /></Field>
-            <Field label="Project ID"><input style={fieldStyleRO} readOnly value={projectId || '(tidak dikonfigurasi)'} /></Field>
           </>
         )}
       </div>
