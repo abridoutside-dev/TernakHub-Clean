@@ -859,24 +859,224 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Cloudflare Pages Config Drawer (stub) ────────────────────────────────────
+// ─── Cloudflare Pages Config Drawer — PH-002 ─────────────────────────────────
+//
+// Control Panel untuk deployment Cloudflare Pages.
+//
+// Data sources:
+//   REAL  — derived from build config, package.json, and window.location
+//   DASH  — requires Cloudflare API token (not exposed to browser) → Managed by Cloudflare Dashboard
+//   UNAVAIL — requires Cloudflare API (build/deploy metadata) → Unavailable from Cloudflare API
+//   RO    — action not possible without API token → Read Only
+//
+// Cloudflare Pages API (https://api.cloudflare.com/client/v4/accounts/:id/pages/projects/:name)
+// is NOT called from the browser — would require exposing CLOUDFLARE_API_TOKEN.
+// A future server-side proxy (/api/cf-pages) could unlock DASH fields.
+
+const CF_DASH  = 'Managed by Cloudflare Dashboard';
+const CF_UNAVAIL = 'Unavailable from Cloudflare API';
+const CF_RO    = 'Read Only';
 
 function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
+  // ── Runtime-derived data (real, no API needed) ──────────────────────────────
+  const hostname   = window.location.hostname;
+  const isHttps    = window.location.protocol === 'https:';
+  // On Cloudflare Pages production the hostname ends with .pages.dev (or is a custom domain).
+  // In Replit dev it ends with .replit.dev / .repl.co — we surface the actual host either way.
+  const currentUrl = `${window.location.protocol}//${hostname}`;
+  const envMode    = (import.meta.env.MODE as string | undefined) ?? '—';
+
+  // ── Known build config (verified against package.json / vite.config.ts / public/_redirects) ──
+  const BUILD_CMD    = 'npm run build';
+  const OUTPUT_DIR   = 'dist';
+  const NODE_VER     = '>=20.0.0';
+  const FRAMEWORK    = 'React 18 + Vite';
+  const SPA_ROUTING  = '/* → /index.html 200  (via public/_redirects)';
+
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="☁️" title="Cloudflare Pages Configuration" badge={<NIBadge />} onClose={onClose} />
+      <DrawerHeader icon="☁️" title="Cloudflare Pages — Control Panel" badge={<NIBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
+
+        {/* Notice */}
         <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(71,85,105,0.07)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ Konfigurasi Cloudflare Pages dikelola di Cloudflare Dashboard. Tidak ada konfigurasi tambahan yang diperlukan dari platform ini.
+          ℹ️ Data real-time deployment (project name, last build, commit, rollback) memerlukan{' '}
+          <strong>Cloudflare API Token</strong> yang tidak boleh diekspos ke browser.
+          Field bertanda <em>"Managed by Cloudflare Dashboard"</em> dikelola langsung di{' '}
+          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>dash.cloudflare.com</a>.
         </div>
-        <SectionLabel>Info</SectionLabel>
-        <Field label="Hosting Provider"><input style={fieldStyleRO} readOnly value="Cloudflare Pages" /></Field>
-        <Field label="Build Command"><input style={fieldStyleRO} readOnly value="npm run build" /></Field>
-        <Field label="Output Directory"><input style={fieldStyleRO} readOnly value="dist" /></Field>
-        <Field label="SPA Routing"><input style={fieldStyleRO} readOnly value="/* → /index.html 200 (via _redirects)" /></Field>
+
+        {/* ── Section 1: General ──────────────────────────────────────────────── */}
+        <SectionLabel>1 — General</SectionLabel>
+        <Field label="Project Name"
+          hint="Nama project di Cloudflare Pages — Managed by Cloudflare Dashboard">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Production URL"
+          hint="URL saat ini (production: ternakhub.pages.dev atau custom domain)">
+          <input style={fieldStyleRO} readOnly value={currentUrl} />
+        </Field>
+        <Field label="Preview URL"
+          hint="URL preview per-branch — Managed by Cloudflare Dashboard">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Custom Domain"
+          hint="Custom domain dikonfigurasi di Cloudflare Dashboard → Pages → Custom Domains">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Production Branch"
+          hint="Branch yang memicu production deploy — Managed by Cloudflare Dashboard">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Framework">
+          <input style={fieldStyleRO} readOnly value={FRAMEWORK} />
+        </Field>
+        <Field label="Build Status"
+          hint="Status build terakhir — Unavailable from Cloudflare API">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Deployment Status"
+          hint="Status deployment aktif — Unavailable from Cloudflare API">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+
+        {/* ── Section 2: Build ────────────────────────────────────────────────── */}
+        <SectionLabel>2 — Build</SectionLabel>
+        <Field label="Build Command">
+          <input style={fieldStyleRO} readOnly value={BUILD_CMD} />
+        </Field>
+        <Field label="Build Output Directory">
+          <input style={fieldStyleRO} readOnly value={OUTPUT_DIR} />
+        </Field>
+        <Field label="Node Version">
+          <input style={fieldStyleRO} readOnly value={NODE_VER} />
+        </Field>
+        <Field label="Environment (Vite mode)">
+          <input style={fieldStyleRO} readOnly value={envMode} />
+        </Field>
+        <Field label="SPA Routing">
+          <input style={fieldStyleRO} readOnly value={SPA_ROUTING} />
+        </Field>
+        <Field label="Last Build Time"
+          hint="Memerlukan Cloudflare API — Unavailable from Cloudflare API">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Build Duration"
+          hint="Memerlukan Cloudflare API — Unavailable from Cloudflare API">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+
+        {/* ── Section 3: Deployment ───────────────────────────────────────────── */}
+        <SectionLabel>3 — Deployment</SectionLabel>
+        <Field label="Production Deployment">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Preview Deployment">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Deployment ID">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Commit SHA">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Commit Message">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Deploy Time">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Rollback"
+          hint="Rollback memerlukan Cloudflare API Token — tidak dapat dilakukan dari aplikasi">
+          <input style={fieldStyleRO} readOnly value={CF_RO} />
+        </Field>
+
+        {/* ── Section 4: Domain ───────────────────────────────────────────────── */}
+        <SectionLabel>4 — Domain</SectionLabel>
+        <Field label="pages.dev URL / Current Host">
+          <input style={fieldStyleRO} readOnly value={currentUrl} />
+        </Field>
+        <Field label="Custom Domain"
+          hint="Atur di Cloudflare Dashboard → Pages → Custom Domains">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="HTTPS">
+          <input style={fieldStyleRO} readOnly value={isHttps ? 'Enabled' : 'Not detected (development)'} />
+        </Field>
+        <Field label="SSL"
+          hint="SSL certificate dikelola otomatis oleh Cloudflare">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="DNS Status"
+          hint="DNS propagation status — Managed by Cloudflare Dashboard">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Section 5: Cache ────────────────────────────────────────────────── */}
+        <SectionLabel>5 — Cache</SectionLabel>
+        <Field label="Asset Cache"
+          hint="Cache static assets dikonfigurasi di Cloudflare Dashboard">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Browser Cache"
+          hint="Browser cache headers dikontrol via Cloudflare Rules">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Cache Status">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Purge Cache"
+          hint="Cache purge memerlukan Cloudflare API Token — tidak dapat dipanggil dari aplikasi">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Section 6: Security ─────────────────────────────────────────────── */}
+        <SectionLabel>6 — Security</SectionLabel>
+        <Field label="HTTPS">
+          <input style={fieldStyleRO} readOnly value={isHttps ? 'Enabled' : 'Not detected (development)'} />
+        </Field>
+        <Field label="HSTS"
+          hint="HSTS dikonfigurasi di Cloudflare Dashboard → SSL/TLS → Edge Certificates">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Security Headers"
+          hint="Security headers diatur via Cloudflare Transform Rules atau _headers file">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Access Policy"
+          hint="Cloudflare Access dikonfigurasi di Zero Trust Dashboard">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Section 7: Monitoring ───────────────────────────────────────────── */}
+        <SectionLabel>7 — Monitoring</SectionLabel>
+        <Field label="Last Deploy">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Deploy Duration">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Build Result">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Error Count">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+        <Field label="Last Failure">
+          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        </Field>
+
       </div>
       <DrawerFooter>
         <div style={{ flex: 1 }} />
+        <a
+          href="https://dash.cloudflare.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          Cloudflare Dashboard ↗
+        </a>
         <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </DrawerFooter>
     </DrawerOverlay>
