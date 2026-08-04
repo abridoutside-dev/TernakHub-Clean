@@ -22,14 +22,8 @@ import {
   CONFIG_KEYS,
   DEFAULT_SUPABASE_CONFIG,
   DEFAULT_STORAGE_CONFIG,
-  DEFAULT_MESSAGE_QUEUE_CONFIG,
-  DEFAULT_AI_SERVICE_CONFIG,
-  AI_PROVIDERS,
   type SupabaseServiceConfig,
   type StorageServiceConfig,
-  type MessageQueueConfig,
-  type AIServiceConfig,
-  type AIProvider,
 } from '../../../repositories/platformConfigRepository';
 import { type ServiceCheck } from '../../../repositories/systemHealthRepository';
 import { getErrorMessage } from '../../../utils/errorUtils';
@@ -37,9 +31,7 @@ import { getErrorMessage } from '../../../utils/errorUtils';
 // ─── Saved-config state type ──────────────────────────────────────────────────
 
 interface SavedServiceConfigs {
-  storage:      StorageServiceConfig | null;
-  messageQueue: MessageQueueConfig   | null;
-  aiService:    AIServiceConfig      | null;
+  storage: StorageServiceConfig | null;
 }
 
 // ─── Config-overlay helpers ───────────────────────────────────────────────────
@@ -57,44 +49,6 @@ function overlayStorageConfig(
     ...check,
     status: 'degraded',
     message: `Bucket "${cfg.bucket}" dikonfigurasi · R2 credentials diperlukan`,
-  };
-}
-
-function overlayMQConfig(
-  check: ServiceCheck,
-  cfg: MessageQueueConfig | null,
-): ServiceCheck {
-  if (!cfg) return check;
-  if (cfg.enableQueue) {
-    return {
-      ...check,
-      status: 'degraded',
-      message: `Queue diaktifkan (batch=${cfg.batchSize}, concurrency=${cfg.workerConcurrency}) · worker belum berjalan`,
-    };
-  }
-  return {
-    ...check,
-    status: 'not_implemented',
-    message: `Queue dinonaktifkan · konfigurasi tersimpan`,
-  };
-}
-
-function overlayAIConfig(
-  check: ServiceCheck,
-  cfg: AIServiceConfig | null,
-): ServiceCheck {
-  if (!cfg) return check;
-  if (cfg.enableAI) {
-    return {
-      ...check,
-      status: 'degraded',
-      message: `AI diaktifkan · provider: ${cfg.provider} · backend belum terintegrasi`,
-    };
-  }
-  return {
-    ...check,
-    status: 'not_implemented',
-    message: `AI dinonaktifkan · provider: ${cfg.provider} · konfigurasi tersimpan`,
   };
 }
 
@@ -116,7 +70,7 @@ interface PlatformData {
   workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityRow[];
 }
 
-type ConfigDrawerKey = 'supabase' | 'storage' | 'message_queue' | 'ai_service';
+type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions';
 
 // ─── Shared UI primitives ─────────────────────────────────────────────────────
 
@@ -905,184 +859,76 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Message Queue Config Drawer ──────────────────────────────────────────────
+// ─── Cloudflare Pages Config Drawer (stub) ────────────────────────────────────
 
-function MessageQueueConfigDrawer({ onClose }: { onClose: () => void }) {
-  const [cfg, setCfg]       = useState<MessageQueueConfig>(DEFAULT_MESSAGE_QUEUE_CONFIG);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const saved = await repoGetServiceConfig<MessageQueueConfig>(CONFIG_KEYS.messageQueue, DEFAULT_MESSAGE_QUEUE_CONFIG);
-      setCfg(saved);
-      setLoading(false);
-    })();
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true); setSaveMsg(null);
-    try {
-      await repoUpsertServiceConfig(CONFIG_KEYS.messageQueue, cfg as unknown as Record<string, unknown>, { description: 'Message queue service configuration', isPublic: false });
-      setSaveMsg('✅ Konfigurasi disimpan');
-    } catch (e) {
-      setSaveMsg(`❌ ${getErrorMessage(e)}`);
-    } finally { setSaving(false); }
-  };
-
+function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="📬" title="Message Queue Configuration" badge={<NIBadge />} onClose={onClose} />
+      <DrawerHeader icon="☁️" title="Cloudflare Pages Configuration" badge={<NIBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
         <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(71,85,105,0.07)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ Message Queue belum diimplementasikan di platform. Konfigurasi ini akan digunakan saat queue worker diaktifkan. Status: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>not_implemented</code>
+          ℹ️ Konfigurasi Cloudflare Pages dikelola di Cloudflare Dashboard. Tidak ada konfigurasi tambahan yang diperlukan dari platform ini.
         </div>
-        {loading ? <SkeletonBox height={200} /> : (
-          <>
-            <SectionLabel>Status</SectionLabel>
-            <Field label="Enable Queue">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                <Toggle value={cfg.enableQueue} onChange={v => setCfg(p => ({ ...p, enableQueue: v }))} />
-                <span style={{ fontSize: 12, color: '#64748b' }}>Aktifkan message queue ({cfg.enableQueue ? 'ON' : 'OFF'})</span>
-              </div>
-            </Field>
-
-            <SectionLabel>Retry Policy</SectionLabel>
-            <Field label="Max Retry" hint="Jumlah maksimum percobaan ulang jika job gagal.">
-              <input style={fieldStyle} type="number" min={0} max={20} value={cfg.maxRetry} onChange={e => setCfg(p => ({ ...p, maxRetry: parseInt(e.target.value) || 3 }))} />
-            </Field>
-            <Field label="Retry Delay (ms)" hint="Jeda antar percobaan ulang dalam milidetik.">
-              <input style={fieldStyle} type="number" min={100} step={500} value={cfg.retryDelayMs} onChange={e => setCfg(p => ({ ...p, retryDelayMs: parseInt(e.target.value) || 5000 }))} />
-            </Field>
-
-            <SectionLabel>Worker Settings</SectionLabel>
-            <Field label="Batch Size" hint="Jumlah job yang diambil per siklus polling.">
-              <input style={fieldStyle} type="number" min={1} max={100} value={cfg.batchSize} onChange={e => setCfg(p => ({ ...p, batchSize: parseInt(e.target.value) || 10 }))} />
-            </Field>
-            <Field label="Worker Concurrency" hint="Jumlah job yang diproses secara paralel.">
-              <input style={fieldStyle} type="number" min={1} max={32} value={cfg.workerConcurrency} onChange={e => setCfg(p => ({ ...p, workerConcurrency: parseInt(e.target.value) || 2 }))} />
-            </Field>
-            <Field label="Timeout (ms)" hint="Batas waktu eksekusi satu job sebelum dianggap gagal.">
-              <input style={fieldStyle} type="number" min={1000} step={1000} value={cfg.timeoutMs} onChange={e => setCfg(p => ({ ...p, timeoutMs: parseInt(e.target.value) || 30000 }))} />
-            </Field>
-          </>
-        )}
+        <SectionLabel>Info</SectionLabel>
+        <Field label="Hosting Provider"><input style={fieldStyleRO} readOnly value="Cloudflare Pages" /></Field>
+        <Field label="Build Command"><input style={fieldStyleRO} readOnly value="npm run build" /></Field>
+        <Field label="Output Directory"><input style={fieldStyleRO} readOnly value="dist" /></Field>
+        <Field label="SPA Routing"><input style={fieldStyleRO} readOnly value="/* → /index.html 200 (via _redirects)" /></Field>
       </div>
       <DrawerFooter>
-        <SaveFeedback msg={saveMsg} />
         <div style={{ flex: 1 }} />
-        <SaveBtn onClick={handleSave} saving={saving} />
+        <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </DrawerFooter>
     </DrawerOverlay>
   );
 }
 
-// ─── AI Service Config Drawer ─────────────────────────────────────────────────
+// ─── Supabase Auth Config Drawer (stub) ───────────────────────────────────────
 
-const AI_PROVIDER_BASE_URLS: Partial<Record<AIProvider, string>> = {
-  OpenAI:     'https://api.openai.com/v1',
-  Gemini:     'https://generativelanguage.googleapis.com/v1beta',
-  Claude:     'https://api.anthropic.com/v1',
-  OpenRouter: 'https://openrouter.ai/api/v1',
-  Ollama:     'http://localhost:11434/v1',
-};
-
-const AI_PROVIDER_MODELS: Partial<Record<AIProvider, string>> = {
-  OpenAI:     'gpt-4o-mini',
-  Gemini:     'gemini-1.5-flash',
-  Claude:     'claude-3-5-haiku-20241022',
-  OpenRouter: 'openai/gpt-4o-mini',
-  Ollama:     'llama3.2',
-};
-
-function AIServiceConfigDrawer({ onClose }: { onClose: () => void }) {
-  const [cfg, setCfg]       = useState<AIServiceConfig>(DEFAULT_AI_SERVICE_CONFIG);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const saved = await repoGetServiceConfig<AIServiceConfig>(CONFIG_KEYS.aiService, DEFAULT_AI_SERVICE_CONFIG);
-      setCfg(saved);
-      setLoading(false);
-    })();
-  }, []);
-
-  const handleProviderChange = (provider: AIProvider) => {
-    setCfg(p => ({
-      ...p,
-      provider,
-      baseUrl:      AI_PROVIDER_BASE_URLS[provider] ?? '',
-      defaultModel: AI_PROVIDER_MODELS[provider]    ?? '',
-    }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true); setSaveMsg(null);
-    try {
-      await repoUpsertServiceConfig(CONFIG_KEYS.aiService, cfg as unknown as Record<string, unknown>, { description: 'AI service provider configuration', isPublic: false });
-      setSaveMsg('✅ Konfigurasi disimpan');
-    } catch (e) {
-      setSaveMsg(`❌ ${getErrorMessage(e)}`);
-    } finally { setSaving(false); }
-  };
+function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+  const projectId   = supabaseUrl.replace(/^https?:\/\//, '').split('.')[0] ?? '—';
 
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="🤖" title="AI Service Configuration" badge={<NIBadge />} onClose={onClose} />
+      <DrawerHeader icon="🔑" title="Supabase Auth Configuration" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(71,85,105,0.07)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ AI Service belum diintegrasikan ke backend platform. Konfigurasi ini akan digunakan saat AI engine diaktifkan. Status: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>not_implemented</code>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', fontSize: 12, color: '#15803d', marginTop: 8, marginBottom: 16 }}>
+          ℹ️ Konfigurasi Auth (provider, redirect URL, email template) dikelola di Supabase Dashboard → Authentication.
         </div>
-        {loading ? <SkeletonBox height={200} /> : (
-          <>
-            <SectionLabel>Status</SectionLabel>
-            <Field label="Enable AI">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                <Toggle value={cfg.enableAI} onChange={v => setCfg(p => ({ ...p, enableAI: v }))} />
-                <span style={{ fontSize: 12, color: '#64748b' }}>Aktifkan AI service ({cfg.enableAI ? 'ON' : 'OFF'})</span>
-              </div>
-            </Field>
-
-            <SectionLabel>Provider</SectionLabel>
-            <Field label="Provider">
-              <select style={{ ...fieldStyle }} value={cfg.provider} onChange={e => handleProviderChange(e.target.value as AIProvider)}>
-                {AI_PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </Field>
-            <Field label="Base URL" hint="Endpoint API provider. Diisi otomatis berdasarkan provider yang dipilih.">
-              <input style={fieldStyle} value={cfg.baseUrl} placeholder="https://api.openai.com/v1" onChange={e => setCfg(p => ({ ...p, baseUrl: e.target.value }))} />
-            </Field>
-            <Field label="Default Model">
-              <input style={fieldStyle} value={cfg.defaultModel} placeholder="e.g. gpt-4o-mini" onChange={e => setCfg(p => ({ ...p, defaultModel: e.target.value }))} />
-            </Field>
-
-            <SectionLabel>Credentials</SectionLabel>
-            <Field label="API Key" hint="Disimpan di platform_config (is_public = false). Untuk keamanan tinggi, gunakan environment variable AI_API_KEY di server.">
-              <input style={fieldStyle} type="password" value={cfg.apiKey} placeholder="sk-..." onChange={e => setCfg(p => ({ ...p, apiKey: e.target.value }))} autoComplete="off" />
-            </Field>
-
-            <SectionLabel>Inference Settings</SectionLabel>
-            <Field label="Temperature" hint="Kreativitas respons (0.0 = deterministik, 2.0 = sangat kreatif).">
-              <input style={fieldStyle} type="number" min={0} max={2} step={0.1} value={cfg.temperature} onChange={e => setCfg(p => ({ ...p, temperature: parseFloat(e.target.value) || 0.7 }))} />
-            </Field>
-            <Field label="Max Tokens" hint="Batas maksimum token yang dihasilkan per respons.">
-              <input style={fieldStyle} type="number" min={64} max={128000} step={64} value={cfg.maxTokens} onChange={e => setCfg(p => ({ ...p, maxTokens: parseInt(e.target.value) || 2048 }))} />
-            </Field>
-            <Field label="Timeout (ms)" hint="Batas waktu request ke AI provider.">
-              <input style={fieldStyle} type="number" min={1000} step={1000} value={cfg.timeoutMs} onChange={e => setCfg(p => ({ ...p, timeoutMs: parseInt(e.target.value) || 30000 }))} />
-            </Field>
-          </>
-        )}
+        <SectionLabel>Read-Only Info</SectionLabel>
+        <Field label="Auth Provider"><input style={fieldStyleRO} readOnly value="Supabase Auth (GoTrue)" /></Field>
+        <Field label="Project ID"><input style={fieldStyleRO} readOnly value={projectId} /></Field>
+        <Field label="Project URL"><input style={fieldStyleRO} readOnly value={supabaseUrl || '(tidak dikonfigurasi)'} /></Field>
+        <Field label="Providers Aktif"><input style={fieldStyleRO} readOnly value="Email · OAuth (Google, dll.)" /></Field>
       </div>
       <DrawerFooter>
-        <SaveFeedback msg={saveMsg} />
         <div style={{ flex: 1 }} />
-        <SaveBtn onClick={handleSave} saving={saving} />
+        <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
+      </DrawerFooter>
+    </DrawerOverlay>
+  );
+}
+
+// ─── Edge Functions Config Drawer (stub) ──────────────────────────────────────
+
+function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
+  return (
+    <DrawerOverlay onClose={onClose}>
+      <DrawerHeader icon="⚡" title="Supabase Edge Functions Configuration" badge={<LiveBadge />} onClose={onClose} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', fontSize: 12, color: '#15803d', marginTop: 8, marginBottom: 16 }}>
+          ℹ️ Secrets Edge Function (R2_ACCOUNT_ID, R2_BUCKET, dll.) dikelola via <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>supabase secrets set …</code>
+        </div>
+        <SectionLabel>Deployed Functions</SectionLabel>
+        <Field label="r2-storage"><input style={fieldStyleRO} readOnly value="Dispatcher — presign-upload, presign-download, test-connection, get-config, save-config" /></Field>
+        <SectionLabel>Runtime</SectionLabel>
+        <Field label="Runtime"><input style={fieldStyleRO} readOnly value="Deno (Supabase Edge Functions)" /></Field>
+        <Field label="CORS"><input style={fieldStyleRO} readOnly value="Access-Control-Allow-Origin: *" /></Field>
+      </div>
+      <DrawerFooter>
+        <div style={{ flex: 1 }} />
+        <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </DrawerFooter>
     </DrawerOverlay>
   );
@@ -1091,20 +937,20 @@ function AIServiceConfigDrawer({ onClose }: { onClose: () => void }) {
 // ─── System Services Health Widget ────────────────────────────────────────────
 
 const SERVICE_ICONS: Record<string, string> = {
-  Database:       '🗄️',
-  Storage:        '📦',
-  API:            '⚡',
-  Environment:    '🔧',
-  Platform:       '🏷️',
-  'Message Queue': '📬',
-  'AI Service':   '🤖',
+  'Cloudflare Pages':         '☁️',
+  'Supabase Database':        '🗄️',
+  'Supabase Auth':            '🔑',
+  'Supabase Edge Functions':  '⚡',
+  'Cloudflare R2':            '📦',
+  Environment:                '🔧',
 };
 
 const CONFIGURABLE: Record<string, ConfigDrawerKey> = {
-  Database:       'supabase',
-  Storage:        'storage',
-  'Message Queue': 'message_queue',
-  'AI Service':   'ai_service',
+  'Cloudflare Pages':        'cloudflare_pages',
+  'Supabase Database':       'supabase',
+  'Supabase Auth':           'supabase_auth',
+  'Supabase Edge Functions': 'edge_functions',
+  'Cloudflare R2':           'storage',
 };
 
 const STATUS_CFG: Record<ServiceStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
@@ -1164,37 +1010,33 @@ function SystemServicesHealthWidget({ health, loading, savedConfigs, onConfigure
     message: string;
   };
 
-  // Apply config overlays once health probes are available
-  const storageCheck  = health ? overlayStorageConfig(health.storage,      savedConfigs.storage)      : null;
-  const mqCheck       = health ? overlayMQConfig(health.message_queue,      savedConfigs.messageQueue) : null;
-  const aiCheck       = health ? overlayAIConfig(health.ai_service,         savedConfigs.aiService)    : null;
+  // Apply storage config overlay (R2 card only)
+  const r2Check = health ? overlayStorageConfig(health.cloudflare_r2, savedConfigs.storage) : null;
 
-  // Derive a friendly statusLabel when a saved config changed the status
   function configuredLabel(original: ServiceStatus, after: ServiceStatus): string | undefined {
     if (original === 'not_implemented' && after === 'degraded') return 'configured';
-    if (original === 'not_implemented' && after === 'not_implemented') return undefined;
     if (original !== 'operational' && after === 'degraded') return 'configured';
     return undefined;
   }
 
-  const services: ServiceEntry[] = health && storageCheck && mqCheck && aiCheck
+  // Final order: Cloudflare Pages → Supabase Database → Supabase Auth →
+  //              Supabase Edge Functions → Cloudflare R2 → Environment
+  const services: ServiceEntry[] = health && r2Check
     ? [
+        health.cloudflare_pages,
         health.database,
-        { ...storageCheck, statusLabel: configuredLabel(health.storage.status, storageCheck.status) },
-        health.api,
+        health.supabase_auth,
+        health.edge_functions,
+        { ...r2Check, statusLabel: configuredLabel(health.cloudflare_r2.status, r2Check.status) },
         health.environment,
-        health.platform_version,
-        { ...mqCheck,      statusLabel: configuredLabel(health.message_queue.status, mqCheck.status) },
-        { ...aiCheck,      statusLabel: configuredLabel(health.ai_service.status,    aiCheck.status) },
       ]
     : [
-        { name: 'Database',      status: 'operational' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Storage',       status: 'operational' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'API',           status: 'operational' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Environment',   status: 'operational' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Platform',      status: 'operational' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Message Queue', status: 'not_implemented' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'AI Service',    status: 'not_implemented' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Cloudflare Pages',        status: 'not_implemented' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Supabase Database',       status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Supabase Auth',           status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Supabase Edge Functions', status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Cloudflare R2',           status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Environment',             status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
       ];
 
   return (
@@ -1241,20 +1083,14 @@ export default function PlatformHealthModule() {
 
   // ── Saved service configs (from platform_config table) ──────────────────────
   const [savedConfigs, setSavedConfigs] = useState<SavedServiceConfigs>({
-    storage: null, messageQueue: null, aiService: null,
+    storage: null,
   });
 
   const loadSavedConfigs = useCallback(async () => {
     try {
-      const [sRow, mqRow, aiRow] = await Promise.all([
-        repoGetConfig(CONFIG_KEYS.storage),
-        repoGetConfig(CONFIG_KEYS.messageQueue),
-        repoGetConfig(CONFIG_KEYS.aiService),
-      ]);
+      const sRow = await repoGetConfig(CONFIG_KEYS.storage);
       setSavedConfigs({
-        storage:      sRow  ? { ...DEFAULT_STORAGE_CONFIG,       ...(sRow.value  as Partial<StorageServiceConfig>) } : null,
-        messageQueue: mqRow ? { ...DEFAULT_MESSAGE_QUEUE_CONFIG, ...(mqRow.value as Partial<MessageQueueConfig>)   } : null,
-        aiService:    aiRow ? { ...DEFAULT_AI_SERVICE_CONFIG,    ...(aiRow.value as Partial<AIServiceConfig>)      } : null,
+        storage: sRow ? { ...DEFAULT_STORAGE_CONFIG, ...(sRow.value as Partial<StorageServiceConfig>) } : null,
       });
     } catch { /* non-blocking — widget still shows live probe results */ }
   }, []);
@@ -1326,10 +1162,11 @@ export default function PlatformHealthModule() {
       <style>{`@keyframes ph-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
 
       {/* ── Config Drawers ─────────────────────────────────────────────────── */}
-      {configDrawer === 'supabase'      && <SupabaseConfigDrawer     onClose={closeDrawer} />}
-      {configDrawer === 'storage'       && <StorageConfigDrawer      onClose={closeDrawer} />}
-      {configDrawer === 'message_queue' && <MessageQueueConfigDrawer onClose={closeDrawer} />}
-      {configDrawer === 'ai_service'    && <AIServiceConfigDrawer    onClose={closeDrawer} />}
+      {configDrawer === 'supabase'         && <SupabaseConfigDrawer          onClose={closeDrawer} />}
+      {configDrawer === 'storage'          && <StorageConfigDrawer           onClose={closeDrawer} />}
+      {configDrawer === 'cloudflare_pages' && <CloudflarePagesConfigDrawer   onClose={closeDrawer} />}
+      {configDrawer === 'supabase_auth'    && <SupabaseAuthConfigDrawer      onClose={closeDrawer} />}
+      {configDrawer === 'edge_functions'   && <EdgeFunctionsConfigDrawer     onClose={closeDrawer} />}
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 4px' }}>
 

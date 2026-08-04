@@ -1,25 +1,27 @@
-// ─── System Services Health Repository — CORE-PLATFORM-001 ───────────────────
+// ─── System Services Health Repository — PH-001 ────────────────────────────────
 //
-// Real-time probes for platform services.  No stored metrics table is needed —
-// each check hits the actual service and returns a live result.
+// Real-time probes for production platform services.
+//
+// Production stack (Cloudflare Pages architecture):
+//   Cloudflare Pages    → React SPA static hosting
+//   Supabase PostgreSQL → database
+//   Supabase Auth       → authentication
+//   Supabase Edge Fns   → backend logic (r2-storage dispatcher)
+//   Cloudflare R2       → image object storage
 //
 // Services checked:
-//   1. Database     — Supabase PostgreSQL reachability
-//   2. Storage      — Cloudflare R2 via r2-storage Edge Function (test-connection)
-//   3. API          — Express API server (legacy; no longer probed from frontend)
-//   4. Environment  — Required env vars present and non-placeholder
-//   5. Platform     — App version from build-time injection
+//   1. Cloudflare Pages    — not_implemented (no public health endpoint from browser)
+//   2. Supabase Database   — real probe: HEAD query on workspaces table
+//   3. Supabase Auth       — real probe: supabase.auth.getSession()
+//   4. Edge Functions      — real probe: invoke r2-storage (get-config, no R2 creds needed)
+//   5. Cloudflare R2       — real probe: invoke r2-storage (test-connection)
+//   6. Environment         — sync check: VITE_ vars present and non-placeholder
 //
 // Status values:
-//   operational    — Service responded normally
-//   degraded       — Service responded but reported an issue
-//   down           — Service failed / timed out
-//   not_implemented — Cannot check; platform dependency not available
-//
-// FOUNDATION-STORAGE-004B:
-//   Express (/api/ping, /api/upload/health) has been removed as a frontend
-//   dependency.  The Storage check uses the r2-storage Edge Function.
-//   The API check is marked not_implemented — Express is legacy-only.
+//   operational     — Service responded normally
+//   degraded        — Service responded but reported an issue
+//   down            — Service failed / timed out
+//   not_implemented — Cannot probe from browser (no credentials exposed)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from '../lib/supabase';
@@ -41,13 +43,12 @@ export interface ServiceCheck {
 }
 
 export interface SystemServicesHealth {
+  cloudflare_pages: ServiceCheck;
   database:         ServiceCheck;
-  storage:          ServiceCheck;
-  api:              ServiceCheck;
+  supabase_auth:    ServiceCheck;
+  edge_functions:   ServiceCheck;
+  cloudflare_r2:    ServiceCheck;
   environment:      ServiceCheck;
-  platform_version: ServiceCheck;
-  message_queue:    ServiceCheck;
-  ai_service:       ServiceCheck;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,12 +62,34 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// ─── Check 1: Database (Supabase PostgreSQL) ──────────────────────────────────
+// ─── Check 1: Cloudflare Pages ────────────────────────────────────────────────
+// No public health endpoint is available without exposing Cloudflare API tokens
+// to the browser.  Status is permanently not_implemented until a public probe
+// endpoint is added (e.g. a dedicated Pages Function at /api/health).
+
+function checkCloudflarePages(): ServiceCheck {
+  return {
+    name:       'Cloudflare Pages',
+    status:     'not_implemented',
+    latency_ms: null,
+    message:    'Tidak dapat diprobing dari browser — pantau via Cloudflare Dashboard',
+    checked_at: new Date().toISOString(),
+  };
+}
+
+// ─── Check 2: Supabase Database ───────────────────────────────────────────────
 
 type SupabaseHeadResult = { data: null; error: { message: string } | null };
 
 async function checkDatabase(): Promise<ServiceCheck> {
   const start = Date.now();
+
+  // Derive region from URL: https://<project-id>.<region>.supabase.co
+  // Standard hosted projects have no region sub-domain — falls back to 'supabase.co'.
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+  const regionMatch = supabaseUrl.match(/https?:\/\/[\w-]+\.([\w-]+)\.supabase\.co/);
+  const region      = regionMatch?.[1] ?? 'supabase.co';
+
   try {
     const result = await withTimeout(
       Promise.resolve(
@@ -78,36 +101,120 @@ async function checkDatabase(): Promise<ServiceCheck> {
 
     if (result.error) {
       return {
-        name: 'Database',
-        status: 'degraded',
+        name:       'Supabase Database',
+        status:     'degraded',
         latency_ms,
-        message: `Supabase error: ${result.error.message}`,
+        message:    `Supabase error: ${result.error.message}`,
         checked_at: new Date().toISOString(),
       };
     }
 
     return {
-      name: 'Database',
-      status: 'operational',
+      name:       'Supabase Database',
+      status:     'operational',
       latency_ms,
-      message: `Supabase PostgreSQL — ${latency_ms}ms`,
+      message:    `PostgreSQL · Region: ${region} · ${latency_ms}ms`,
       checked_at: new Date().toISOString(),
     };
   } catch (err) {
     return {
-      name: 'Database',
-      status: 'down',
+      name:       'Supabase Database',
+      status:     'down',
       latency_ms: Date.now() - start,
-      message: err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string,unknown>)['message']) : 'Database check failed'),
+      message:    err instanceof Error ? err.message : 'Database check failed',
       checked_at: new Date().toISOString(),
     };
   }
 }
 
-// ─── Check 2: Storage (Cloudflare R2 via r2-storage Edge Function) ───────────
-// Uses action=test-connection — no Express dependency.
+// ─── Check 3: Supabase Auth ───────────────────────────────────────────────────
+// Probes auth service reachability via getSession().  Does not require the user
+// to be signed in — a null session with no error still confirms auth is online.
 
-async function checkStorage(): Promise<ServiceCheck> {
+async function checkSupabaseAuth(): Promise<ServiceCheck> {
+  const start = Date.now();
+  try {
+    const { error } = await withTimeout(
+      supabase.auth.getSession(),
+      6000,
+    );
+    const latency_ms = Date.now() - start;
+
+    if (error) {
+      return {
+        name:       'Supabase Auth',
+        status:     'degraded',
+        latency_ms,
+        message:    `Auth error: ${error.message}`,
+        checked_at: new Date().toISOString(),
+      };
+    }
+
+    return {
+      name:       'Supabase Auth',
+      status:     'operational',
+      latency_ms,
+      message:    `Auth service online · Provider: Email/OAuth · ${latency_ms}ms`,
+      checked_at: new Date().toISOString(),
+    };
+  } catch (err) {
+    return {
+      name:       'Supabase Auth',
+      status:     'down',
+      latency_ms: Date.now() - start,
+      message:    err instanceof Error ? err.message : 'Auth check failed',
+      checked_at: new Date().toISOString(),
+    };
+  }
+}
+
+// ─── Check 4: Supabase Edge Functions ────────────────────────────────────────
+// Uses the lightweight get-config action on r2-storage — reads platform_config
+// from the DB, no R2 credentials required.  If the function responds at all,
+// the Edge Functions runtime is operational.
+
+async function checkEdgeFunctions(): Promise<ServiceCheck> {
+  const start = Date.now();
+  try {
+    const { error } = await withTimeout(
+      supabase.functions.invoke('r2-storage', { body: { action: 'get-config' } }),
+      8000,
+    );
+    const latency_ms = Date.now() - start;
+
+    if (error) {
+      return {
+        name:       'Supabase Edge Functions',
+        status:     'down',
+        latency_ms,
+        message:    `Edge Functions tidak dapat dijangkau: ${error.message}`,
+        checked_at: new Date().toISOString(),
+      };
+    }
+
+    return {
+      name:       'Supabase Edge Functions',
+      status:     'operational',
+      latency_ms,
+      message:    `Edge Functions online · r2-storage aktif · ${latency_ms}ms`,
+      checked_at: new Date().toISOString(),
+    };
+  } catch {
+    return {
+      name:       'Supabase Edge Functions',
+      status:     'not_implemented',
+      latency_ms: Date.now() - start,
+      message:    'Edge Functions tidak dapat dijangkau',
+      checked_at: new Date().toISOString(),
+    };
+  }
+}
+
+// ─── Check 5: Cloudflare R2 ───────────────────────────────────────────────────
+// Uses the test-connection action on r2-storage.  Validates that R2 credentials
+// are configured and that a presigned PUT URL can be generated.
+
+async function checkCloudflareR2(): Promise<ServiceCheck> {
   const start = Date.now();
   try {
     const { data, error } = await withTimeout(
@@ -125,7 +232,7 @@ async function checkStorage(): Promise<ServiceCheck> {
 
     if (error) {
       return {
-        name:       'Storage',
+        name:       'Cloudflare R2',
         status:     'not_implemented',
         latency_ms,
         message:    `Edge Function tidak dapat dijangkau: ${error.message}`,
@@ -135,22 +242,22 @@ async function checkStorage(): Promise<ServiceCheck> {
 
     if (data?.ok) {
       return {
-        name:       'Storage',
+        name:       'Cloudflare R2',
         status:     'operational',
         latency_ms,
-        message:    `R2 bucket "${data.bucket ?? 'ternakhub-images'}" — ${latency_ms}ms`,
+        message:    `Bucket "${data.bucket ?? 'ternakhub-images'}" · Storage online · ${latency_ms}ms`,
         checked_at: new Date().toISOString(),
       };
     }
 
-    // Missing credentials → not_implemented
+    // Missing credentials → not_implemented (bucket exists in config but R2 secrets absent)
     const isMissingCredentials =
       data?.status === 'misconfigured' ||
       (data?.missing?.length ?? 0) > 0;
 
     if (isMissingCredentials) {
       return {
-        name:       'Storage',
+        name:       'Cloudflare R2',
         status:     'not_implemented',
         latency_ms,
         message:    'Cloudflare R2 credentials belum dikonfigurasi di Edge Function secrets',
@@ -159,7 +266,7 @@ async function checkStorage(): Promise<ServiceCheck> {
     }
 
     return {
-      name:       'Storage',
+      name:       'Cloudflare R2',
       status:     'degraded',
       latency_ms,
       message:    data?.error ?? data?.message ?? 'R2 tidak terhubung',
@@ -167,7 +274,7 @@ async function checkStorage(): Promise<ServiceCheck> {
     };
   } catch {
     return {
-      name:       'Storage',
+      name:       'Cloudflare R2',
       status:     'not_implemented',
       latency_ms: Date.now() - start,
       message:    'Storage check tidak tersedia — Edge Function tidak dapat dijangkau',
@@ -176,29 +283,16 @@ async function checkStorage(): Promise<ServiceCheck> {
   }
 }
 
-// ─── Check 3: API Server (Legacy Express — no longer probed) ─────────────────
-// FOUNDATION-STORAGE-004B: Express is legacy-only. The frontend no longer
-// calls /api/ping or any Express endpoint for storage or health checks.
-// All storage operations run through the r2-storage Edge Function.
-
-function checkAPI(): ServiceCheck {
-  return {
-    name:       'API',
-    status:     'not_implemented',
-    latency_ms: null,
-    message:    'Express API server adalah legacy — tidak lagi diakses dari frontend',
-    checked_at: new Date().toISOString(),
-  };
-}
-
-// ─── Check 4: Environment Variables ──────────────────────────────────────────
+// ─── Check 6: Environment Variables ──────────────────────────────────────────
+// Verifies the two VITE_ variables required at build time are present and
+// non-placeholder.  Runs synchronously — no network call.
 
 function checkEnvironment(): ServiceCheck {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-  const missingUrl  = !supabaseUrl  || supabaseUrl.includes('placeholder');
-  const missingKey  = !supabaseKey  || supabaseKey === 'placeholder-anon-key';
+  const missingUrl = !supabaseUrl  || supabaseUrl.includes('placeholder');
+  const missingKey = !supabaseKey  || supabaseKey === 'placeholder-anon-key';
 
   const missing: string[] = [];
   if (missingUrl) missing.push('VITE_SUPABASE_URL');
@@ -206,58 +300,19 @@ function checkEnvironment(): ServiceCheck {
 
   if (missing.length > 0) {
     return {
-      name: 'Environment',
-      status: 'degraded',
+      name:       'Environment',
+      status:     'degraded',
       latency_ms: null,
-      message: `Env var belum dikonfigurasi: ${missing.join(', ')}`,
+      message:    `Env var belum dikonfigurasi: ${missing.join(', ')}`,
       checked_at: new Date().toISOString(),
     };
   }
 
   return {
-    name: 'Environment',
-    status: 'operational',
+    name:       'Environment',
+    status:     'operational',
     latency_ms: null,
-    message: 'Semua environment variable terkonfigurasi',
-    checked_at: new Date().toISOString(),
-  };
-}
-
-// ─── Check 5: Platform Version ────────────────────────────────────────────────
-
-function checkPlatformVersion(): ServiceCheck {
-  // VITE_APP_VERSION is injected at build time via vite.config.ts define block.
-  const version = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? '0.1.0';
-
-  return {
-    name: 'Platform',
-    status: 'operational',
-    latency_ms: null,
-    message: `TernakHub v${version}`,
-    checked_at: new Date().toISOString(),
-  };
-}
-
-// ─── Check 6: Message Queue (not_implemented — queue worker not built) ────────
-
-function checkMessageQueue(): ServiceCheck {
-  return {
-    name:       'Message Queue',
-    status:     'not_implemented',
-    latency_ms: null,
-    message:    'Queue worker belum diimplementasikan di platform',
-    checked_at: new Date().toISOString(),
-  };
-}
-
-// ─── Check 7: AI Service (not_implemented — AI backend not integrated) ────────
-
-function checkAIService(): ServiceCheck {
-  return {
-    name:       'AI Service',
-    status:     'not_implemented',
-    latency_ms: null,
-    message:    'AI backend belum diintegrasikan ke platform',
+    message:    'Semua environment variable terkonfigurasi',
     checked_at: new Date().toISOString(),
   };
 }
@@ -265,15 +320,16 @@ function checkAIService(): ServiceCheck {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function fetchSystemServicesHealth(): Promise<SystemServicesHealth> {
-  const [database, storage, api] = await Promise.all([
-    checkDatabase(),
-    checkStorage(),
-    checkAPI(),
-  ]);
+  // Synchronous checks run immediately; async probes run in parallel.
+  const cloudflare_pages = checkCloudflarePages();
   const environment      = checkEnvironment();
-  const platform_version = checkPlatformVersion();
-  const message_queue    = checkMessageQueue();
-  const ai_service       = checkAIService();
 
-  return { database, storage, api, environment, platform_version, message_queue, ai_service };
+  const [database, supabase_auth, edge_functions, cloudflare_r2] = await Promise.all([
+    checkDatabase(),
+    checkSupabaseAuth(),
+    checkEdgeFunctions(),
+    checkCloudflareR2(),
+  ]);
+
+  return { cloudflare_pages, database, supabase_auth, edge_functions, cloudflare_r2, environment };
 }
