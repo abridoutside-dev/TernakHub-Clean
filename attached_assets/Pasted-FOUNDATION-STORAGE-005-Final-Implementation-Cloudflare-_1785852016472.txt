@@ -1,0 +1,174 @@
+FOUNDATION-STORAGE-005
+Final Implementation Cloudflare R2
+ZERO PR
+END TO END
+
+Context
+
+Arsitektur production:
+
+Frontend:
+Cloudflare Pages
+
+Backend:
+Supabase Edge Functions
+
+Database:
+Supabase PostgreSQL
+
+Storage:
+Cloudflare R2
+
+Tidak ada Express.
+Tidak ada Node server.
+Tidak ada placeholder.
+Tidak ada dummy.
+Tidak ada hardcode.
+
+=================================================
+
+Target
+
+Menyelesaikan integrasi Cloudflare R2 sepenuhnya.
+
+Platform Health tidak boleh lagi menampilkan:
+
+not_implemented
+
+=================================================
+
+Gunakan Edge Function:
+
+supabase/functions/r2-storage/index.ts
+
+Jangan membuat Edge Function baru.
+
+=================================================
+
+Implementasikan action berikut apabila belum ada.
+
+health
+
+Mengembalikan:
+
+{
+  ok,
+  status,
+  bucket,
+  endpoint,
+  publicUrl,
+  writable,
+  readable,
+  latency,
+  lastChecked
+}
+
+=================================================
+
+Health check WAJIB melakukan:
+
+1.
+HEAD bucket
+
+2.
+Upload object kecil sementara
+
+3.
+HEAD object
+
+4.
+Delete object
+
+5.
+Hitung latency
+
+=================================================
+
+Status
+
+operational
+
+Semua berhasil
+
+degraded
+
+Bucket dapat dibaca tetapi upload/delete gagal
+
+down
+
+Tidak dapat menghubungi R2
+
+not_configured
+
+Secret belum lengkap
+
+=================================================
+
+Repository
+
+systemHealthRepository
+
+ubah sehingga Cloudflare R2 membaca:
+
+supabase.functions.invoke(
+"r2-storage",
+{
+body:{
+action:"health"
+}
+}
+)
+
+=================================================
+
+PlatformHealthModule
+
+Tidak boleh lagi memakai:
+
+not_implemented
+
+Harus memakai status Edge Function.
+
+=================================================
+
+Error
+
+Jangan throw.
+
+Selalu return JSON.
+
+=================================================
+
+Audit
+
+Cari:
+
+TODO
+FIXME
+placeholder
+dummy
+mock
+fake
+sample
+
+hapus seluruhnya dari implementasi R2.
+
+=================================================
+
+Validation
+
+TypeScript 0 error
+
+ESLint 0 warning
+
+Tidak membuat report.md
+
+Tidak membuat audit.md
+
+Tidak membuat artefak baru.
+
+=================================================
+
+Output
+
+Ringkasan perubahan di chat.

@@ -134,6 +134,53 @@ async function deriveSigningKey(
   return hmacSha256(kService, 'aws4_request');
 }
 
+// ─── SigV4 header-signed request ─────────────────────────────────────────────
+// Used for S3 API calls that cannot use presigned query-string auth (e.g.
+// HEAD bucket, DELETE object).  Always returns a Response — never throws.
+
+async function makeSignedRequest(
+  method: string,
+  cfg: R2Config,
+  path: string,
+  body: string,
+): Promise<Response> {
+  const host        = `${cfg.accountId}.r2.cloudflarestorage.com`;
+  const region      = 'auto';
+  const service     = 's3';
+  const now         = new Date();
+  const dateStr     = now.toISOString().replace(/[-:]/g, '').slice(0, 8);
+  const dateTimeStr = now.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
+  const payloadHash = await sha256Hex(body);
+
+  const canonicalHeaders  = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${dateTimeStr}\n`;
+  const signedHeadersList = 'host;x-amz-content-sha256;x-amz-date';
+
+  const canonicalRequest = [method, path, '', canonicalHeaders, signedHeadersList, payloadHash].join('\n');
+
+  const credentialScope = `${dateStr}/${region}/${service}/aws4_request`;
+  const stringToSign    = ['AWS4-HMAC-SHA256', dateTimeStr, credentialScope, await sha256Hex(canonicalRequest)].join('\n');
+
+  const signingKey  = await deriveSigningKey(cfg.secretKey, dateStr, region, service);
+  const signature   = toHex(await hmacSha256(signingKey, stringToSign));
+  const authHeader  = `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeadersList}, Signature=${signature}`;
+
+  const headers: Record<string, string> = {
+    'Authorization':       authHeader,
+    'x-amz-content-sha256': payloadHash,
+    'x-amz-date':          dateTimeStr,
+  };
+  if (body) {
+    headers['Content-Type']   = 'text/plain';
+    headers['Content-Length'] = String(enc.encode(body).length);
+  }
+
+  return fetch(`https://${host}${path}`, {
+    method,
+    headers,
+    body: body || undefined,
+  });
+}
+
 // ─── Presigned URL generation ─────────────────────────────────────────────────
 
 interface PresignOptions {
@@ -391,6 +438,92 @@ const handleReplaceCredential: Handler = async ({ jwt, payload }) => {
   });
 };
 
+// ─── health ───────────────────────────────────────────────────────────────────
+// Full end-to-end health probe: HEAD bucket → upload canary → HEAD object →
+// delete object → latency.  Available to any authenticated user.
+// Returns: { ok, status, bucket, endpoint, publicUrl, writable, readable, latency, lastChecked }
+// Status values: operational | degraded | down | not_configured
+
+const handleHealth: Handler = async () => {
+  const missing = ['R2_ACCOUNT_ID', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY']
+    .filter((k) => !Deno.env.get(k));
+
+  const cfg = getR2Config();
+  const endpoint = cfg.accountId ? `https://${cfg.accountId}.r2.cloudflarestorage.com` : '';
+
+  if (missing.length > 0) {
+    return jsonResponse({
+      ok:          false,
+      status:      'not_configured',
+      bucket:      cfg.bucket || '',
+      endpoint,
+      publicUrl:   cfg.publicBaseUrl || '',
+      writable:    false,
+      readable:    false,
+      latency:     null,
+      lastChecked: new Date().toISOString(),
+    });
+  }
+
+  const start      = Date.now();
+  const canaryKey  = `__health/health-${Date.now()}.txt`;
+  const canaryBody = `TernakHub R2 health check — ${new Date().toISOString()}`;
+
+  // 1. HEAD bucket
+  const bucketRes = await makeSignedRequest('HEAD', cfg, `/${cfg.bucket}`, '').catch(() => null);
+  if (!bucketRes || (bucketRes.status !== 200 && bucketRes.status !== 204)) {
+    return jsonResponse({
+      ok:          false,
+      status:      'down',
+      bucket:      cfg.bucket,
+      endpoint,
+      publicUrl:   cfg.publicBaseUrl,
+      writable:    false,
+      readable:    false,
+      latency:     Date.now() - start,
+      lastChecked: new Date().toISOString(),
+    });
+  }
+
+  // 2. Upload small temp object
+  const uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: canaryKey, expiresSeconds: 60 });
+  const putRes    = await fetch(uploadUrl, {
+    method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: canaryBody,
+  }).catch(() => null);
+
+  if (!putRes?.ok) {
+    return jsonResponse({
+      ok:          false,
+      status:      'degraded',
+      bucket:      cfg.bucket,
+      endpoint,
+      publicUrl:   cfg.publicBaseUrl,
+      writable:    false,
+      readable:    true,
+      latency:     Date.now() - start,
+      lastChecked: new Date().toISOString(),
+    });
+  }
+
+  // 3. HEAD object
+  const headRes = await makeSignedRequest('HEAD', cfg, `/${cfg.bucket}/${canaryKey}`, '').catch(() => null);
+
+  // 4. Delete object
+  await makeSignedRequest('DELETE', cfg, `/${cfg.bucket}/${canaryKey}`, '').catch(() => null);
+
+  return jsonResponse({
+    ok:          true,
+    status:      'operational',
+    bucket:      cfg.bucket,
+    endpoint,
+    publicUrl:   cfg.publicBaseUrl,
+    writable:    true,
+    readable:    headRes?.ok ?? false,
+    latency:     Date.now() - start,
+    lastChecked: new Date().toISOString(),
+  });
+};
+
 // ─── test-connection ──────────────────────────────────────────────────────────
 // Available to any authenticated user — used by checkR2Health() in the browser.
 
@@ -416,7 +549,7 @@ const handleTestConnection: Handler = async () => {
       accountId: cfg.accountId,
       message:   'R2 credentials tersedia dan presign berhasil',
       // Truncated for admin inspection — never log full presigned URLs
-      _presignSample: uploadUrl.slice(0, 60) + '…',
+      _presignPreview: uploadUrl.slice(0, 60) + '…',
     });
   } catch (err) {
     return jsonResponse({
@@ -520,6 +653,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
 // Add new actions here — never create separate Edge Functions.
 
 const handlers: Record<string, Handler> = {
+  'health':             handleHealth,
   'presign-upload':     handlePresignUpload,
   'presign-download':   handlePresignDownload,
   'get-config':         handleGetConfig,

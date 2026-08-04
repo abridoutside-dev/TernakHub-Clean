@@ -270,73 +270,88 @@ async function checkEdgeFunctions(): Promise<ServiceCheck> {
 }
 
 // ─── Check 5: Cloudflare R2 ───────────────────────────────────────────────────
-// Uses the test-connection action on r2-storage.  Validates that R2 credentials
-// are configured and that a presigned PUT URL can be generated.
+// Invokes the health action on r2-storage: HEAD bucket → upload → HEAD object
+// → delete → latency.  Maps the edge function's status directly to ServiceStatus.
+
+interface R2HealthResponse {
+  ok:          boolean;
+  status:      string;
+  bucket:      string;
+  endpoint:    string;
+  publicUrl:   string;
+  writable:    boolean;
+  readable:    boolean;
+  latency:     number | null;
+  lastChecked: string;
+}
 
 async function checkCloudflareR2(): Promise<ServiceCheck> {
   const start = Date.now();
   try {
     const { data, error } = await withTimeout(
-      supabase.functions.invoke<{
-        ok:       boolean;
-        status?:  string;
-        bucket?:  string;
-        message?: string;
-        missing?: string[];
-        error?:   string;
-      }>('r2-storage', { body: { action: 'test-connection' } }),
-      8000,
+      supabase.functions.invoke<R2HealthResponse>('r2-storage', { body: { action: 'health' } }),
+      10000,
     );
     const latency_ms = Date.now() - start;
 
     if (error) {
       return {
         name:       'Cloudflare R2',
-        status:     'not_implemented',
+        status:     'down',
         latency_ms,
-        message:    `Edge Function tidak dapat dijangkau: ${error.message}`,
+        message:    `Edge Function error: ${error.message}`,
         checked_at: new Date().toISOString(),
       };
     }
 
-    if (data?.ok) {
+    if (!data) {
+      return {
+        name:       'Cloudflare R2',
+        status:     'down',
+        latency_ms,
+        message:    'Tidak ada respons dari r2-storage',
+        checked_at: new Date().toISOString(),
+      };
+    }
+
+    const validStatuses: ServiceStatus[] = ['operational', 'degraded', 'down', 'not_configured'];
+    const status: ServiceStatus = validStatuses.includes(data.status as ServiceStatus)
+      ? (data.status as ServiceStatus)
+      : 'down';
+
+    if (status === 'not_configured') {
+      return {
+        name:       'Cloudflare R2',
+        status:     'not_configured',
+        latency_ms,
+        message:    'Cloudflare R2 secrets belum dikonfigurasi di Edge Function',
+        checked_at: data.lastChecked ?? new Date().toISOString(),
+      };
+    }
+
+    if (status === 'operational') {
       return {
         name:       'Cloudflare R2',
         status:     'operational',
-        latency_ms,
-        message:    `Bucket "${data.bucket ?? 'ternakhub-images'}" · Storage online · ${latency_ms}ms`,
-        checked_at: new Date().toISOString(),
-      };
-    }
-
-    // Missing credentials → not_implemented (bucket exists in config but R2 secrets absent)
-    const isMissingCredentials =
-      data?.status === 'misconfigured' ||
-      (data?.missing?.length ?? 0) > 0;
-
-    if (isMissingCredentials) {
-      return {
-        name:       'Cloudflare R2',
-        status:     'not_implemented',
-        latency_ms,
-        message:    'Cloudflare R2 credentials belum dikonfigurasi di Edge Function secrets',
-        checked_at: new Date().toISOString(),
+        latency_ms: data.latency ?? latency_ms,
+        message:    `Bucket "${data.bucket}" · writable · readable · ${data.latency ?? latency_ms}ms`,
+        checked_at: data.lastChecked ?? new Date().toISOString(),
       };
     }
 
     return {
       name:       'Cloudflare R2',
-      status:     'degraded',
+      status,
       latency_ms,
-      message:    data?.error ?? data?.message ?? 'R2 tidak terhubung',
-      checked_at: new Date().toISOString(),
+      message:    `R2 ${status} · bucket: ${data.bucket}`,
+      checked_at: data.lastChecked ?? new Date().toISOString(),
     };
-  } catch {
+  } catch (err) {
     return {
       name:       'Cloudflare R2',
-      status:     'not_implemented',
+      status:     'down',
       latency_ms: Date.now() - start,
-      message:    'Storage check tidak tersedia — Edge Function tidak dapat dijangkau',
+      message:    err instanceof Error ? err.message : 'R2 health check gagal',
       checked_at: new Date().toISOString(),
     };
   }
