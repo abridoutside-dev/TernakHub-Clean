@@ -859,39 +859,41 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Cloudflare Pages Config Drawer — PH-002 ─────────────────────────────────
+// ─── Cloudflare Pages Config Drawer — PH-002.1 ───────────────────────────────
 //
-// Control Panel untuk deployment Cloudflare Pages.
+// Cloudflare Pages Control Panel.
 //
-// Data sources:
-//   REAL  — derived from build config, package.json, and window.location
-//   DASH  — requires Cloudflare API token (not exposed to browser) → Managed by Cloudflare Dashboard
-//   UNAVAIL — requires Cloudflare API (build/deploy metadata) → Unavailable from Cloudflare API
-//   RO    — action not possible without API token → Read Only
+// REAL RUNTIME (genuinely obtainable from the browser without any API token):
+//   • HTTPS status — window.location.protocol === 'https:'
+//     Tells us whether the current browser session is served over TLS.
+//     This is the only Cloudflare Pages property readable client-side.
 //
-// Cloudflare Pages API (https://api.cloudflare.com/client/v4/accounts/:id/pages/projects/:name)
-// is NOT called from the browser — would require exposing CLOUDFLARE_API_TOKEN.
-// A future server-side proxy (/api/cf-pages) could unlock DASH fields.
+// ALL OTHER FIELDS — Managed by Cloudflare Dashboard.
+//   Cloudflare Pages project settings (project name, production URL, branch,
+//   framework, build command, output dir, node version, deployment metadata,
+//   commit info, rollback, cache, DNS, SSL, HSTS, monitoring) are only
+//   accessible via the Cloudflare API
+//   (https://api.cloudflare.com/client/v4/accounts/:id/pages/projects/:name)
+//   which requires CLOUDFLARE_API_TOKEN — a secret that must never be exposed
+//   to the browser. A server-side proxy (/api/cf-pages) would unlock these.
+//
+// FIELDS REMOVED FROM PH-002 (were sourced from local build files, not CF):
+//   • Build Command       — was package.json scripts.build, not CF config
+//   • Output Directory    — was vite.config.ts build.outDir, not CF config
+//   • Node Version        — was package.json engines.node, not CF config
+//   • Framework           — was inferred from deps, not CF project setting
+//   • SPA Routing         — was public/_redirects content, not CF control plane
+//   • Environment (mode)  — was import.meta.env.MODE (Vite), not CF environment
+//   • Production URL      — was window.location (Replit dev URL), not CF URL
 
-const CF_DASH  = 'Managed by Cloudflare Dashboard';
-const CF_UNAVAIL = 'Unavailable from Cloudflare API';
-const CF_RO    = 'Read Only';
+const CF_DASH = 'Managed by Cloudflare Dashboard';
 
 function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
-  // ── Runtime-derived data (real, no API needed) ──────────────────────────────
-  const hostname   = window.location.hostname;
-  const isHttps    = window.location.protocol === 'https:';
-  // On Cloudflare Pages production the hostname ends with .pages.dev (or is a custom domain).
-  // In Replit dev it ends with .replit.dev / .repl.co — we surface the actual host either way.
-  const currentUrl = `${window.location.protocol}//${hostname}`;
-  const envMode    = (import.meta.env.MODE as string | undefined) ?? '—';
-
-  // ── Known build config (verified against package.json / vite.config.ts / public/_redirects) ──
-  const BUILD_CMD    = 'npm run build';
-  const OUTPUT_DIR   = 'dist';
-  const NODE_VER     = '>=20.0.0';
-  const FRAMEWORK    = 'React 18 + Vite';
-  const SPA_ROUTING  = '/* → /index.html 200  (via public/_redirects)';
+  // ── The only genuinely runtime-readable Cloudflare Pages property ──────────
+  // window.location.protocol reflects whether the current TLS session is active.
+  // It says nothing about CF project settings; it is the browser's own state.
+  const isHttps = window.location.protocol === 'https:';
+  const httpsStatus = isHttps ? 'Enabled (current session is HTTPS)' : 'Not HTTPS (development environment)';
 
   return (
     <DrawerOverlay onClose={onClose}>
@@ -900,170 +902,144 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
 
         {/* Notice */}
         <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(71,85,105,0.07)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ Data real-time deployment (project name, last build, commit, rollback) memerlukan{' '}
-          <strong>Cloudflare API Token</strong> yang tidak boleh diekspos ke browser.
-          Field bertanda <em>"Managed by Cloudflare Dashboard"</em> dikelola langsung di{' '}
-          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>dash.cloudflare.com</a>.
+          ℹ️ Semua konfigurasi Cloudflare Pages (project, deployment, build, domain,
+          cache, security, monitoring) memerlukan <strong>Cloudflare API Token</strong> yang
+          tidak boleh diekspos ke browser. Kelola langsung di{' '}
+          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
+            dash.cloudflare.com ↗
+          </a>
         </div>
 
-        {/* ── Section 1: General ──────────────────────────────────────────────── */}
-        <SectionLabel>1 — General</SectionLabel>
-        <Field label="Project Name"
-          hint="Nama project di Cloudflare Pages — Managed by Cloudflare Dashboard">
+        {/* ── General ─────────────────────────────────────────────────────────── */}
+        <SectionLabel>General</SectionLabel>
+        <Field label="Project Name" hint="Cloudflare Pages API: GET /accounts/:id/pages/projects/:name">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Production URL"
-          hint="URL saat ini (production: ternakhub.pages.dev atau custom domain)">
-          <input style={fieldStyleRO} readOnly value={currentUrl} />
-        </Field>
-        <Field label="Preview URL"
-          hint="URL preview per-branch — Managed by Cloudflare Dashboard">
+        <Field label="Production URL" hint="Cloudflare Pages API: project.canonical_deployment.url">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Custom Domain"
-          hint="Custom domain dikonfigurasi di Cloudflare Dashboard → Pages → Custom Domains">
+        <Field label="Preview URL" hint="Cloudflare Pages API: per-branch preview URLs">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Production Branch"
-          hint="Branch yang memicu production deploy — Managed by Cloudflare Dashboard">
+        <Field label="Custom Domain" hint="Cloudflare Dashboard → Pages → [Project] → Custom Domains">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Framework">
-          <input style={fieldStyleRO} readOnly value={FRAMEWORK} />
-        </Field>
-        <Field label="Build Status"
-          hint="Status build terakhir — Unavailable from Cloudflare API">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-        <Field label="Deployment Status"
-          hint="Status deployment aktif — Unavailable from Cloudflare API">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-
-        {/* ── Section 2: Build ────────────────────────────────────────────────── */}
-        <SectionLabel>2 — Build</SectionLabel>
-        <Field label="Build Command">
-          <input style={fieldStyleRO} readOnly value={BUILD_CMD} />
-        </Field>
-        <Field label="Build Output Directory">
-          <input style={fieldStyleRO} readOnly value={OUTPUT_DIR} />
-        </Field>
-        <Field label="Node Version">
-          <input style={fieldStyleRO} readOnly value={NODE_VER} />
-        </Field>
-        <Field label="Environment (Vite mode)">
-          <input style={fieldStyleRO} readOnly value={envMode} />
-        </Field>
-        <Field label="SPA Routing">
-          <input style={fieldStyleRO} readOnly value={SPA_ROUTING} />
-        </Field>
-        <Field label="Last Build Time"
-          hint="Memerlukan Cloudflare API — Unavailable from Cloudflare API">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-        <Field label="Build Duration"
-          hint="Memerlukan Cloudflare API — Unavailable from Cloudflare API">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-
-        {/* ── Section 3: Deployment ───────────────────────────────────────────── */}
-        <SectionLabel>3 — Deployment</SectionLabel>
-        <Field label="Production Deployment">
+        <Field label="Production Branch" hint="Cloudflare Pages API: project.production_branch">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Preview Deployment">
+        <Field label="Framework" hint="Cloudflare Pages API: project.build_config.destination_dir">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Deployment ID">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-        <Field label="Commit SHA">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-        <Field label="Commit Message">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-        <Field label="Deploy Time">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
-        </Field>
-        <Field label="Rollback"
-          hint="Rollback memerlukan Cloudflare API Token — tidak dapat dilakukan dari aplikasi">
-          <input style={fieldStyleRO} readOnly value={CF_RO} />
-        </Field>
-
-        {/* ── Section 4: Domain ───────────────────────────────────────────────── */}
-        <SectionLabel>4 — Domain</SectionLabel>
-        <Field label="pages.dev URL / Current Host">
-          <input style={fieldStyleRO} readOnly value={currentUrl} />
-        </Field>
-        <Field label="Custom Domain"
-          hint="Atur di Cloudflare Dashboard → Pages → Custom Domains">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="HTTPS">
-          <input style={fieldStyleRO} readOnly value={isHttps ? 'Enabled' : 'Not detected (development)'} />
-        </Field>
-        <Field label="SSL"
-          hint="SSL certificate dikelola otomatis oleh Cloudflare">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="DNS Status"
-          hint="DNS propagation status — Managed by Cloudflare Dashboard">
+        <Field label="Deployment Status" hint="Cloudflare Pages API: deployment.latest_stage.status">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
 
-        {/* ── Section 5: Cache ────────────────────────────────────────────────── */}
-        <SectionLabel>5 — Cache</SectionLabel>
-        <Field label="Asset Cache"
-          hint="Cache static assets dikonfigurasi di Cloudflare Dashboard">
+        {/* ── Build ───────────────────────────────────────────────────────────── */}
+        <SectionLabel>Build</SectionLabel>
+        <Field label="Build Command" hint="Cloudflare Pages API: project.build_config.build_command">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Browser Cache"
-          hint="Browser cache headers dikontrol via Cloudflare Rules">
+        <Field label="Output Directory" hint="Cloudflare Pages API: project.build_config.destination_dir">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Cache Status">
+        <Field label="Node Version" hint="Cloudflare Dashboard → Pages → [Project] → Settings → Environment Variables (NODE_VERSION)">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Purge Cache"
-          hint="Cache purge memerlukan Cloudflare API Token — tidak dapat dipanggil dari aplikasi">
+        <Field label="Environment" hint="Cloudflare Pages API: project.deployment_configs.production/preview">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-
-        {/* ── Section 6: Security ─────────────────────────────────────────────── */}
-        <SectionLabel>6 — Security</SectionLabel>
-        <Field label="HTTPS">
-          <input style={fieldStyleRO} readOnly value={isHttps ? 'Enabled' : 'Not detected (development)'} />
-        </Field>
-        <Field label="HSTS"
-          hint="HSTS dikonfigurasi di Cloudflare Dashboard → SSL/TLS → Edge Certificates">
+        <Field label="Last Build" hint="Cloudflare Pages API: deployment.created_on">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Security Headers"
-          hint="Security headers diatur via Cloudflare Transform Rules atau _headers file">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Access Policy"
-          hint="Cloudflare Access dikonfigurasi di Zero Trust Dashboard">
+        <Field label="Build Duration" hint="Cloudflare Pages API: deployment.build_time_ms">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
 
-        {/* ── Section 7: Monitoring ───────────────────────────────────────────── */}
-        <SectionLabel>7 — Monitoring</SectionLabel>
-        <Field label="Last Deploy">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        {/* ── Deployment ──────────────────────────────────────────────────────── */}
+        <SectionLabel>Deployment</SectionLabel>
+        <Field label="Deployment ID" hint="Cloudflare Pages API: deployment.id">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Deploy Duration">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        <Field label="Commit SHA" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_hash">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Build Result">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        <Field label="Commit Message" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_message">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Error Count">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        <Field label="Deploy Time" hint="Cloudflare Pages API: deployment.created_on">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field label="Last Failure">
-          <input style={fieldStyleRO} readOnly value={CF_UNAVAIL} />
+        <Field label="Rollback" hint="Cloudflare Pages API: POST /accounts/:id/pages/projects/:name/deployments/:id/rollback — requires API Token">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Domain ──────────────────────────────────────────────────────────── */}
+        <SectionLabel>Domain</SectionLabel>
+        <Field label="pages.dev URL" hint="Cloudflare Pages API: project.subdomain (e.g. ternakhub.pages.dev)">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Custom Domain" hint="Cloudflare Dashboard → Pages → [Project] → Custom Domains">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field
+          label="HTTPS"
+          hint="Detected from current browser session (window.location.protocol). CF HTTPS config is Managed by Cloudflare Dashboard."
+        >
+          <input style={fieldStyleRO} readOnly value={httpsStatus} />
+        </Field>
+        <Field label="SSL" hint="Cloudflare Dashboard → SSL/TLS → Edge Certificates">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="DNS" hint="Cloudflare Dashboard → DNS → Records">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Cache ───────────────────────────────────────────────────────────── */}
+        <SectionLabel>Cache</SectionLabel>
+        <Field label="Cache" hint="Cloudflare Dashboard → Caching → Configuration">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Asset Cache" hint="Cloudflare Dashboard → Caching → Cache Rules">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Browser Cache" hint="Cloudflare Dashboard → Caching → Browser Cache TTL">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Purge Cache" hint="Cloudflare API: POST /zones/:zone_id/purge_cache — requires API Token">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Security ────────────────────────────────────────────────────────── */}
+        <SectionLabel>Security</SectionLabel>
+        <Field
+          label="HTTPS"
+          hint="Detected from current browser session. CF HTTPS enforcement is Managed by Cloudflare Dashboard."
+        >
+          <input style={fieldStyleRO} readOnly value={httpsStatus} />
+        </Field>
+        <Field label="Headers" hint="Cloudflare Dashboard → Rules → Transform Rules → Modify Response Header">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="HSTS" hint="Cloudflare Dashboard → SSL/TLS → Edge Certificates → HTTP Strict Transport Security">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Access Policy" hint="Cloudflare Zero Trust Dashboard → Access → Applications">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+
+        {/* ── Monitoring ──────────────────────────────────────────────────────── */}
+        <SectionLabel>Monitoring</SectionLabel>
+        <Field label="Last Deploy" hint="Cloudflare Pages API: deployment.created_on">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Deploy Result" hint="Cloudflare Pages API: deployment.latest_stage.status">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Deploy Errors" hint="Cloudflare Pages API: deployment.stages[].status = failed">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        </Field>
+        <Field label="Deploy Duration" hint="Cloudflare Pages API: deployment.build_time_ms">
+          <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
 
       </div>
@@ -1075,7 +1051,7 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
           rel="noopener noreferrer"
           style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
         >
-          Cloudflare Dashboard ↗
+          Buka Cloudflare Dashboard ↗
         </a>
         <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </DrawerFooter>
