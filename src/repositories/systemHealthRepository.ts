@@ -32,6 +32,7 @@ export type ServiceStatus =
   | 'operational'
   | 'degraded'
   | 'down'
+  | 'not_configured'
   | 'not_implemented';
 
 export interface ServiceCheck {
@@ -62,19 +63,61 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// ─── Check 1: Cloudflare Pages ────────────────────────────────────────────────
-// No public health endpoint is available without exposing Cloudflare API tokens
-// to the browser.  Status is permanently not_implemented until a public probe
-// endpoint is added (e.g. a dedicated Pages Function at /api/health).
+// ─── Cloudflare Pages status data ────────────────────────────────────────────
+// Shape returned by the server-side /api/cf-pages/status endpoint.
 
-function checkCloudflarePages(): ServiceCheck {
-  return {
-    name:       'Cloudflare Pages',
-    status:     'not_implemented',
-    latency_ms: null,
-    message:    'Tidak dapat diprobing dari browser — pantau via Cloudflare Dashboard',
-    checked_at: new Date().toISOString(),
-  };
+export interface CfPagesProject {
+  name: string;
+  subdomain: string;
+  production_branch: string;
+  framework: string;
+  build_command: string;
+  output_directory: string;
+  production_url: string;
+  pages_dev_url: string;
+  deployment_status: string;
+  deployment_id: string;
+  deployment_created_on: string;
+  commit_hash: string;
+  commit_message: string;
+  build_time_ms: number | null;
+}
+
+export interface CfPagesStatusData {
+  status: ServiceStatus;
+  latency_ms: number;
+  message: string;
+  checked_at: string;
+  project?: CfPagesProject;
+}
+
+// ─── Check 1: Cloudflare Pages ────────────────────────────────────────────────
+// Calls the server-side /api/cf-pages/status proxy endpoint which holds the
+// Cloudflare API token server-side and never exposes it to the browser.
+
+async function checkCloudflarePages(): Promise<ServiceCheck> {
+  const start = Date.now();
+  try {
+    const res  = await withTimeout(fetch('/api/cf-pages/status'), 8000);
+    const data = await res.json() as CfPagesStatusData;
+    const validStatuses: ServiceStatus[] = ['operational', 'degraded', 'down', 'not_configured', 'not_implemented'];
+    const status = validStatuses.includes(data.status) ? data.status : 'not_implemented';
+    return {
+      name:       'Cloudflare Pages',
+      status,
+      latency_ms: Date.now() - start,
+      message:    data.message ?? '',
+      checked_at: data.checked_at ?? new Date().toISOString(),
+    };
+  } catch (err) {
+    return {
+      name:       'Cloudflare Pages',
+      status:     'down',
+      latency_ms: Date.now() - start,
+      message:    err instanceof Error ? err.message : 'CF Pages status tidak tersedia',
+      checked_at: new Date().toISOString(),
+    };
+  }
 }
 
 // ─── Check 2: Supabase Database ───────────────────────────────────────────────
@@ -320,11 +363,11 @@ function checkEnvironment(): ServiceCheck {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function fetchSystemServicesHealth(): Promise<SystemServicesHealth> {
-  // Synchronous checks run immediately; async probes run in parallel.
-  const cloudflare_pages = checkCloudflarePages();
-  const environment      = checkEnvironment();
+  // All async probes run in parallel; synchronous environment check runs inline.
+  const environment = checkEnvironment();
 
-  const [database, supabase_auth, edge_functions, cloudflare_r2] = await Promise.all([
+  const [cloudflare_pages, database, supabase_auth, edge_functions, cloudflare_r2] = await Promise.all([
+    checkCloudflarePages(),
     checkDatabase(),
     checkSupabaseAuth(),
     checkEdgeFunctions(),

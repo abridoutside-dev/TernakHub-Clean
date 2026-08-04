@@ -14,6 +14,7 @@ import {
   fetchSystemServicesHealth,
   type SystemServicesHealth,
   type ServiceStatus,
+  type CfPagesStatusData,
 } from '../../../repositories/systemHealthRepository';
 import {
   repoGetConfig,
@@ -1397,102 +1398,134 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
 const CF_DASH = 'Managed by Cloudflare Dashboard';
 
 function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
-  // ── The only genuinely runtime-readable Cloudflare Pages property ──────────
-  // window.location.protocol reflects whether the current TLS session is active.
-  // It says nothing about CF project settings; it is the browser's own state.
-  const isHttps = window.location.protocol === 'https:';
+  const [cfData,    setCfData]    = useState<CfPagesStatusData | null>(null);
+  const [cfLoading, setCfLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/cf-pages/status')
+      .then(r => r.json() as Promise<CfPagesStatusData>)
+      .then(data => { if (!cancelled) setCfData(data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setCfLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const isHttps     = window.location.protocol === 'https:';
   const httpsStatus = isHttps ? 'Enabled (current session is HTTPS)' : 'Not HTTPS (development environment)';
+  const p           = cfData?.project;
+
+  function fmtDate(iso: string | undefined | null): string {
+    if (!iso) return CF_DASH;
+    return new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function fmtDuration(ms: number | null | undefined): string {
+    if (ms == null) return CF_DASH;
+    return ms >= 60000 ? `${Math.round(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`;
+  }
+  function val(v: string | null | undefined): string {
+    return (v && v.trim()) ? v : CF_DASH;
+  }
+
+  const drawerBadge = cfLoading
+    ? null
+    : cfData?.status === 'operational' ? <LiveBadge />
+    : <NIBadge />;
 
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="☁️" title="Cloudflare Pages — Control Panel" badge={<NIBadge />} onClose={onClose} />
+      <DrawerHeader icon="☁️" title="Cloudflare Pages — Control Panel" badge={drawerBadge} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
 
-        {/* Notice */}
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(71,85,105,0.07)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ Semua konfigurasi Cloudflare Pages (project, deployment, build, domain,
-          cache, security, monitoring) memerlukan <strong>Cloudflare API Token</strong> yang
-          tidak boleh diekspos ke browser. Kelola langsung di{' '}
-          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
-            dash.cloudflare.com ↗
-          </a>
-        </div>
+        {/* Status notice */}
+        {cfLoading ? (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 16 }}>
+            ⏳ Memuat data dari Cloudflare Pages API…
+          </div>
+        ) : cfData?.status === 'not_configured' ? (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(147,51,234,0.07)', border: '1px solid rgba(147,51,234,0.18)', fontSize: 12, color: '#7e22ce', marginTop: 8, marginBottom: 16 }}>
+            ⚙️ <strong>Belum dikonfigurasi.</strong> {cfData.message}
+            <br />Tambahkan env var berikut ke Replit Secrets, lalu restart API Server:
+            <code style={{ display: 'block', marginTop: 6, padding: '6px 8px', borderRadius: 5, background: 'rgba(147,51,234,0.06)', fontSize: 11, whiteSpace: 'pre-wrap' }}>
+              CF_PAGES_ACCOUNT_ID{'\n'}CF_PAGES_API_TOKEN{'\n'}CF_PAGES_PROJECT_NAME
+            </code>
+          </div>
+        ) : cfData?.status === 'down' ? (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', fontSize: 12, color: '#b91c1c', marginTop: 8, marginBottom: 16 }}>
+            ❌ {cfData.message}
+          </div>
+        ) : (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)', fontSize: 12, color: '#15803d', marginTop: 8, marginBottom: 16 }}>
+            ✅ Terhubung ke Cloudflare Pages API · {cfData?.message}
+          </div>
+        )}
 
         {/* ── General ─────────────────────────────────────────────────────────── */}
         <SectionLabel>General</SectionLabel>
-        <Field label="Project Name" hint="Cloudflare Pages API: GET /accounts/:id/pages/projects/:name">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Production URL" hint="Cloudflare Pages API: project.canonical_deployment.url">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Preview URL" hint="Cloudflare Pages API: per-branch preview URLs">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Custom Domain" hint="Cloudflare Dashboard → Pages → [Project] → Custom Domains">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Production Branch" hint="Cloudflare Pages API: project.production_branch">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Framework" hint="Cloudflare Pages API: project.build_config.destination_dir">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        <Field label="Project Name" hint="Cloudflare Pages API: project.name">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.name)} />
         </Field>
         <Field label="Deployment Status" hint="Cloudflare Pages API: deployment.latest_stage.status">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.deployment_status)} />
+        </Field>
+        <Field label="Production URL" hint="Cloudflare Pages API: canonical_deployment.url">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.production_url)} />
+        </Field>
+        <Field label="Production Branch" hint="Cloudflare Pages API: project.production_branch">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.production_branch)} />
+        </Field>
+        <Field label="Framework" hint="Cloudflare Pages API: project.build_config.framework">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.framework)} />
+        </Field>
+        <Field label="Custom Domain" hint="Cloudflare Dashboard → Pages → [Project] → Custom Domains">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
 
         {/* ── Build ───────────────────────────────────────────────────────────── */}
         <SectionLabel>Build</SectionLabel>
         <Field label="Build Command" hint="Cloudflare Pages API: project.build_config.build_command">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.build_command)} />
         </Field>
         <Field label="Output Directory" hint="Cloudflare Pages API: project.build_config.destination_dir">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Node Version" hint="Cloudflare Dashboard → Pages → [Project] → Settings → Environment Variables (NODE_VERSION)">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Environment" hint="Cloudflare Pages API: project.deployment_configs.production/preview">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.output_directory)} />
         </Field>
         <Field label="Last Build" hint="Cloudflare Pages API: deployment.created_on">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.deployment_created_on)} />
         </Field>
         <Field label="Build Duration" hint="Cloudflare Pages API: deployment.build_time_ms">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDuration(p?.build_time_ms)} />
+        </Field>
+        <Field label="Node Version" hint="Cloudflare Dashboard → Pages → Settings → Environment Variables (NODE_VERSION)">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
 
         {/* ── Deployment ──────────────────────────────────────────────────────── */}
         <SectionLabel>Deployment</SectionLabel>
         <Field label="Deployment ID" hint="Cloudflare Pages API: deployment.id">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Commit SHA" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_hash">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Commit Message" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_message">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.deployment_id)} />
         </Field>
         <Field label="Deploy Time" hint="Cloudflare Pages API: deployment.created_on">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.deployment_created_on)} />
         </Field>
-        <Field label="Rollback" hint="Cloudflare Pages API: POST /accounts/:id/pages/projects/:name/deployments/:id/rollback — requires API Token">
+        <Field label="Commit SHA" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_hash">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.commit_hash)} />
+        </Field>
+        <Field label="Commit Message" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_message">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.commit_message)} />
+        </Field>
+        <Field label="Rollback" hint="Cloudflare Dashboard → Pages → [Project] → Deployments → Rollback">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
 
         {/* ── Domain ──────────────────────────────────────────────────────────── */}
         <SectionLabel>Domain</SectionLabel>
-        <Field label="pages.dev URL" hint="Cloudflare Pages API: project.subdomain (e.g. ternakhub.pages.dev)">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+        <Field label="pages.dev URL" hint="Cloudflare Pages API: project.subdomain + .pages.dev">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.pages_dev_url)} />
         </Field>
         <Field label="Custom Domain" hint="Cloudflare Dashboard → Pages → [Project] → Custom Domains">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
         </Field>
-        <Field
-          label="HTTPS"
-          hint="Detected from current browser session (window.location.protocol). CF HTTPS config is Managed by Cloudflare Dashboard."
-        >
+        <Field label="HTTPS" hint="Detected from current browser session (window.location.protocol).">
           <input style={fieldStyleRO} readOnly value={httpsStatus} />
         </Field>
         <Field label="SSL" hint="Cloudflare Dashboard → SSL/TLS → Edge Certificates">
@@ -1519,10 +1552,7 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
 
         {/* ── Security ────────────────────────────────────────────────────────── */}
         <SectionLabel>Security</SectionLabel>
-        <Field
-          label="HTTPS"
-          hint="Detected from current browser session. CF HTTPS enforcement is Managed by Cloudflare Dashboard."
-        >
+        <Field label="HTTPS" hint="Detected from current browser session.">
           <input style={fieldStyleRO} readOnly value={httpsStatus} />
         </Field>
         <Field label="Headers" hint="Cloudflare Dashboard → Rules → Transform Rules → Modify Response Header">
@@ -1538,16 +1568,16 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
         {/* ── Monitoring ──────────────────────────────────────────────────────── */}
         <SectionLabel>Monitoring</SectionLabel>
         <Field label="Last Deploy" hint="Cloudflare Pages API: deployment.created_on">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.deployment_created_on)} />
         </Field>
         <Field label="Deploy Result" hint="Cloudflare Pages API: deployment.latest_stage.status">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
-        </Field>
-        <Field label="Deploy Errors" hint="Cloudflare Pages API: deployment.stages[].status = failed">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.deployment_status)} />
         </Field>
         <Field label="Deploy Duration" hint="Cloudflare Pages API: deployment.build_time_ms">
-          <input style={fieldStyleRO} readOnly value={CF_DASH} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDuration(p?.build_time_ms)} />
+        </Field>
+        <Field label="Last Checked" hint="Timestamp saat status terakhir diperiksa">
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(cfData?.checked_at)} />
         </Field>
 
       </div>
@@ -2396,6 +2426,7 @@ const STATUS_CFG: Record<ServiceStatus, { label: string; color: string; bg: stri
   operational:     { label: 'operational',     color: '#15803d', bg: 'rgba(22,163,74,0.08)',  border: 'rgba(22,163,74,0.2)',  dot: '#16a34a' },
   degraded:        { label: 'degraded',        color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
   down:            { label: 'down',            color: '#b91c1c', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.2)',  dot: '#ef4444' },
+  not_configured:  { label: 'not_configured',  color: '#9333ea', bg: 'rgba(147,51,234,0.07)', border: 'rgba(147,51,234,0.18)', dot: '#a855f7' },
   not_implemented: { label: 'not_implemented', color: '#475569', bg: 'rgba(71,85,105,0.07)', border: 'rgba(71,85,105,0.15)', dot: '#94a3b8' },
 };
 
