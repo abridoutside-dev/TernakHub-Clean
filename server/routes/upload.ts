@@ -43,8 +43,6 @@ import {
   isAllowedMimeType,
   isAllowedCategory,
   DEFAULT_CATEGORY,
-  isAllowedMediaType,
-  DEFAULT_MEDIA_TYPE,
   ALLOWED_MIME_LABEL,
   MAX_RAW_FILE_SIZE,
 } from '../uploadPolicy.js';
@@ -187,13 +185,6 @@ router.post(
       const caption      = (req.body.caption    as string | undefined)?.trim() || null;
       const takenAt      = (req.body.takenAt    as string | undefined)?.trim() || null;
 
-      // ── Object key path segments (FOUNDATION-STORAGE-004A) ───────────────
-      const entityType = ((req.body.entityType as string | undefined)?.trim()) || '_';
-      const entityUuid = ((req.body.entityUuid as string | undefined)?.trim()) || '_';
-      const rawMediaType = (req.body.mediaType as string | undefined) ?? DEFAULT_MEDIA_TYPE;
-      const mediaType    = isAllowedMediaType(rawMediaType) ? rawMediaType : DEFAULT_MEDIA_TYPE;
-      const wsSegment    = workspaceId ?? '_';
-
       // ── Process with sharp ────────────────────────────────────────────────
       let processed: ProcessedImages;
       try {
@@ -207,11 +198,10 @@ router.post(
         return;
       }
 
-      // ── Generate R2 keys (FOUNDATION-STORAGE-004A key structure) ─────────
-      // original:  workspace/category/entityType/entityUuid/mediaType/YYYY/MM/{uuid}.jpg
-      // thumbnail: workspace/category/entityType/entityUuid/thumbnail/YYYY/MM/{uuid}.jpg
-      const originalKey  = generateUploadKey(wsSegment, category, entityType, entityUuid, mediaType,    filename, 'image/jpeg');
-      const thumbnailKey = generateUploadKey(wsSegment, category, entityType, entityUuid, 'thumbnail',  filename, 'image/jpeg');
+      // ── Generate R2 keys ──────────────────────────────────────────────────
+      const baseFilename = filename.replace(/\.[^.]+$/, '');
+      const originalKey  = generateUploadKey(category,           baseFilename + '.jpg',       'image/jpeg');
+      const thumbnailKey = generateUploadKey(category + '/thumbs', baseFilename + '_thumb.jpg', 'image/jpeg');
 
       // ── Upload both to R2 ─────────────────────────────────────────────────
       const [origResult, thumbResult] = await Promise.all([

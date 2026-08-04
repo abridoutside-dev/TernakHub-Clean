@@ -1,14 +1,8 @@
-// ─── Object Key Generator — FOUNDATION-STORAGE-004A ──────────────────────────
+// ─── Object Key Generator — DB-001C-1 ────────────────────────────────────────
 //
 // Generates structured, collision-free R2 object keys.
-//
-// Format:
-//   {workspace_uuid}/{category}/{entity_type}/{entity_uuid}/{media_type}/{YYYY}/{MM}/{uuid}.{ext}
-//
-// Examples:
-//   workspace-uuid/livestock/sheep/livestock-uuid/gallery/2026/08/xxxxxxxx.webp
-//   workspace-uuid/livestock/sheep/livestock-uuid/avatar/2026/08/xxxxxxxx.webp
-//   workspace-uuid/marketplace/listing/listing-uuid/cover/2026/08/xxxxxxxx.webp
+// Format: {category}/{YYYY}/{MM}/{uuid}-{sanitized-filename}
+// Example: livestock/2026/07/a1b2c3d4-foto-sapi-001.jpg
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'node:crypto';
@@ -22,7 +16,7 @@ const EXTENSION_MAP: Record<string, string> = {
 };
 
 /** Strips unsafe path/URL characters from a filename segment. */
-function sanitizeSegment(name: string): string {
+function sanitizeFilename(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9._-]/g, '-')  // replace non-safe chars with dash
@@ -32,26 +26,18 @@ function sanitizeSegment(name: string): string {
 }
 
 /**
- * Generates a structured R2 object key following the TernakHub Constitution.
+ * Generates a structured R2 object key.
  *
- * @param workspaceId  - UUID of the owning workspace (use '_' when unknown)
- * @param category     - Top-level domain (e.g. "livestock", "marketplace")
- * @param entityType   - Sub-type within the category (e.g. "sheep", "listing")
- * @param entityUuid   - UUID of the specific entity (e.g. livestock UUID)
- * @param mediaType    - Purpose of the media: "avatar" | "cover" | "gallery" | "thumbnail"
- * @param originalFilename - Original file name from the upload (used for extension)
- * @param mimeType     - MIME type used to derive extension when original has none
+ * @param category - MediaCategory label (e.g. "livestock", "marketplace")
+ * @param originalFilename - Original file name from the upload
+ * @param mimeType - MIME type used to derive extension if missing
  */
 export function generateUploadKey(
-  workspaceId:      string,
-  category:         string,
-  entityType:       string,
-  entityUuid:       string,
-  mediaType:        string,
+  category: string,
   originalFilename: string,
-  mimeType:         string,
+  mimeType: string,
 ): string {
-  const now  = new Date();
+  const now = new Date();
   const yyyy = now.getFullYear().toString();
   const mm   = String(now.getMonth() + 1).padStart(2, '0');
 
@@ -59,25 +45,10 @@ export function generateUploadKey(
 
   // Preserve original extension; fall back to MIME-derived extension
   const origExt = path.extname(originalFilename).toLowerCase();
-  const ext     = origExt || (EXTENSION_MAP[mimeType] ?? '.bin');
+  const ext = origExt || (EXTENSION_MAP[mimeType] ?? '.bin');
 
-  const filename = `${uuid}${ext}`;
+  const baseName = sanitizeFilename(path.basename(originalFilename, origExt)) || 'image';
+  const fileName = `${uuid}-${baseName}${ext}`;
 
-  // Sanitize variable segments to ensure safe path components
-  const wsSegment         = sanitizeSegment(workspaceId)  || '_';
-  const categorySegment   = sanitizeSegment(category)     || 'general';
-  const entityTypeSegment = sanitizeSegment(entityType)   || '_';
-  const entityUuidSegment = sanitizeSegment(entityUuid)   || '_';
-  const mediaTypeSegment  = sanitizeSegment(mediaType)    || 'gallery';
-
-  return [
-    wsSegment,
-    categorySegment,
-    entityTypeSegment,
-    entityUuidSegment,
-    mediaTypeSegment,
-    yyyy,
-    mm,
-    filename,
-  ].join('/');
+  return `${category}/${yyyy}/${mm}/${fileName}`;
 }

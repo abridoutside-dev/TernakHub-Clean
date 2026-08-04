@@ -1,4 +1,4 @@
-// ─── Image Storage Service — FOUNDATION-STORAGE-003/004 ──────────────────────
+// ─── Image Storage Service — FOUNDATION-STORAGE-003/004/004A ────────────────
 //
 // Browser-side abstraction for image uploads to Cloudflare R2.
 // Migrated from Express proxy to browser pipeline + Supabase Edge Function.
@@ -27,7 +27,8 @@
 //   that blob URL lives only in memory and is revoked after use.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { MediaCategory, MediaType } from '../types/media';
+import type { MediaCategory } from '../types/media';
+import type { MediaType } from './imagePipeline';
 import { supabase } from '@/lib/supabase';
 import {
   process as pipelineProcess,
@@ -62,6 +63,22 @@ export interface UploadImageOptions {
   caption?: string | null;
   /** Achievement date persisted as taken_at. */
   takenAt?: string | null;
+  /**
+   * Media type — becomes the mandatory media_type segment of the R2 object key.
+   * Defaults to 'gallery'. Use 'avatar' for profile/workspace avatars,
+   * 'cover' for cover images, 'thumbnail' is reserved for generated thumbnails.
+   */
+  mediaType?: MediaType;
+  /**
+   * Entity type within the category (e.g. "sheep", "listing", "profile").
+   * Used as the entity_type segment of the R2 object key.
+   */
+  entityType?: string;
+  /**
+   * UUID of the specific entity this image belongs to.
+   * Used as the entity_uuid segment of the R2 object key.
+   */
+  entityUuid?: string;
 }
 
 export interface UploadImageResult {
@@ -261,15 +278,19 @@ export async function uploadImage(
     const pipeline = await pipelineProcess(file);
     const filename = options.filename ?? file.name;
 
-    // ── 2. Generate object keys ────────────────────────────────────────────────
-    // Include entity segments when a livestock ID is available for audit support.
+    // ── 2. Generate object keys (FOUNDATION-STORAGE-004A) ─────────────────────
+    // Key format: {workspace}/{category}/{entityType}/{entityUuid}/{mediaType}/{YYYY}/{MM}/{uuid}{ext}
+    // Derive entityType from explicit option, then fall back to category/livestockId heuristic.
+    const resolvedEntityType = options.entityType
+      ?? (options.category === 'livestock' && options.livestockId ? 'livestock' : undefined);
+    const resolvedEntityUuid = options.entityUuid
+      ?? (options.category === 'livestock' && options.livestockId ? options.livestockId : undefined);
     const objectKey = generateObjectKey({
       workspaceUuid:    options.ownerWorkspaceUuid,
       category:         options.category,
-      entityType:       options.category === 'livestock' && options.livestockId
-                          ? 'livestock' : undefined,
-      entityUuid:       options.category === 'livestock' && options.livestockId
-                          ? options.livestockId : undefined,
+      entityType:       resolvedEntityType,
+      entityUuid:       resolvedEntityUuid,
+      mediaType:        options.mediaType ?? 'gallery',
       originalFilename: filename,
       ext:              pipeline.original.ext,
     });
@@ -327,14 +348,14 @@ export async function uploadAvatar(
   },
 ): Promise<UploadImageOutcome> {
   const { avatarCategory, ...rest } = options;
-  return uploadImage(file, { ...rest, category: avatarCategory });
+  return uploadImage(file, { ...rest, category: avatarCategory, mediaType: 'avatar' });
 }
 
 export async function uploadCover(
   file: File,
   options: UploadImageOptions,
 ): Promise<UploadImageOutcome> {
-  return uploadImage(file, options);
+  return uploadImage(file, { ...options, mediaType: options.mediaType ?? 'cover' });
 }
 
 /**
