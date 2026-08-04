@@ -675,7 +675,7 @@ Deno.serve(async (req: Request) => {
   if (!jwt)         return errorResponse('Authorization header diperlukan', 401);
 
   const client = makeClient(jwt);
-  const { data: { user }, error: authError } = await client.auth.getUser();
+  const { data: { user }, error: authError } = await client.auth.getUser(jwt);
   if (authError || !user) return errorResponse('Token tidak valid atau sudah kedaluwarsa', 401);
 
   let payload: Record<string, unknown>;
