@@ -1279,27 +1279,292 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Supabase Auth Config Drawer (stub) ───────────────────────────────────────
+// ─── Supabase Auth Control Panel — PH-004 ─────────────────────────────────────
+//
+// REAL RUNTIME (Supabase JS Client — no Management API token required):
+//   Section 1: Auth Status — supabase.auth.getSession() probe on drawer mount
+//              → service status (operational/degraded/down), latency_ms, checked_at
+//   Section 3: Session — session.user.id, session.expires_at, refresh_token presence
+//              (refresh_token value is NEVER displayed — only presence/absence)
+//
+// NOT YET IMPLEMENTED (requires Edge Function → Supabase Management API):
+//   Section 2: Auth Providers  — GET /v1/projects/{ref}/config/auth
+//   Section 4: Security        — GET /v1/projects/{ref}/config/auth
+//   Section 6: Users           — GET /auth/v1/admin/users (Admin API, service_role)
+//   Section 7: Audit           — GET /v1/projects/{ref}/analytics/endpoints/logs.all
+//
+// MANAGED BY SUPABASE DASHBOARD (task spec — Section 5):
+//   Redirect Configuration     — Dashboard → Authentication → URL Configuration
+//
+// REMOVED (were hardcoded in previous stub — not real runtime data):
+//   "Supabase Auth (GoTrue)"    — provider implementation detail, not runtime-readable
+//   "Email · OAuth (Google, dll.)" — provider list, requires Management API
+
+const AUTH_NYI  = 'Not Yet Implemented';
+const AUTH_DASH = 'Managed by Supabase Dashboard';
 
 function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
-  const projectId   = supabaseUrl.replace(/^https?:\/\//, '').split('.')[0] ?? '—';
+  // ── Probe + session state (all populated by a single getSession() call) ────
+  const [probeState, setProbeState]           = useState<ProbeState>('probing');
+  const [probeLatency, setProbeLatency]       = useState<number | null>(null);
+  const [probeCheckedAt, setProbeCheckedAt]   = useState<string | null>(null);
+  const [sessionActive, setSessionActive]     = useState<boolean | null>(null);
+  const [sessionUserId, setSessionUserId]     = useState<string | null>(null);
+  const [sessionExpiry, setSessionExpiry]     = useState<string | null>(null);
+  const [refreshStatus, setRefreshStatus]     = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const start = Date.now();
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        const ms         = Date.now() - start;
+        const checkedAt  = new Date().toLocaleString('id-ID');
+        if (cancelled) return;
+
+        if (error) {
+          setProbeState('degraded');
+          setProbeLatency(ms);
+          setProbeCheckedAt(checkedAt);
+          setSessionActive(false);
+        } else {
+          setProbeState('operational');
+          setProbeLatency(ms);
+          setProbeCheckedAt(checkedAt);
+
+          if (session) {
+            setSessionActive(true);
+            setSessionUserId(session.user?.id ?? null);
+            // expires_at is seconds since Unix epoch
+            setSessionExpiry(
+              session.expires_at
+                ? new Date(session.expires_at * 1000).toLocaleString('id-ID')
+                : null,
+            );
+            // Never display the token value — only its presence
+            setRefreshStatus(session.refresh_token ? 'Present' : 'Absent');
+          } else {
+            setSessionActive(false);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setProbeState('down');
+          setProbeLatency(Date.now() - start);
+          setProbeCheckedAt(new Date().toLocaleString('id-ID'));
+          setSessionActive(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Probe styling (reuses the same palette as SupabaseConfigDrawer) ────────
+  const probePalette: Record<ProbeState, { color: string; bg: string; border: string }> = {
+    probing:     { color: '#475569', bg: 'rgba(71,85,105,0.07)',  border: '#e2e8f0' },
+    operational: { color: '#15803d', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.2)' },
+    degraded:    { color: '#b45309', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.2)' },
+    down:        { color: '#b91c1c', bg: 'rgba(239,68,68,0.07)',  border: 'rgba(239,68,68,0.2)' },
+  };
+  const pp = probePalette[probeState];
+
+  const probeLabel =
+    probeState === 'probing'     ? 'Probing Auth service…'              :
+    probeState === 'operational' ? `Operational — ${probeLatency}ms`   :
+    probeState === 'degraded'    ? 'Degraded — Auth service responded with error' :
+                                   'Down — Auth service unreachable';
+
+  const NO_SESSION = 'No Active Session';
 
   return (
     <DrawerOverlay onClose={onClose}>
-      <DrawerHeader icon="🔑" title="Supabase Auth Configuration" badge={<LiveBadge />} onClose={onClose} />
+      <DrawerHeader icon="🔑" title="Supabase Auth — Control Panel" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', fontSize: 12, color: '#15803d', marginTop: 8, marginBottom: 16 }}>
-          ℹ️ Konfigurasi Auth (provider, redirect URL, email template) dikelola di Supabase Dashboard → Authentication.
+
+        {/* Live status banner */}
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: pp.bg, border: `1px solid ${pp.border}`, fontSize: 12, color: pp.color, marginTop: 8, marginBottom: 16 }}>
+          🔑 Auth: <strong>{probeLabel}</strong>
+          {probeCheckedAt && (
+            <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {probeCheckedAt}</span>
+          )}
         </div>
-        <SectionLabel>Read-Only Info</SectionLabel>
-        <Field label="Auth Provider"><input style={fieldStyleRO} readOnly value="Supabase Auth (GoTrue)" /></Field>
-        <Field label="Project ID"><input style={fieldStyleRO} readOnly value={projectId} /></Field>
-        <Field label="Project URL"><input style={fieldStyleRO} readOnly value={supabaseUrl || '(tidak dikonfigurasi)'} /></Field>
-        <Field label="Providers Aktif"><input style={fieldStyleRO} readOnly value="Email · OAuth (Google, dll.)" /></Field>
+
+        {/* ── Section 1: Authentication Status ─────────────────────────────── */}
+        <SectionLabel>1 — Authentication Status</SectionLabel>
+        <Field label="Service Status"
+          hint="supabase.auth.getSession() — operational if no error, degraded on auth error, down on network failure">
+          <input style={fieldStyleRO} readOnly
+            value={probeState === 'probing' ? 'Probing…' : probeLabel}
+          />
+        </Field>
+        <Field label="Latency"
+          hint="Round-trip time for supabase.auth.getSession() measured on drawer open">
+          <input style={fieldStyleRO} readOnly
+            value={probeLatency !== null ? `${probeLatency}ms` : 'Probing…'}
+          />
+        </Field>
+        <Field label="Last Checked"
+          hint="Timestamp when this drawer was opened and the probe completed">
+          <input style={fieldStyleRO} readOnly
+            value={probeCheckedAt ?? 'Probing…'}
+          />
+        </Field>
+
+        {/* ── Section 2: Authentication Providers ──────────────────────────── */}
+        <SectionLabel>2 — Authentication Providers</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Provider configuration requires Supabase Management API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/config/auth
+          </code>
+        </div>
+        {['Email', 'Google', 'GitHub', 'Apple', 'Phone', 'Magic Link', 'Anonymous'].map(provider => (
+          <Field key={provider} label={provider}
+            hint={`Management API: GET /v1/projects/{ref}/config/auth → external_${provider.toLowerCase().replace(' ', '_')}_enabled`}>
+            <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          </Field>
+        ))}
+
+        {/* ── Section 3: Session ────────────────────────────────────────────── */}
+        <SectionLabel>3 — Session</SectionLabel>
+        <Field label="Session Active"
+          hint="supabase.auth.getSession() → session !== null">
+          <input style={fieldStyleRO} readOnly
+            value={
+              probeState === 'probing' ? 'Probing…' :
+              sessionActive === true   ? 'Active'   : NO_SESSION
+            }
+          />
+        </Field>
+        <Field label="User ID"
+          hint="session.user.id from supabase.auth.getSession()">
+          <input style={fieldStyleRO} readOnly
+            value={probeState === 'probing' ? 'Probing…' : (sessionUserId ?? NO_SESSION)}
+          />
+        </Field>
+        <Field label="JWT Expiry"
+          hint="session.expires_at (Unix timestamp seconds → local datetime) from supabase.auth.getSession()">
+          <input style={fieldStyleRO} readOnly
+            value={probeState === 'probing' ? 'Probing…' : (sessionExpiry ?? NO_SESSION)}
+          />
+        </Field>
+        <Field label="Refresh Token Status"
+          hint="Presence/absence of session.refresh_token — actual token value is never shown">
+          <input style={fieldStyleRO} readOnly
+            value={probeState === 'probing' ? 'Probing…' : (refreshStatus ?? NO_SESSION)}
+          />
+        </Field>
+
+        {/* ── Section 4: Security ───────────────────────────────────────────── */}
+        <SectionLabel>4 — Security</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Security settings require Supabase Management API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/config/auth
+          </code>
+        </div>
+        <Field label="Email Confirmation"
+          hint="Management API: mailer_autoconfirm (inverted = confirmation required)">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="MFA"
+          hint="Management API: mfa_totp_enroll_enabled, mfa_phone_enroll_enabled">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="CAPTCHA"
+          hint="Management API: captcha_enabled, captcha_provider">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Password Policy"
+          hint="Management API: password_min_length, password_required_characters">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Rate Limit"
+          hint="Management API: rate_limit_email_sent, rate_limit_sms_sent, rate_limit_otp">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+
+        {/* ── Section 5: Redirect Configuration ────────────────────────────── */}
+        <SectionLabel>5 — Redirect Configuration</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Atur di <strong>Supabase Dashboard → Authentication → URL Configuration</strong>
+        </div>
+        <Field label="Site URL"
+          hint="Supabase Dashboard → Authentication → URL Configuration → Site URL">
+          <input style={fieldStyleRO} readOnly value={AUTH_DASH} />
+        </Field>
+        <Field label="Redirect URLs"
+          hint="Supabase Dashboard → Authentication → URL Configuration → Redirect URLs (allow-list)">
+          <input style={fieldStyleRO} readOnly value={AUTH_DASH} />
+        </Field>
+        <Field label="Callback URL"
+          hint="Supabase Dashboard → Authentication → URL Configuration → OAuth callback pattern: {project_url}/auth/v1/callback">
+          <input style={fieldStyleRO} readOnly value={AUTH_DASH} />
+        </Field>
+
+        {/* ── Section 6: Users ─────────────────────────────────────────────── */}
+        <SectionLabel>6 — Users</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          User data requires Admin API (service_role) — not accessible from browser.
+          Implement via Edge Function.{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /auth/v1/admin/users
+          </code>
+        </div>
+        <Field label="Total Users"
+          hint="Admin API: GET /auth/v1/admin/users (service_role) → total_count header">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Verified Users"
+          hint="Admin API: GET /auth/v1/admin/users (service_role) → filter email_confirmed_at IS NOT NULL">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Anonymous Users"
+          hint="Admin API: GET /auth/v1/admin/users (service_role) → filter is_anonymous = true">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Active Sessions"
+          hint="Admin API: GET /auth/v1/admin/users (service_role) → aggregate active session count">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+
+        {/* ── Section 7: Audit ─────────────────────────────────────────────── */}
+        <SectionLabel>7 — Audit</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Audit log requires Supabase Management API. Implement via Edge Function.{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/analytics/endpoints/logs.all?service=auth
+          </code>
+        </div>
+        <Field label="Successful Login"
+          hint="Management API: logs.all?service=auth → filter path LIKE '%/token%' AND status=200">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Failed Login"
+          hint="Management API: logs.all?service=auth → filter path LIKE '%/token%' AND status=4xx">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Password Reset"
+          hint="Management API: logs.all?service=auth → filter path LIKE '%/recover%'">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+        <Field label="Email Verification"
+          hint="Management API: logs.all?service=auth → filter path LIKE '%/verify%'">
+          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+        </Field>
+
       </div>
       <DrawerFooter>
         <div style={{ flex: 1 }} />
+        <a
+          href="https://supabase.com/dashboard/project/_/auth/users"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          Supabase Dashboard ↗
+        </a>
         <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </DrawerFooter>
     </DrawerOverlay>
