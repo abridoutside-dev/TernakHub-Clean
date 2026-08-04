@@ -5,8 +5,8 @@
 //
 // Services checked:
 //   1. Database     — Supabase PostgreSQL reachability
-//   2. Storage      — Cloudflare R2 via /api/upload/health
-//   3. API          — Express API server via /api/ping
+//   2. Storage      — Cloudflare R2 via r2-storage Edge Function (test-connection)
+//   3. API          — Express API server (legacy; no longer probed from frontend)
 //   4. Environment  — Required env vars present and non-placeholder
 //   5. Platform     — App version from build-time injection
 //
@@ -15,6 +15,11 @@
 //   degraded       — Service responded but reported an issue
 //   down           — Service failed / timed out
 //   not_implemented — Cannot check; platform dependency not available
+//
+// FOUNDATION-STORAGE-004B:
+//   Express (/api/ping, /api/upload/health) has been removed as a frontend
+//   dependency.  The Storage check uses the r2-storage Edge Function.
+//   The API check is marked not_implemented — Express is legacy-only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from '../lib/supabase';
@@ -171,47 +176,19 @@ async function checkStorage(): Promise<ServiceCheck> {
   }
 }
 
-// ─── Check 3: API Server (Express /api/ping) ──────────────────────────────────
+// ─── Check 3: API Server (Legacy Express — no longer probed) ─────────────────
+// FOUNDATION-STORAGE-004B: Express is legacy-only. The frontend no longer
+// calls /api/ping or any Express endpoint for storage or health checks.
+// All storage operations run through the r2-storage Edge Function.
 
-async function checkAPI(): Promise<ServiceCheck> {
-  const start = Date.now();
-  try {
-    const res = await withTimeout(fetch('/api/ping'), 6000);
-    const latency_ms = Date.now() - start;
-
-    let body: { ok?: boolean; service?: string } = {};
-    try {
-      body = (await res.json()) as typeof body;
-    } catch {
-      // non-JSON
-    }
-
-    if (res.ok && body.ok) {
-      return {
-        name: 'API',
-        status: 'operational',
-        latency_ms,
-        message: `${body.service ?? 'API server'} — ${latency_ms}ms`,
-        checked_at: new Date().toISOString(),
-      };
-    }
-
-    return {
-      name: 'API',
-      status: 'degraded',
-      latency_ms,
-      message: `HTTP ${res.status} — server merespons tapi tidak healthy`,
-      checked_at: new Date().toISOString(),
-    };
-  } catch {
-    return {
-      name: 'API',
-      status: 'not_implemented',
-      latency_ms: Date.now() - start,
-      message: 'API server tidak dapat dijangkau',
-      checked_at: new Date().toISOString(),
-    };
-  }
+function checkAPI(): ServiceCheck {
+  return {
+    name:       'API',
+    status:     'not_implemented',
+    latency_ms: null,
+    message:    'Express API server adalah legacy — tidak lagi diakses dari frontend',
+    checked_at: new Date().toISOString(),
+  };
 }
 
 // ─── Check 4: Environment Variables ──────────────────────────────────────────
