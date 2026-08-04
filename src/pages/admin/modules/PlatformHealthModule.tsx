@@ -649,6 +649,31 @@ function derivePublicUrl(accountId: string, bucket: string, customDomain: string
   return '';
 }
 
+// ─── Cloudflare R2 Control Panel — PH-006 ────────────────────────────────────
+//
+// REAL RUNTIME (Supabase Edge Function — r2-storage invoke):
+//   Section 1: R2 Status   — automatic test-connection probe on drawer open
+//              → service status (operational/degraded/down), latency_ms, checked_at
+//   Section 2: Bucket      — Bucket Name + Public URL from get-config Edge Function,
+//              Connection Status from test-connection probe,
+//              Bucket Region + Visibility when returned by the probe
+//
+// NOT YET IMPLEMENTED (requires Cloudflare Management API + CF API Token):
+//   Section 3: Storage Used, Object Count
+//              (Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name}/usage)
+//              Upload Status, Download Status — live traffic metrics not readable from browser
+//   Section 4: Security — Public Access, Signed URL enforcement, Access Policy, Token Status
+//              (Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name})
+//
+// MANAGED BY CLOUDFLARE DASHBOARD (task spec — Sections 5, 6, 7):
+//   CORS, Lifecycle, Cache — Cloudflare Dashboard → R2 → [bucket] → Settings
+//
+// RETAINED (existing sections below Sections 1–7):
+//   Identity, Credential, Upload Policy, Delivery, Operations — unchanged
+
+const R2_NYI  = 'Not Yet Implemented';
+const R2_DASH = 'Managed by Cloudflare Dashboard';
+
 function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   const [cfg, setCfg]             = useState<StorageServiceConfig>(DEFAULT_STORAGE_CONFIG);
   const [loading, setLoading]     = useState(true);
@@ -696,6 +721,88 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
       setLoading(false);
     })();
   }, []);
+
+  // ── Auto test-connection probe — runs on mount, parallel with get-config ───
+  const [autoProbeState, setAutoProbeState]             = useState<ProbeState>('probing');
+  const [autoProbeLatency, setAutoProbeLatency]         = useState<number | null>(null);
+  const [autoProbeCheckedAt, setAutoProbeCheckedAt]     = useState<string | null>(null);
+  const [autoProbeMsg, setAutoProbeMsg]                 = useState<string>('Probing…');
+  const [autoBucketRegion, setAutoBucketRegion]         = useState<string | null>(null);
+  const [autoBucketVisibility, setAutoBucketVisibility] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const start = Date.now();
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          ok:                boolean;
+          status?:           string;
+          bucket?:           string;
+          message?:          string;
+          missing?:          string[];
+          error?:            string;
+          latencyMs?:        number;
+          bucketRegion?:     string;
+          storageProvider?:  string;
+          bucketVisibility?: string;
+          lastTested?:       string;
+        }>('r2-storage', { body: { action: 'test-connection' } });
+        const ms        = Date.now() - start;
+        const checkedAt = new Date().toLocaleString('id-ID');
+        if (cancelled) return;
+
+        if (error) {
+          setAutoProbeState('degraded');
+          setAutoProbeLatency(ms);
+          setAutoProbeCheckedAt(checkedAt);
+          setAutoProbeMsg(`invoke error — ${error.message}`);
+          return;
+        }
+        if (data?.ok) {
+          setAutoProbeState('operational');
+          setAutoProbeLatency(ms);
+          setAutoProbeCheckedAt(checkedAt);
+          setAutoProbeMsg(`Operational — ${ms}ms`);
+          if (data.bucketRegion)     setAutoBucketRegion(data.bucketRegion);
+          if (data.bucketVisibility) setAutoBucketVisibility(data.bucketVisibility);
+        } else {
+          const isMissing = data?.status === 'misconfigured' || (data?.missing?.length ?? 0) > 0;
+          setAutoProbeState(isMissing ? 'degraded' : 'down');
+          setAutoProbeLatency(ms);
+          setAutoProbeCheckedAt(checkedAt);
+          setAutoProbeMsg(
+            data?.error ?? data?.message ??
+            (isMissing ? 'R2 credentials belum dikonfigurasi' : 'Test connection gagal'),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const ms = Date.now() - start;
+          setAutoProbeState('down');
+          setAutoProbeLatency(ms);
+          setAutoProbeCheckedAt(new Date().toLocaleString('id-ID'));
+          setAutoProbeMsg(err instanceof Error ? err.message : 'Edge Function unreachable');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Probe palette + label (used in status banner and Section 1–2) ──────────
+  const autoProbePalette: Record<ProbeState, { color: string; bg: string; border: string }> = {
+    probing:     { color: '#475569', bg: 'rgba(71,85,105,0.07)',  border: '#e2e8f0' },
+    operational: { color: '#15803d', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.2)' },
+    degraded:    { color: '#b45309', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.2)' },
+    down:        { color: '#b91c1c', bg: 'rgba(239,68,68,0.07)',  border: 'rgba(239,68,68,0.2)' },
+  };
+  const ap = autoProbePalette[autoProbeState];
+
+  const autoProbeLabel =
+    autoProbeState === 'probing'     ? 'Probing R2…'                         :
+    autoProbeState === 'operational' ? `Operational — ${autoProbeLatency}ms` :
+    autoProbeState === 'degraded'    ? `Degraded — ${autoProbeMsg}`          :
+                                       'Down — R2 Storage unreachable';
 
   const toggleMime = (mime: string) => {
     setCfg(p => ({
@@ -840,6 +947,192 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
     <DrawerOverlay onClose={onClose}>
       <DrawerHeader icon="📦" title="Object Storage (R2) Configuration" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
+
+        {/* ── Status banner (auto-probe) ────────────────────────────────────── */}
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: ap.bg, border: `1px solid ${ap.border}`, fontSize: 12, color: ap.color, marginTop: 8, marginBottom: 16 }}>
+          📦 R2 Storage: <strong>{autoProbeLabel}</strong>
+          {autoProbeCheckedAt && (
+            <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {autoProbeCheckedAt}</span>
+          )}
+        </div>
+
+        {/* ── Section 1: R2 Status ─────────────────────────────────────────── */}
+        <SectionLabel>1 — R2 Status</SectionLabel>
+        <Field label="Service Status"
+          hint="supabase.functions.invoke('r2-storage', { action: 'test-connection' }) — operational if R2 responds OK, degraded if credentials missing, down on network failure">
+          <input style={fieldStyleRO} readOnly value={autoProbeLabel} />
+        </Field>
+        <Field label="Latency"
+          hint="Round-trip time for r2-storage → test-connection invoke measured on drawer open">
+          <input style={fieldStyleRO} readOnly
+            value={autoProbeLatency !== null ? `${autoProbeLatency}ms` : 'Probing…'}
+          />
+        </Field>
+        <Field label="Last Checked"
+          hint="Timestamp when this drawer was opened and the test-connection probe completed">
+          <input style={fieldStyleRO} readOnly value={autoProbeCheckedAt ?? 'Probing…'} />
+        </Field>
+
+        {/* ── Section 2: Bucket ────────────────────────────────────────────── */}
+        <SectionLabel>2 — Bucket</SectionLabel>
+        <Field label="Bucket Name"
+          hint="r2-storage → get-config → config.bucket (loaded from platform_config via Edge Function)">
+          <input style={fieldStyleRO} readOnly
+            value={loading ? 'Loading…' : (cfg.bucket || 'Not Configured')}
+          />
+        </Field>
+        <Field label="Public URL"
+          hint="Derived from config.accountId + config.bucket (or custom domain) — same derivation as Identity section">
+          <input style={fieldStyleRO} readOnly
+            value={loading ? 'Loading…' : (autoPublicUrl || 'Not Configured — isi Account ID dan Bucket')}
+          />
+        </Field>
+        <Field label="Connection Status"
+          hint="r2-storage → test-connection — operational if R2 presigned URL generation succeeds">
+          <input style={fieldStyleRO} readOnly
+            value={
+              autoProbeState === 'probing'     ? 'Checking…'                  :
+              autoProbeState === 'operational' ? 'Connected'                   :
+              autoProbeState === 'degraded'    ? `Degraded — ${autoProbeMsg}` :
+                                                 'Unreachable'
+            }
+          />
+        </Field>
+        {autoBucketRegion && (
+          <Field label="Bucket Region"
+            hint="r2-storage → test-connection response → bucketRegion field">
+            <input style={fieldStyleRO} readOnly value={autoBucketRegion} />
+          </Field>
+        )}
+        {autoBucketVisibility && (
+          <Field label="Bucket Visibility"
+            hint="r2-storage → test-connection response → bucketVisibility field">
+            <input style={fieldStyleRO} readOnly value={autoBucketVisibility} />
+          </Field>
+        )}
+
+        {/* ── Section 3: Storage ───────────────────────────────────────────── */}
+        <SectionLabel>3 — Storage</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Storage metrics memerlukan Cloudflare API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /client/v4/accounts/{'{id}'}/r2/buckets/{'{name}'}/usage
+          </code>
+        </div>
+        <Field label="Storage Used"
+          hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name}/usage → used_bytes">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+        <Field label="Object Count"
+          hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name}/usage → object_count">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+        <Field label="Upload Status"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Metrics → Requests (PUT/POST). Auto-probe disabled — write operations have side effects.">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+        <Field label="Download Status"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Metrics → Requests (GET). Auto-probe disabled — read operations require an existing object.">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+
+        {/* ── Section 4: Security ──────────────────────────────────────────── */}
+        <SectionLabel>4 — Security</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Security settings memerlukan Cloudflare API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /client/v4/accounts/{'{id}'}/r2/buckets/{'{name}'}
+          </code>
+        </div>
+        <Field label="Public Access"
+          hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name} → public_access (enabled/disabled). Requires CF API Token.">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+        <Field label="Signed URL"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Public Access → Allow Presigned URLs">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+        <Field label="Access Policy"
+          hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name} → storage_class + access policy">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+        <Field label="Token Status"
+          hint="Cloudflare API: GET /client/v4/user/tokens/verify — validates the CF API Token attached to the R2 bucket">
+          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+        </Field>
+
+        {/* ── Section 5: CORS ──────────────────────────────────────────────── */}
+        <SectionLabel>5 — CORS</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          CORS dikelola di{' '}
+          <strong>Cloudflare Dashboard → R2 → [bucket] → Settings → CORS Policy</strong>
+        </div>
+        <Field label="Allowed Origin"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → CORS → AllowedOrigins">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Allowed Method"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → CORS → AllowedMethods">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Allowed Header"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → CORS → AllowedHeaders">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Max Age"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → CORS → MaxAgeSeconds">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+
+        {/* ── Section 6: Lifecycle ─────────────────────────────────────────── */}
+        <SectionLabel>6 — Lifecycle</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Lifecycle dikelola di{' '}
+          <strong>Cloudflare Dashboard → R2 → [bucket] → Settings → Object Lifecycle</strong>
+        </div>
+        <Field label="Lifecycle Rules"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Object Lifecycle → Rules">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Auto Delete"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Object Lifecycle → Expiration">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Versioning"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Versioning">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Object Lock"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Object Lock">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+
+        {/* ── Section 7: Cache ─────────────────────────────────────────────── */}
+        <SectionLabel>7 — Cache</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Cache settings dikelola di{' '}
+          <strong>Cloudflare Dashboard → R2 → [bucket] → Settings</strong>
+        </div>
+        <Field label="Cache Status"
+          hint="Cloudflare Dashboard → Caching → Cache Rules → R2 bucket origin">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Cache TTL"
+          hint="Cloudflare Dashboard → Caching → Browser Cache TTL or Cache Rules for R2 bucket">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="CDN Status"
+          hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Public Access (CDN via pages.dev / custom domain)">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+        <Field label="Image Delivery"
+          hint="Cloudflare Images / Image Resizing — Cloudflare Dashboard → Images">
+          <input style={fieldStyleRO} readOnly value={R2_DASH} />
+        </Field>
+
+        {/* ── Divider before existing configuration sections ───────────────── */}
+        <div style={{ borderTop: '2px solid #f1f5f9', margin: '16px 0 4px' }} />
+
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 16 }}>
             <SkeletonBox height={36} /><SkeletonBox height={36} /><SkeletonBox height={36} />
