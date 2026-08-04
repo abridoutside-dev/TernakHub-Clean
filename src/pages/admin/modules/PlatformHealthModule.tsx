@@ -28,9 +28,9 @@ import {
 import { type ServiceCheck } from '../../../repositories/systemHealthRepository';
 import { getErrorMessage } from '../../../utils/errorUtils';
 import {
-  repoGetRecentActivityLog,
+  repoGetPlatformActivityLog,
 } from '../../../repositories/activityLogRepository';
-import type { ActivityLogWithWorkspace } from '../../../types/activityLog';
+import type { ActivityLogDbRow } from '../../../types/activityLog';
 
 // ─── Saved-config state type ──────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ interface MarketplaceStats {
   completedTransactions: number; pendingTransactions: number;
 }
 interface PlatformData {
-  workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityLogWithWorkspace[];
+  workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityLogDbRow[];
 }
 
 type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions' | 'environment';
@@ -2565,7 +2565,7 @@ export default function PlatformHealthModule() {
         const txs      = (txRes.data ?? []) as { id: string; status: string }[];
         const marketplace: MarketplaceStats = { totalListings: listings.length, activeListings: listings.filter(l => l.status === 'Aktif').length, totalTransactions: txs.length, completedTransactions: txs.filter(t => t.status === 'Selesai').length, pendingTransactions: txs.filter(t => ['Menunggu', 'Diproses', 'Negosiasi'].includes(t.status)).length };
 
-        const recentActivity = await repoGetRecentActivityLog({ limit: 15 });
+        const recentActivity = await repoGetPlatformActivityLog({ limit: 15 });
 
         if (!cancelled) {
           setData({ workspaces, marketplace, recentActivity });

@@ -32,6 +32,32 @@ function guard(error: { message: string; code?: string } | null): void {
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 /**
+ * Recent activity log entries for Platform Health — no workspace join.
+ * Returns only activity_log columns; safe when the workspaces FK is not yet
+ * registered in PostgREST's schema cache.
+ */
+export async function repoGetPlatformActivityLog(opts?: {
+  limit?: number;
+  domain?: string;
+  severity?: string;
+}): Promise<ActivityLogDbRow[]> {
+  const limit = opts?.limit ?? 100;
+
+  let q = supabase
+    .from('activity_log')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (opts?.domain)   q = q.eq('domain', opts.domain);
+  if (opts?.severity) q = q.eq('severity', opts.severity);
+
+  const { data, error } = await q;
+  guard(error);
+  return (data ?? []) as ActivityLogDbRow[];
+}
+
+/**
  * Recent platform-wide activity log entries (admin cross-workspace view).
  * Ordered by created_at DESC.
  */
