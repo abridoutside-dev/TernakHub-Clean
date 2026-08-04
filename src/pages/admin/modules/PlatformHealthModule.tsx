@@ -27,6 +27,10 @@ import {
 } from '../../../repositories/platformConfigRepository';
 import { type ServiceCheck } from '../../../repositories/systemHealthRepository';
 import { getErrorMessage } from '../../../utils/errorUtils';
+import {
+  repoGetRecentActivityLog,
+} from '../../../repositories/activityLogRepository';
+import type { ActivityLogWithWorkspace } from '../../../types/activityLog';
 
 // ─── Saved-config state type ──────────────────────────────────────────────────
 
@@ -62,12 +66,8 @@ interface MarketplaceStats {
   totalListings: number; activeListings: number; totalTransactions: number;
   completedTransactions: number; pendingTransactions: number;
 }
-interface ActivityRow {
-  id: string; action_type: string | null; description: string | null;
-  severity: string | null; domain: string | null; created_at: string; workspace_id: string | null;
-}
 interface PlatformData {
-  workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityRow[];
+  workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityLogWithWorkspace[];
 }
 
 type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions' | 'environment';
@@ -2565,11 +2565,10 @@ export default function PlatformHealthModule() {
         const txs      = (txRes.data ?? []) as { id: string; status: string }[];
         const marketplace: MarketplaceStats = { totalListings: listings.length, activeListings: listings.filter(l => l.status === 'Aktif').length, totalTransactions: txs.length, completedTransactions: txs.filter(t => t.status === 'Selesai').length, pendingTransactions: txs.filter(t => ['Menunggu', 'Diproses', 'Negosiasi'].includes(t.status)).length };
 
-        const { data: actData, error: actErr } = await supabase.from('activity_log').select('id,action_type,description,severity,domain,created_at,workspace_id').order('created_at', { ascending: false }).limit(15);
-        if (actErr) throw actErr;
+        const recentActivity = await repoGetRecentActivityLog({ limit: 15 });
 
         if (!cancelled) {
-          setData({ workspaces, marketplace, recentActivity: (actData ?? []) as ActivityRow[] });
+          setData({ workspaces, marketplace, recentActivity });
           setLastSync(new Date().toLocaleTimeString('id-ID'));
         }
       } catch (err: unknown) {
@@ -2690,7 +2689,7 @@ export default function PlatformHealthModule() {
           ) : (data?.recentActivity ?? []).length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
-              <div>Belum ada aktivitas tercatat di platform.</div>
+              <div>Belum ada aktivitas platform.</div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2701,7 +2700,7 @@ export default function PlatformHealthModule() {
                   <div key={act.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderRadius: 8, background: '#f8fafc', border: '1px solid #f1f5f9' }}>
                     <span style={{ padding: '2px 7px', borderRadius: 12, background: sevCfg.bg, color: sevCfg.color, fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{sev.toUpperCase()}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.description ?? act.action_type ?? '—'}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.description ?? act.action ?? '—'}</div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
                         {act.domain && <span style={{ fontSize: 10.5, color: '#64748b' }}>#{act.domain}</span>}
                         <span style={{ fontSize: 10.5, color: '#94a3b8' }}>{new Date(act.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
