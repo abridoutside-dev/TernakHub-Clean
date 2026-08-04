@@ -1,4 +1,4 @@
-// ─── Upload Policy — DB-001C-1 ────────────────────────────────────────────────
+// ─── Upload Policy — FOUNDATION-STORAGE-004A ─────────────────────────────────
 //
 // Single source of truth for all upload constraints.
 // All validation (multer, route handler, category checks) MUST use this
@@ -50,4 +50,25 @@ export function isAllowedMimeType(mime: string): mime is AllowedMimeType {
 /** Returns true when the category string is on the allow-list. */
 export function isAllowedCategory(cat: string): cat is UploadCategory {
   return (ALLOWED_CATEGORIES as readonly string[]).includes(cat);
+}
+
+/**
+ * Allowed media_type values.
+ * media_type is a mandatory path segment in the R2 object key.
+ */
+export const ALLOWED_MEDIA_TYPES = [
+  'avatar',
+  'cover',
+  'gallery',
+  'thumbnail',
+] as const;
+
+export type MediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
+
+/** Default media_type when the caller omits the field. */
+export const DEFAULT_MEDIA_TYPE: MediaType = 'gallery';
+
+/** Returns true when the media_type string is on the allow-list. */
+export function isAllowedMediaType(mt: string): mt is MediaType {
+  return (ALLOWED_MEDIA_TYPES as readonly string[]).includes(mt);
 }
