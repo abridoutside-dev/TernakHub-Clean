@@ -70,7 +70,7 @@ interface PlatformData {
   workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityRow[];
 }
 
-type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions';
+type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions' | 'environment';
 
 // ─── Shared UI primitives ─────────────────────────────────────────────────────
 
@@ -2124,6 +2124,259 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── Environment Control Panel — PH-007 ──────────────────────────────────────
+//
+// REAL RUNTIME (browser — import.meta.env, synchronous on drawer open):
+//   Section 1: Deployment Environment — import.meta.env.MODE, checkedAt timestamp
+//   Section 2: Required Env Vars      — presence check: VITE_SUPABASE_URL,
+//              VITE_SUPABASE_ANON_KEY (value is NEVER displayed — only Available/Missing)
+//   Section 6: Validation             — Missing Variables, Invalid Configuration
+//              derived from import.meta.env (Duplicate Variables is NYI — cannot detect
+//              duplicates from browser runtime)
+//   Section 7: Health Summary         — derived from Section 6 results
+//
+// NOT YET IMPLEMENTED (requires Supabase Management API + SUPABASE_ACCESS_TOKEN):
+//   Section 3: Supabase Edge Secrets  — GET /v1/projects/{ref}/secrets
+//   Section 6: Duplicate Variables    — GET /accounts/{id}/pages/projects/{name}
+//              → deployment_configs.*.env_vars (Cloudflare Pages API)
+//
+// MANAGED BY CLOUDFLARE DASHBOARD (task spec — Sections 4, 5):
+//   Cloudflare Pages Env Vars, Build Configuration
+
+const ENV_NYI  = 'Not Yet Implemented';
+const ENV_DASH = 'Managed by Cloudflare Dashboard';
+
+function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
+  // checkedAt captured once on drawer open — all checks are synchronous
+  const [checkedAt] = useState<string>(() => new Date().toLocaleString('id-ID'));
+
+  // ── Required variable presence checks ─────────────────────────────────────
+  // Values are NEVER read for display — only boolean presence is used.
+  const hasSupabaseUrl = Boolean(
+    (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim(),
+  );
+  const hasSupabaseKey = Boolean(
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim(),
+  );
+
+  // ── Section 6: Validation ──────────────────────────────────────────────────
+  // Invalid-format check uses only the boolean facts above, never the raw value.
+  // We re-read the values once here solely to inspect format — never to display.
+  const supabaseUrlRaw = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+  const supabaseKeyRaw = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
+
+  const missingVars: string[] = [];
+  if (!hasSupabaseUrl) missingVars.push('VITE_SUPABASE_URL');
+  if (!hasSupabaseKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
+
+  const invalidVars: string[] = [];
+  if (hasSupabaseUrl && !supabaseUrlRaw.startsWith('https://'))
+    invalidVars.push('VITE_SUPABASE_URL: expected https:// prefix');
+  if (hasSupabaseUrl && supabaseUrlRaw.includes('placeholder'))
+    invalidVars.push('VITE_SUPABASE_URL: placeholder value detected');
+  if (hasSupabaseKey && supabaseKeyRaw.includes('placeholder'))
+    invalidVars.push('VITE_SUPABASE_ANON_KEY: placeholder value detected');
+
+  // ── Section 7: Health Summary ──────────────────────────────────────────────
+  const hasError   = missingVars.length > 0;
+  const hasWarning = !hasError && invalidVars.length > 0;
+  const isReady    = !hasError && !hasWarning;
+
+  const summaryLabel = isReady ? 'Environment Ready' : hasError ? 'Configuration Error' : 'Configuration Warning';
+  const summaryIcon  = isReady ? '✅' : hasError ? '❌' : '⚠️';
+  const summaryColor: Record<string, string> = {
+    color:  isReady ? '#15803d' : hasError ? '#b91c1c' : '#b45309',
+    bg:     isReady ? 'rgba(22,163,74,0.07)'  : hasError ? 'rgba(239,68,68,0.07)'  : 'rgba(245,158,11,0.07)',
+    border: isReady ? 'rgba(22,163,74,0.2)'   : hasError ? 'rgba(239,68,68,0.2)'   : 'rgba(245,158,11,0.2)',
+  };
+
+  // ── Section 1: Deployment Environment ─────────────────────────────────────
+  const mode = (import.meta.env.MODE as string | undefined) ?? '—';
+  const envLabel =
+    mode === 'production'  ? 'Production'  :
+    mode === 'development' ? 'Development' :
+    mode === 'preview'     ? 'Preview'     :
+    mode;
+
+  // ── Inline style helpers ───────────────────────────────────────────────────
+  const varOkStyle: CSSProperties  = { ...fieldStyleRO, color: '#15803d', fontWeight: 600 };
+  const varErrStyle: CSSProperties = { ...fieldStyleRO, color: '#b91c1c', fontWeight: 600 };
+  const warnStyle: CSSProperties   = { ...fieldStyleRO, color: '#b45309', fontWeight: 600 };
+
+  return (
+    <DrawerOverlay onClose={onClose}>
+      <DrawerHeader icon="🔧" title="Environment — Control Panel" badge={<LiveBadge />} onClose={onClose} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
+
+        {/* Status banner */}
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: summaryColor.bg, border: `1px solid ${summaryColor.border}`, fontSize: 12, color: summaryColor.color, marginTop: 8, marginBottom: 16 }}>
+          {summaryIcon} Environment: <strong>{summaryLabel}</strong>
+          <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {checkedAt}</span>
+        </div>
+
+        {/* ── Section 1: Deployment Environment ───────────────────────────── */}
+        <SectionLabel>1 — Deployment Environment</SectionLabel>
+        <Field label="Current Environment"
+          hint="import.meta.env.MODE — injected by Vite at build time (development | production | preview)">
+          <input style={fieldStyleRO} readOnly value={envLabel} />
+        </Field>
+        <Field label="Production / Preview / Development"
+          hint="Derived from import.meta.env.MODE — reflects the Vite build mode active for this deployment">
+          <input style={fieldStyleRO} readOnly value={envLabel} />
+        </Field>
+        <Field label="Runtime Mode"
+          hint="import.meta.env.MODE — raw value as set by Vite; cannot be changed at runtime">
+          <input style={fieldStyleRO} readOnly value={mode} />
+        </Field>
+        <Field label="Last Checked"
+          hint="Timestamp when this drawer was opened (all environment checks are synchronous)">
+          <input style={fieldStyleRO} readOnly value={checkedAt} />
+        </Field>
+
+        {/* ── Section 2: Required Environment Variables ────────────────────── */}
+        <SectionLabel>2 — Required Environment Variables</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Hanya status keberadaan yang ditampilkan — nilai variabel tidak pernah ditampilkan.
+        </div>
+        <Field label="VITE_SUPABASE_URL"
+          hint="import.meta.env.VITE_SUPABASE_URL — checked for presence and https:// prefix. Value is never shown.">
+          <input style={hasSupabaseUrl ? varOkStyle : varErrStyle} readOnly
+            value={hasSupabaseUrl ? 'Available' : 'Missing'}
+          />
+        </Field>
+        <Field label="VITE_SUPABASE_ANON_KEY"
+          hint="import.meta.env.VITE_SUPABASE_ANON_KEY — checked for presence and non-placeholder value. Value is never shown.">
+          <input style={hasSupabaseKey ? varOkStyle : varErrStyle} readOnly
+            value={hasSupabaseKey ? 'Available' : 'Missing'}
+          />
+        </Field>
+
+        {/* ── Section 3: Supabase Edge Secrets ────────────────────────────── */}
+        <SectionLabel>3 — Supabase Edge Secrets</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Secrets tidak boleh diekspos ke browser. Kelola via Supabase Management API →{' '}
+          <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
+            GET /v1/projects/{'{ref}'}/secrets
+          </code>
+        </div>
+        <Field label="Edge Function Secrets"
+          hint="Management API: GET /v1/projects/{ref}/secrets → [{ name, created_at }] — names only, never values">
+          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+        </Field>
+        <Field label="SUPABASE_SERVICE_ROLE_KEY"
+          hint="Management API: GET /v1/projects/{ref}/secrets — presence only, value never readable from browser">
+          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+        </Field>
+        <Field label="R2 Secrets (R2_ACCOUNT_ID, R2_BUCKET, etc.)"
+          hint="Management API: GET /v1/projects/{ref}/secrets — set via: supabase secrets set KEY=value">
+          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+        </Field>
+
+        {/* ── Section 4: Cloudflare Pages Environment Variables ───────────── */}
+        <SectionLabel>4 — Cloudflare Pages Environment Variables</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Dikelola di{' '}
+          <strong>Cloudflare Dashboard → Pages → [project] → Settings → Environment Variables</strong>
+        </div>
+        <Field label="Production Variables"
+          hint="Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → deployment_configs.production.env_vars">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+        <Field label="Preview Variables"
+          hint="Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → deployment_configs.preview.env_vars">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+        <Field label="Encrypted Variables"
+          hint="Cloudflare Dashboard → Pages → [project] → Settings → Environment Variables (secret/encrypted type)">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+
+        {/* ── Section 5: Build Configuration ──────────────────────────────── */}
+        <SectionLabel>5 — Build Configuration</SectionLabel>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
+          Dikelola di{' '}
+          <strong>Cloudflare Dashboard → Pages → [project] → Settings → Builds &amp; Deployments</strong>
+        </div>
+        <Field label="Build Command"
+          hint="Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → build_config.build_command">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+        <Field label="Output Directory"
+          hint="Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → build_config.destination_dir">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+        <Field label="Node Version"
+          hint="Cloudflare Dashboard → Pages → [project] → Settings → Environment Variables → NODE_VERSION">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+        <Field label="Build Environment"
+          hint="Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → deployment_configs.production.compatibility_date">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
+        </Field>
+
+        {/* ── Section 6: Validation ────────────────────────────────────────── */}
+        <SectionLabel>6 — Validation</SectionLabel>
+        <Field label="Missing Variables"
+          hint="Checked from import.meta.env — lists required VITE_ variables absent at browser runtime">
+          <input
+            style={missingVars.length > 0 ? varErrStyle : varOkStyle}
+            readOnly
+            value={missingVars.length > 0 ? missingVars.join(', ') : 'None'}
+          />
+        </Field>
+        <Field label="Duplicate Variables"
+          hint="Cannot detect from browser runtime. Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → deployment_configs.*.env_vars">
+          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+        </Field>
+        <Field label="Invalid Configuration"
+          hint="Checked from import.meta.env — validates https:// prefix and non-placeholder values for known VITE_ vars">
+          <input
+            style={invalidVars.length > 0 ? warnStyle : varOkStyle}
+            readOnly
+            value={invalidVars.length > 0 ? invalidVars.join(' · ') : 'None'}
+          />
+        </Field>
+
+        {/* ── Section 7: Health Summary ────────────────────────────────────── */}
+        <SectionLabel>7 — Health Summary</SectionLabel>
+        <div style={{ padding: '14px 16px', borderRadius: 8, background: summaryColor.bg, border: `1px solid ${summaryColor.border}`, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 16 }}>{summaryIcon}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: summaryColor.color }}>{summaryLabel}</span>
+          </div>
+          <div style={{ fontSize: 12, color: summaryColor.color, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span>Environment Ready: {isReady ? 'Yes' : 'No'}</span>
+            <span>Configuration Complete: {!hasError ? 'Yes' : 'No'}</span>
+            {hasWarning && <span>Configuration Warning: {invalidVars.join(' · ')}</span>}
+            {hasError   && <span>Configuration Error: {missingVars.join(', ')} missing</span>}
+          </div>
+        </div>
+        <Field label="Required Variables"
+          hint="import.meta.env check — VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY">
+          <input
+            style={!hasError ? varOkStyle : varErrStyle}
+            readOnly
+            value={!hasError ? `All present (${2 - missingVars.length}/2)` : `${missingVars.length} of 2 missing`}
+          />
+        </Field>
+        <Field label="Validation Status"
+          hint="Combined result of missing variable checks + invalid format checks">
+          <input
+            style={{ ...fieldStyleRO, color: summaryColor.color, fontWeight: 600 }}
+            readOnly
+            value={summaryLabel}
+          />
+        </Field>
+
+      </div>
+      <DrawerFooter>
+        <div style={{ flex: 1 }} />
+        <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
+      </DrawerFooter>
+    </DrawerOverlay>
+  );
+}
+
 // ─── System Services Health Widget ────────────────────────────────────────────
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -2141,6 +2394,7 @@ const CONFIGURABLE: Record<string, ConfigDrawerKey> = {
   'Supabase Auth':           'supabase_auth',
   'Supabase Edge Functions': 'edge_functions',
   'Cloudflare R2':           'storage',
+  'Environment':             'environment',
 };
 
 const STATUS_CFG: Record<ServiceStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
@@ -2357,6 +2611,7 @@ export default function PlatformHealthModule() {
       {configDrawer === 'cloudflare_pages' && <CloudflarePagesConfigDrawer   onClose={closeDrawer} />}
       {configDrawer === 'supabase_auth'    && <SupabaseAuthConfigDrawer      onClose={closeDrawer} />}
       {configDrawer === 'edge_functions'   && <EdgeFunctionsConfigDrawer     onClose={closeDrawer} />}
+      {configDrawer === 'environment'      && <EnvironmentConfigDrawer       onClose={closeDrawer} />}
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 4px' }}>
 
