@@ -472,9 +472,19 @@ const handleHealth: Handler = async () => {
   // 1. HEAD bucket
   const bucketRes = await makeSignedRequest('HEAD', cfg, `/${cfg.bucket}`, '').catch(() => null);
   if (!bucketRes || (bucketRes.status !== 200 && bucketRes.status !== 204)) {
+    const r2Error = !bucketRes
+      ? 'NetworkError'
+      : bucketRes.status === 403 ? 'AccessDenied'
+      : bucketRes.status === 400 ? 'InvalidRequest'
+      : bucketRes.status === 401 ? 'InvalidAccessKeyId'
+      : bucketRes.status === 404 ? 'NoSuchBucket'
+      : bucketRes.status === 301 || bucketRes.status === 307 ? 'BucketRegionMismatch'
+      : `HTTP_${bucketRes.status}`;
     return jsonResponse({
       ok:          false,
       status:      'down',
+      r2Error,
+      httpStatus:  bucketRes?.status ?? null,
       bucket:      cfg.bucket,
       endpoint,
       publicUrl:   cfg.publicBaseUrl,
@@ -492,9 +502,17 @@ const handleHealth: Handler = async () => {
   }).catch(() => null);
 
   if (!putRes?.ok) {
+    let r2Error = 'UploadFailed';
+    if (putRes) {
+      const body = await putRes.text().catch(() => '');
+      const code = body.match(/<Code>([^<]+)<\/Code>/)?.[1];
+      r2Error = code || `HTTP_${putRes.status}`;
+    }
     return jsonResponse({
       ok:          false,
       status:      'degraded',
+      r2Error,
+      httpStatus:  putRes?.status ?? null,
       bucket:      cfg.bucket,
       endpoint,
       publicUrl:   cfg.publicBaseUrl,

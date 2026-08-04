@@ -339,11 +339,14 @@ async function checkCloudflareR2(): Promise<ServiceCheck> {
       };
     }
 
+    const r2Err = (data as Record<string, unknown>).r2Error as string | undefined;
     return {
       name:       'Cloudflare R2',
       status,
       latency_ms,
-      message:    `R2 ${status} · bucket: ${data.bucket}`,
+      message:    r2Err
+        ? `R2 ${status} · ${r2Err} · bucket: ${data.bucket}`
+        : `R2 ${status} · bucket: ${data.bucket}`,
       checked_at: data.lastChecked ?? new Date().toISOString(),
     };
   } catch (err) {
