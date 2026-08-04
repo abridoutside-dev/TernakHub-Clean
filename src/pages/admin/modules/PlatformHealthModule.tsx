@@ -704,13 +704,14 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
 
   // Load config from r2-storage Edge Function (credentials come back masked)
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLoading(true);
       try {
         const { data, error } = await supabase.functions.invoke<{
           ok: boolean; config: StorageServiceConfig; source?: string;
         }>('r2-storage', { body: { action: 'get-config' } });
-        if (!error && data?.ok && data.config) {
+        if (!cancelled && !error && data?.ok && data.config) {
           setCfg(data.config);
           if (data.config.endpoint && data.config.endpoint !== deriveEndpoint(data.config.accountId)) {
             setUseCustomEndpoint(true);
@@ -718,8 +719,9 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
           }
         }
       } catch { /* fallback to defaults */ }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, []);
 
   // ── Auto test-connection probe — runs on mount, parallel with get-config ───
@@ -936,13 +938,6 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
   const setBool = (key: keyof StorageServiceConfig) => (v: boolean) =>
     setCfg(p => ({ ...p, [key]: v }));
 
-  // ── Field error helper ──────────────────────────────────────────────────────
-  const FieldErr = ({ name }: { name: string }) => {
-    const err = fieldErrors[name];
-    if (!err) return null;
-    return <p style={{ fontSize: 11, color: '#dc2626', margin: '3px 0 0' }}>⚠ {err}</p>;
-  };
-
   return (
     <DrawerOverlay onClose={onClose}>
       <DrawerHeader icon="📦" title="Object Storage (R2) Configuration" badge={<LiveBadge />} onClose={onClose} />
@@ -1150,7 +1145,7 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
                 placeholder="a1b2c3d4e5f6…  (32 hex chars)"
                 onChange={e => onAccountIdChange(e.target.value.trim())}
               />
-              <FieldErr name="accountId" />
+              {fieldErrors.accountId && <p style={{ fontSize: 11, color: '#dc2626', margin: '3px 0 0' }}>⚠ {fieldErrors.accountId}</p>}
             </Field>
 
             <Field label="Bucket Name">
@@ -1160,7 +1155,7 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
                 placeholder="ternakhub-images"
                 onChange={e => onBucketChange(e.target.value.trim())}
               />
-              <FieldErr name="bucket" />
+              {fieldErrors.bucket && <p style={{ fontSize: 11, color: '#dc2626', margin: '3px 0 0' }}>⚠ {fieldErrors.bucket}</p>}
             </Field>
 
             {/* Endpoint — auto-generated; editable only when custom toggle is on */}
@@ -1206,7 +1201,7 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
                 placeholder="https://cdn.yourdomain.com"
                 onChange={e => onCustomDomainChange(e.target.value.trim())}
               />
-              <FieldErr name="customDomain" />
+              {fieldErrors.customDomain && <p style={{ fontSize: 11, color: '#dc2626', margin: '3px 0 0' }}>⚠ {fieldErrors.customDomain}</p>}
             </Field>
 
             {/* ── CREDENTIAL ───────────────────────────────────────────────── */}
@@ -2458,7 +2453,6 @@ function SystemServicesHealthWidget({ health, loading, savedConfigs, onConfigure
   const r2Check = health ? overlayStorageConfig(health.cloudflare_r2, savedConfigs.storage) : null;
 
   function configuredLabel(original: ServiceStatus, after: ServiceStatus): string | undefined {
-    if (original === 'not_implemented' && after === 'degraded') return 'configured';
     if (original !== 'operational' && after === 'degraded') return 'configured';
     return undefined;
   }
