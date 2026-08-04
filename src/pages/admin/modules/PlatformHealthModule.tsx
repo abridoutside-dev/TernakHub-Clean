@@ -1403,9 +1403,8 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/cf-pages/status')
-      .then(r => r.json() as Promise<CfPagesStatusData>)
-      .then(data => { if (!cancelled) setCfData(data); })
+    supabase.functions.invoke<CfPagesStatusData>('cloudflare-pages-status')
+      .then(({ data }) => { if (!cancelled && data) setCfData(data); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setCfLoading(false); });
     return () => { cancelled = true; };
@@ -1445,9 +1444,9 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
         ) : cfData?.status === 'not_configured' ? (
           <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(147,51,234,0.07)', border: '1px solid rgba(147,51,234,0.18)', fontSize: 12, color: '#7e22ce', marginTop: 8, marginBottom: 16 }}>
             ⚙️ <strong>Belum dikonfigurasi.</strong> {cfData.message}
-            <br />Tambahkan env var berikut ke Replit Secrets, lalu restart API Server:
+            <br />Tambahkan Supabase secret berikut, lalu deploy ulang Edge Function:
             <code style={{ display: 'block', marginTop: 6, padding: '6px 8px', borderRadius: 5, background: 'rgba(147,51,234,0.06)', fontSize: 11, whiteSpace: 'pre-wrap' }}>
-              CF_PAGES_ACCOUNT_ID{'\n'}CF_PAGES_API_TOKEN{'\n'}CF_PAGES_PROJECT_NAME
+              CF_API_TOKEN{'\n'}CF_ACCOUNT_ID{'\n'}CF_PAGES_PROJECT_NAME
             </code>
           </div>
         ) : cfData?.status === 'down' ? (
@@ -1463,10 +1462,10 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
         {/* ── General ─────────────────────────────────────────────────────────── */}
         <SectionLabel>General</SectionLabel>
         <Field label="Project Name" hint="Cloudflare Pages API: project.name">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.name)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.project_name)} />
         </Field>
         <Field label="Deployment Status" hint="Cloudflare Pages API: deployment.latest_stage.status">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.deployment_status)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.latest_deployment_status)} />
         </Field>
         <Field label="Production URL" hint="Cloudflare Pages API: canonical_deployment.url">
           <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.production_url)} />
@@ -1487,13 +1486,13 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
           <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.build_command)} />
         </Field>
         <Field label="Output Directory" hint="Cloudflare Pages API: project.build_config.destination_dir">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.output_directory)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.build_output_directory)} />
         </Field>
         <Field label="Last Build" hint="Cloudflare Pages API: deployment.created_on">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.deployment_created_on)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.latest_deployment_time)} />
         </Field>
         <Field label="Build Duration" hint="Cloudflare Pages API: deployment.build_time_ms">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDuration(p?.build_time_ms)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDuration(p?.deployment_duration)} />
         </Field>
         <Field label="Node Version" hint="Cloudflare Dashboard → Pages → Settings → Environment Variables (NODE_VERSION)">
           <input style={fieldStyleRO} readOnly value={CF_DASH} />
@@ -1505,10 +1504,10 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
           <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.deployment_id)} />
         </Field>
         <Field label="Deploy Time" hint="Cloudflare Pages API: deployment.created_on">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.deployment_created_on)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.latest_deployment_time)} />
         </Field>
         <Field label="Commit SHA" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_hash">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.commit_hash)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.commit_sha)} />
         </Field>
         <Field label="Commit Message" hint="Cloudflare Pages API: deployment.deployment_trigger.metadata.commit_message">
           <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.commit_message)} />
@@ -1568,16 +1567,16 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
         {/* ── Monitoring ──────────────────────────────────────────────────────── */}
         <SectionLabel>Monitoring</SectionLabel>
         <Field label="Last Deploy" hint="Cloudflare Pages API: deployment.created_on">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.deployment_created_on)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.latest_deployment_time)} />
         </Field>
         <Field label="Deploy Result" hint="Cloudflare Pages API: deployment.latest_stage.status">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.deployment_status)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : val(p?.latest_deployment_status)} />
         </Field>
         <Field label="Deploy Duration" hint="Cloudflare Pages API: deployment.build_time_ms">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDuration(p?.build_time_ms)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDuration(p?.deployment_duration)} />
         </Field>
         <Field label="Last Checked" hint="Timestamp saat status terakhir diperiksa">
-          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(cfData?.checked_at)} />
+          <input style={fieldStyleRO} readOnly value={cfLoading ? 'Memuat…' : fmtDate(p?.last_checked)} />
         </Field>
 
       </div>

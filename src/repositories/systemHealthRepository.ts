@@ -64,57 +64,73 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 // ─── Cloudflare Pages status data ────────────────────────────────────────────
-// Shape returned by the server-side /api/cf-pages/status endpoint.
+// Shape returned by the cloudflare-pages-status Supabase Edge Function.
+// Field names follow the spec from PH-CF-001.
 
 export interface CfPagesProject {
-  name: string;
-  subdomain: string;
-  production_branch: string;
-  framework: string;
-  build_command: string;
-  output_directory: string;
-  production_url: string;
-  pages_dev_url: string;
-  deployment_status: string;
-  deployment_id: string;
-  deployment_created_on: string;
-  commit_hash: string;
-  commit_message: string;
-  build_time_ms: number | null;
+  project_name:             string;
+  production_url:           string;
+  latest_deployment_status: string;
+  latest_deployment_time:   string;
+  production_branch:        string;
+  commit_sha:               string;
+  commit_message:           string;
+  framework:                string;
+  build_command:            string;
+  build_output_directory:   string;
+  deployment_id:            string;
+  deployment_duration:      number | null;
+  pages_dev_url:            string;
+  last_checked:             string;
 }
 
 export interface CfPagesStatusData {
-  status: ServiceStatus;
-  latency_ms: number;
+  ok:      boolean;
+  status:  ServiceStatus;
   message: string;
-  checked_at: string;
-  project?: CfPagesProject;
+  project: CfPagesProject | null;
 }
 
 // ─── Check 1: Cloudflare Pages ────────────────────────────────────────────────
-// Calls the server-side /api/cf-pages/status proxy endpoint which holds the
-// Cloudflare API token server-side and never exposes it to the browser.
+// Calls the cloudflare-pages-status Supabase Edge Function.
+// CF_API_TOKEN, CF_ACCOUNT_ID, CF_PAGES_PROJECT_NAME are Supabase secrets —
+// they never touch the browser.
 
 async function checkCloudflarePages(): Promise<ServiceCheck> {
   const start = Date.now();
   try {
-    const res  = await withTimeout(fetch('/api/cf-pages/status'), 8000);
-    const data = await res.json() as CfPagesStatusData;
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke<CfPagesStatusData>('cloudflare-pages-status'),
+      10000,
+    );
+    const latency_ms = Date.now() - start;
+
+    if (error) {
+      return {
+        name:       'Cloudflare Pages',
+        status:     'down',
+        latency_ms,
+        message:    `Edge Function error: ${error.message}`,
+        checked_at: new Date().toISOString(),
+      };
+    }
+
     const validStatuses: ServiceStatus[] = ['operational', 'degraded', 'down', 'not_configured', 'not_implemented'];
-    const status = validStatuses.includes(data.status) ? data.status : 'not_implemented';
+    const status = data && validStatuses.includes(data.status) ? data.status : 'not_implemented';
+
     return {
       name:       'Cloudflare Pages',
       status,
-      latency_ms: Date.now() - start,
-      message:    data.message ?? '',
-      checked_at: data.checked_at ?? new Date().toISOString(),
+      latency_ms,
+      message:    data?.message ?? '',
+      checked_at: data?.project?.last_checked ?? new Date().toISOString(),
     };
   } catch (err) {
     return {
       name:       'Cloudflare Pages',
       status:     'down',
       latency_ms: Date.now() - start,
-      message:    err instanceof Error ? err.message : 'CF Pages status tidak tersedia',
+      message:    err instanceof Error ? err.message : 'cloudflare-pages-status tidak dapat dijangkau',
       checked_at: new Date().toISOString(),
     };
   }
