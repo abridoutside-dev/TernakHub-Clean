@@ -111,8 +111,12 @@ function validatePassword(v: string): string | null {
 
 function validateConfirm(password: string, confirm: string): string | null {
   if (!confirm) return 'Konfirmasi kata sandi wajib diisi.';
-  if (confirm !== password) return 'Kata sandi tidak cocok.';
+  if (confirm !== password) return 'Password tidak sama.';
   return null;
+}
+
+function validateRequired(v: string, message: string): string | null {
+  return v.trim() ? null : message;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -246,6 +250,10 @@ export default function Register() {
   const [fullName,   setFullName]   = useState('');
   const [email,      setEmail]      = useState('');
   const [phone,      setPhone]      = useState('');
+  const [province,   setProvince]   = useState('');
+  const [regency,    setRegency]    = useState('');
+  const [district,   setDistrict]   = useState('');
+  const [village,     setVillage]   = useState('');
   const [password,   setPassword]   = useState('');
   const [confirm,    setConfirm]    = useState('');
   const [showPass,   setShowPass]   = useState(false);
@@ -254,8 +262,13 @@ export default function Register() {
   const [agreePriv,  setAgreePriv]  = useState(false);
 
   // ── Errors ──
+  const [fullNameErr, setFullNameErr] = useState<string | null>(null);
   const [emailErr,   setEmailErr]   = useState<string | null>(null);
   const [phoneErr,   setPhoneErr]   = useState<string | null>(null);
+  const [provinceErr, setProvinceErr] = useState<string | null>(null);
+  const [regencyErr, setRegencyErr] = useState<string | null>(null);
+  const [districtErr, setDistrictErr] = useState<string | null>(null);
+  const [villageErr, setVillageErr] = useState<string | null>(null);
   const [passErr,    setPassErr]    = useState<string | null>(null);
   const [confErr,    setConfErr]    = useState<string | null>(null);
   const [termsErr,   setTermsErr]   = useState<string | null>(null);
@@ -268,28 +281,43 @@ export default function Register() {
   function clearSubmit() { if (submitErr) setSubmitErr(null); }
 
   // ── Blur handlers ──
+  const onFullNameBlur = useCallback(() => setFullNameErr(validateRequired(fullName, 'Nama lengkap wajib diisi.')), [fullName]);
   const onEmailBlur = useCallback(() => setEmailErr(validateEmail(email)), [email]);
   const onPhoneBlur = useCallback(() => setPhoneErr(validatePhone(phone)), [phone]);
+  const onProvinceBlur = useCallback(() => setProvinceErr(validateRequired(province, 'Pilih Provinsi.')), [province]);
+  const onRegencyBlur = useCallback(() => setRegencyErr(validateRequired(regency, 'Pilih Kabupaten/Kota.')), [regency]);
+  const onDistrictBlur = useCallback(() => setDistrictErr(validateRequired(district, 'Pilih Kecamatan.')), [district]);
+  const onVillageBlur = useCallback(() => setVillageErr(validateRequired(village, 'Pilih Desa.')), [village]);
   const onPassBlur  = useCallback(() => setPassErr(validatePassword(password)), [password]);
   const onConfBlur  = useCallback(() => setConfErr(validateConfirm(password, confirm)), [password, confirm]);
 
   // ── Submit ──
   const handleSubmit = useCallback(async () => {
     // Run full validation
+    const nE = validateRequired(fullName, 'Nama lengkap wajib diisi.');
     const eE = validateEmail(email);
     const pE = validatePhone(phone);
+    const prE = validateRequired(province, 'Pilih Provinsi.');
+    const rE = validateRequired(regency, 'Pilih Kabupaten/Kota.');
+    const dE = validateRequired(district, 'Pilih Kecamatan.');
+    const vE = validateRequired(village, 'Pilih Desa.');
     const wE = validatePassword(password);
     const cE = validateConfirm(password, confirm);
-    const tE = (!agreeTerms || !agreePriv)
-      ? 'Anda harus menyetujui Syarat & Ketentuan dan Kebijakan Privasi.'
+    const tE = !agreeTerms
+      ? 'Anda harus menyetujui Syarat & Ketentuan.'
       : null;
 
+    setFullNameErr(nE);
     setEmailErr(eE);
     setPhoneErr(pE);
+    setProvinceErr(prE);
+    setRegencyErr(rE);
+    setDistrictErr(dE);
+    setVillageErr(vE);
     setPassErr(wE);
     setConfErr(cE);
     setTermsErr(tE);
-    if (eE || pE || wE || cE || tE) return;
+    if (nE || eE || pE || prE || rE || dE || vE || wE || cE || tE) return;
 
     setSubmitErr(null);
     setLoading(true);
@@ -303,6 +331,10 @@ export default function Register() {
         data: {
           full_name:    fullName.trim() || null,
           phone:        normalisePhone(phone),
+          province:     province.trim(),
+          regency:      regency.trim(),
+          district:      district.trim(),
+          village:       village.trim(),
           subscription: 'FREE',
           foto:         '👤',
         },
@@ -332,7 +364,7 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
-  }, [email, phone, password, confirm, fullName, agreeTerms, agreePriv, signUp, signIn, navigate]);
+  }, [email, phone, password, confirm, fullName, province, regency, district, village, agreeTerms, signUp, signIn, navigate]);
 
   const handleFormSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
@@ -379,8 +411,8 @@ export default function Register() {
     >
       <form onSubmit={handleFormSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── Full Name (optional) ── */}
-        <Field id="reg-name" label="Nama Lengkap">
+        {/* ── Full Name ── */}
+        <Field id="reg-name" label="Nama Lengkap" required error={fullNameErr}>
           <input
             id="reg-name"
             type="text"
@@ -388,9 +420,76 @@ export default function Register() {
             placeholder="Budi Santoso"
             value={fullName}
             disabled={loading}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => { setFullName(e.target.value); clearSubmit(); }}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => { setFullName(e.target.value); setFullNameErr(null); clearSubmit(); }}
+            onBlur={onFullNameBlur}
             onKeyDown={handleKeyDown}
-            style={st.input}
+            aria-invalid={!!fullNameErr}
+            style={inputStyle(!!fullNameErr)}
+          />
+        </Field>
+
+        {/* ── Location ── */}
+        <Field id="reg-province" label="Provinsi" required error={provinceErr}>
+          <input
+            id="reg-province"
+            type="text"
+            autoComplete="address-level1"
+            placeholder="Jawa Barat"
+            value={province}
+            disabled={loading}
+            onChange={(e) => { setProvince(e.target.value); setProvinceErr(null); clearSubmit(); }}
+            onBlur={onProvinceBlur}
+            onKeyDown={handleKeyDown}
+            aria-invalid={!!provinceErr}
+            style={inputStyle(!!provinceErr)}
+          />
+        </Field>
+
+        <Field id="reg-regency" label="Kabupaten/Kota" required error={regencyErr}>
+          <input
+            id="reg-regency"
+            type="text"
+            autoComplete="address-level2"
+            placeholder="Kabupaten/Kota"
+            value={regency}
+            disabled={loading}
+            onChange={(e) => { setRegency(e.target.value); setRegencyErr(null); clearSubmit(); }}
+            onBlur={onRegencyBlur}
+            onKeyDown={handleKeyDown}
+            aria-invalid={!!regencyErr}
+            style={inputStyle(!!regencyErr)}
+          />
+        </Field>
+
+        <Field id="reg-district" label="Kecamatan" required error={districtErr}>
+          <input
+            id="reg-district"
+            type="text"
+            autoComplete="address-level3"
+            placeholder="Kecamatan"
+            value={district}
+            disabled={loading}
+            onChange={(e) => { setDistrict(e.target.value); setDistrictErr(null); clearSubmit(); }}
+            onBlur={onDistrictBlur}
+            onKeyDown={handleKeyDown}
+            aria-invalid={!!districtErr}
+            style={inputStyle(!!districtErr)}
+          />
+        </Field>
+
+        <Field id="reg-village" label="Desa" required error={villageErr}>
+          <input
+            id="reg-village"
+            type="text"
+            autoComplete="address-level4"
+            placeholder="Desa"
+            value={village}
+            disabled={loading}
+            onChange={(e) => { setVillage(e.target.value); setVillageErr(null); clearSubmit(); }}
+            onBlur={onVillageBlur}
+            onKeyDown={handleKeyDown}
+            aria-invalid={!!villageErr}
+            style={inputStyle(!!villageErr)}
           />
         </Field>
 
@@ -501,7 +600,7 @@ export default function Register() {
           >
             Saya menyetujui{' '}
             <span style={st.policyLink}>Kebijakan Privasi</span>
-            {' '}TernakHub
+            {' '}TernakHub (opsional)
           </CheckboxRow>
 
           {termsErr && (
@@ -512,8 +611,30 @@ export default function Register() {
         {/* ── Submit ── */}
         <button
           type="submit"
-          disabled={loading}
-          style={{ ...st.submitBtn, ...(loading ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}
+          disabled={loading || !!(
+            validateRequired(fullName, '') ||
+            validateEmail(email) ||
+            validatePhone(phone) ||
+            validateRequired(province, '') ||
+            validateRequired(regency, '') ||
+            validateRequired(district, '') ||
+            validateRequired(village, '') ||
+            validatePassword(password) ||
+            validateConfirm(password, confirm) ||
+            !agreeTerms
+          )}
+          style={{ ...st.submitBtn, ...(loading || !!(
+            validateRequired(fullName, '') ||
+            validateEmail(email) ||
+            validatePhone(phone) ||
+            validateRequired(province, '') ||
+            validateRequired(regency, '') ||
+            validateRequired(district, '') ||
+            validateRequired(village, '') ||
+            validatePassword(password) ||
+            validateConfirm(password, confirm) ||
+            !agreeTerms
+          ) ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}
         >
           {loading ? 'Memproses…' : 'Buat Akun'}
         </button>
