@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.supabase-cli
     pkgs.udev
     pkgs.libgbm
     pkgs.gdk-pixbuf

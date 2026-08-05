@@ -576,56 +576,187 @@ const handleTestConnection: Handler = async () => {
   }
 };
 
+// ─── helpers: parse R2/S3 XML error body ─────────────────────────────────────
+
+async function parseR2Error(res: Response): Promise<{ r2Code: string; r2Message: string; rawBody: string }> {
+  const rawBody = await res.text().catch(() => '');
+  const r2Code    = rawBody.match(/<Code>([^<]+)<\/Code>/)?.[1]    ?? `HTTP_${res.status}`;
+  const r2Message = rawBody.match(/<Message>([^<]+)<\/Message>/)?.[1] ?? (rawBody.slice(0, 300) || `HTTP ${res.status}`);
+  return { r2Code, r2Message, rawBody };
+}
+
+function captureError(err: unknown): { error: string; stack: string | null } {
+  if (err instanceof Error) {
+    return { error: err.message, stack: err.stack ?? null };
+  }
+  return { error: String(err), stack: null };
+}
+
 // ─── test-upload ──────────────────────────────────────────────────────────────
 
 const handleTestUpload: Handler = async ({ jwt }) => {
+  const totalStart = Date.now();
+  console.log('[test-upload] start');
+
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
 
+  // ── validate config ──
   const cfg = getR2Config();
-  assertR2Configured(cfg);
+  const missing = (['R2_ACCOUNT_ID', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const)
+    .filter((k) => !Deno.env.get(k));
+
+  console.log('[test-upload] config check — bucket:', cfg.bucket, '| accountId:', cfg.accountId, '| missing:', missing);
+
+  if (missing.length > 0) {
+    return jsonResponse({
+      ok: false,
+      status: 'not_configured',
+      error: `Secret yang hilang: ${missing.join(', ')}`,
+      stack: null,
+      missing,
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
 
   const testKey  = `__health/test-upload-${Date.now()}.txt`;
   const testBody = `TernakHub R2 connectivity test — ${new Date().toISOString()}`;
-  const totalStart = Date.now();
+  const testBytes = new TextEncoder().encode(testBody).length;
 
-  const uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: testKey, expiresSeconds: 300 });
-
-  const uploadStart = Date.now();
-  const putRes = await fetch(uploadUrl, {
-    method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: testBody,
-  });
-  const uploadMs = Date.now() - uploadStart;
-
-  if (!putRes.ok) {
-    const text = await putRes.text().catch(() => '');
+  // ── step 1: presign PUT ──
+  let uploadUrl: string;
+  try {
+    uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: testKey, expiresSeconds: 300 });
+    console.log('[test-upload] presign PUT ok — key:', testKey, '| url prefix:', uploadUrl.slice(0, 80));
+  } catch (err) {
+    const e = captureError(err);
+    console.error('[test-upload] presign PUT failed:', e.error);
     return jsonResponse({
-      ok: false, status: 'upload_failed', httpStatus: putRes.status,
-      message: text || `HTTP ${putRes.status}`,
-      steps: { upload: false, read: false, delete: false },
+      ok: false, status: 'presign_failed',
+      error: e.error, stack: e.stack,
+      step: 'presign-upload',
       latencyMs: Date.now() - totalStart,
-    });
+    }, 200);
   }
 
-  // Read back
-  const readUrl    = await presignUrl({ method: 'GET', cfg, objectKey: testKey, expiresSeconds: 300 });
-  const readStart  = Date.now();
-  const getRes     = await fetch(readUrl);
-  const readMs     = Date.now() - readStart;
+  // ── step 2: PUT object ──
+  const uploadStart = Date.now();
+  let putRes: Response;
+  try {
+    putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/plain', 'Content-Length': String(testBytes) },
+      body: testBody,
+    });
+  } catch (err) {
+    const e = captureError(err);
+    console.error('[test-upload] fetch PUT threw:', e.error);
+    return jsonResponse({
+      ok: false, status: 'upload_network_error',
+      error: e.error, stack: e.stack,
+      step: 'put-object',
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+  const uploadMs = Date.now() - uploadStart;
+  console.log('[test-upload] PUT response —', putRes.status, putRes.statusText, '| latency:', uploadMs, 'ms');
 
-  // Delete probe
-  const deleteUrl   = await presignUrl({ method: 'GET', cfg, objectKey: testKey, expiresSeconds: 60 });
+  if (!putRes.ok) {
+    const { r2Code, r2Message, rawBody } = await parseR2Error(putRes);
+    console.error('[test-upload] PUT failed — r2Code:', r2Code, '| r2Message:', r2Message);
+    return jsonResponse({
+      ok: false, status: 'upload_failed',
+      httpStatus: putRes.status,
+      error: r2Message,
+      stack: null,
+      r2Code,
+      r2Message,
+      rawBody: rawBody.slice(0, 1000),
+      step: 'put-object',
+      testKey,
+      steps: { upload: { ok: false, latencyMs: uploadMs, httpStatus: putRes.status }, read: null, delete: null },
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+
+  // ── step 3: presign + GET (read-back) ──
+  let readUrl: string;
+  try {
+    readUrl = await presignUrl({ method: 'GET', cfg, objectKey: testKey, expiresSeconds: 300 });
+  } catch (err) {
+    const e = captureError(err);
+    console.error('[test-upload] presign GET failed:', e.error);
+    return jsonResponse({
+      ok: false, status: 'presign_read_failed',
+      error: e.error, stack: e.stack,
+      step: 'presign-download',
+      testKey,
+      steps: { upload: { ok: true, latencyMs: uploadMs, bytes: testBytes }, read: null, delete: null },
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+
+  const readStart = Date.now();
+  let getRes: Response;
+  try {
+    getRes = await fetch(readUrl);
+  } catch (err) {
+    const e = captureError(err);
+    console.error('[test-upload] fetch GET threw:', e.error);
+    return jsonResponse({
+      ok: false, status: 'read_network_error',
+      error: e.error, stack: e.stack,
+      step: 'get-object',
+      testKey,
+      steps: { upload: { ok: true, latencyMs: uploadMs, bytes: testBytes }, read: null, delete: null },
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+  const readMs = Date.now() - readStart;
+  console.log('[test-upload] GET response —', getRes.status, '| latency:', readMs, 'ms');
+
+  let readError: { r2Code: string; r2Message: string } | null = null;
+  if (!getRes.ok) {
+    const { r2Code, r2Message } = await parseR2Error(getRes);
+    readError = { r2Code, r2Message };
+    console.warn('[test-upload] GET failed — r2Code:', r2Code, '| r2Message:', r2Message);
+  }
+
+  // ── step 4: DELETE object (best-effort cleanup) ──
   const deleteStart = Date.now();
-  const delRes      = await fetch(deleteUrl.replace(/\?/, '?X-Amz-Method=DELETE&').replace('GET', 'DELETE'), { method: 'DELETE' }).catch(() => null);
-  const deleteMs    = Date.now() - deleteStart;
+  let delRes: Response | null = null;
+  let deleteError: string | null = null;
+  try {
+    delRes = await makeSignedRequest('DELETE', cfg, `/${cfg.bucket}/${testKey}`, '');
+    console.log('[test-upload] DELETE response —', delRes.status, '| latency:', Date.now() - deleteStart, 'ms');
+    if (!delRes.ok && delRes.status !== 204) {
+      const { r2Code } = await parseR2Error(delRes);
+      deleteError = r2Code;
+      console.warn('[test-upload] DELETE non-ok:', delRes.status, r2Code);
+    }
+  } catch (err) {
+    deleteError = captureError(err).error;
+    console.warn('[test-upload] DELETE threw:', deleteError);
+  }
+  const deleteMs = Date.now() - deleteStart;
+
+  const uploadOk = true;
+  const readOk   = getRes.ok;
+  const deleteOk = delRes !== null && (delRes.ok || delRes.status === 204);
+
+  console.log(`[test-upload] done — upload:${uploadOk} read:${readOk} delete:${deleteOk} total:${Date.now() - totalStart}ms`);
 
   return jsonResponse({
-    ok: true, status: 'upload_ok', testKey,
-    message: `Upload OK · Read ${getRes.ok ? 'OK' : 'FAILED'} · Delete ${delRes?.ok ? 'OK' : 'FAILED'} (total ${Date.now() - totalStart}ms)`,
+    ok: uploadOk && readOk,
+    status: uploadOk && readOk ? 'upload_ok' : 'upload_partial',
+    testKey,
+    message: `Upload ${uploadOk ? 'OK' : 'FAILED'} · Read ${readOk ? 'OK' : 'FAILED'} · Delete ${deleteOk ? 'OK' : 'FAILED'}`,
+    error: readError ? readError.r2Message : null,
+    stack: null,
     steps: {
-      upload: { ok: true,        latencyMs: uploadMs, bytes: new TextEncoder().encode(testBody).length },
-      read:   { ok: getRes.ok,   latencyMs: readMs,   bytes: Number(getRes.headers.get('content-length') ?? 0), httpStatus: getRes.status },
-      delete: { ok: delRes?.ok ?? false, latencyMs: deleteMs },
+      upload: { ok: uploadOk, latencyMs: uploadMs, bytes: testBytes, httpStatus: putRes.status },
+      read:   { ok: readOk,   latencyMs: readMs,   bytes: Number(getRes.headers.get('content-length') ?? 0), httpStatus: getRes.status, r2Error: readError },
+      delete: { ok: deleteOk, latencyMs: deleteMs, error: deleteError },
     },
     latencyMs: Date.now() - totalStart,
   });
@@ -634,35 +765,124 @@ const handleTestUpload: Handler = async ({ jwt }) => {
 // ─── test-download ────────────────────────────────────────────────────────────
 
 const handleTestDownload: Handler = async ({ jwt, payload }) => {
+  const totalStart = Date.now();
+  console.log('[test-download] start');
+
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
 
-  const cfg       = getR2Config();
-  assertR2Configured(cfg);
-  const objectKey = String(payload.objectKey ?? '');
-  if (!objectKey) return errorResponse('objectKey diperlukan untuk test-download');
+  // ── validate config ──
+  const cfg = getR2Config();
+  const missing = (['R2_ACCOUNT_ID', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const)
+    .filter((k) => !Deno.env.get(k));
 
-  const downloadUrl = await presignUrl({ method: 'GET', cfg, objectKey, expiresSeconds: 300 });
-  const start       = Date.now();
-  const getRes      = await fetch(downloadUrl);
-  const latencyMs   = Date.now() - start;
+  console.log('[test-download] config check — bucket:', cfg.bucket, '| accountId:', cfg.accountId, '| missing:', missing);
 
-  if (!getRes.ok) {
+  if (missing.length > 0) {
     return jsonResponse({
-      ok: false, status: 'download_failed', httpStatus: getRes.status, latencyMs,
-      message: `HTTP ${getRes.status}`,
-    });
+      ok: false,
+      status: 'not_configured',
+      error: `Secret yang hilang: ${missing.join(', ')}`,
+      stack: null,
+      missing,
+      latencyMs: Date.now() - totalStart,
+    }, 200);
   }
 
+  const objectKey = String(payload.objectKey ?? '').trim();
+  console.log('[test-download] objectKey:', objectKey || '(empty)');
+
+  if (!objectKey) {
+    return jsonResponse({
+      ok: false,
+      status: 'invalid_request',
+      error: 'objectKey diperlukan untuk test-download',
+      stack: null,
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+
+  // ── step 1: presign GET ──
+  let downloadUrl: string;
+  try {
+    downloadUrl = await presignUrl({ method: 'GET', cfg, objectKey, expiresSeconds: 300 });
+    console.log('[test-download] presign GET ok — url prefix:', downloadUrl.slice(0, 80));
+  } catch (err) {
+    const e = captureError(err);
+    console.error('[test-download] presign GET failed:', e.error);
+    return jsonResponse({
+      ok: false,
+      status: 'presign_failed',
+      error: e.error,
+      stack: e.stack,
+      step: 'presign-download',
+      objectKey,
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+
+  // ── step 2: fetch object ──
+  const fetchStart = Date.now();
+  let getRes: Response;
+  try {
+    getRes = await fetch(downloadUrl);
+  } catch (err) {
+    const e = captureError(err);
+    console.error('[test-download] fetch GET threw:', e.error);
+    return jsonResponse({
+      ok: false,
+      status: 'download_network_error',
+      error: e.error,
+      stack: e.stack,
+      step: 'get-object',
+      objectKey,
+      latencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+  const latencyMs = Date.now() - fetchStart;
+  console.log('[test-download] GET response —', getRes.status, getRes.statusText, '| latency:', latencyMs, 'ms');
+
+  if (!getRes.ok) {
+    const { r2Code, r2Message, rawBody } = await parseR2Error(getRes);
+    console.error('[test-download] GET failed — r2Code:', r2Code, '| r2Message:', r2Message);
+    return jsonResponse({
+      ok: false,
+      status: 'download_failed',
+      httpStatus: getRes.status,
+      error: r2Message,
+      stack: null,
+      r2Code,
+      r2Message,
+      rawBody: rawBody.slice(0, 1000),
+      step: 'get-object',
+      objectKey,
+      latencyMs,
+      totalLatencyMs: Date.now() - totalStart,
+    }, 200);
+  }
+
+  const contentType   = getRes.headers.get('content-type')   ?? 'unknown';
+  const contentLength = Number(getRes.headers.get('content-length') ?? 0);
+  const etag          = getRes.headers.get('etag')           ?? null;
+  const lastModified  = getRes.headers.get('last-modified')  ?? null;
+
+  console.log(`[test-download] done — contentType:${contentType} contentLength:${contentLength} total:${Date.now() - totalStart}ms`);
+
   return jsonResponse({
-    ok:            true,
-    status:        'download_ok',
+    ok:             true,
+    status:         'download_ok',
+    error:          null,
+    stack:          null,
     objectKey,
-    contentType:   getRes.headers.get('content-type')   ?? 'unknown',
-    contentLength: Number(getRes.headers.get('content-length') ?? 0),
-    httpStatus:    getRes.status,
+    bucket:         cfg.bucket,
+    contentType,
+    contentLength,
+    etag,
+    lastModified,
+    httpStatus:     getRes.status,
     latencyMs,
-    message:       `Test download berhasil dari ${cfg.bucket}/${objectKey}`,
+    totalLatencyMs: Date.now() - totalStart,
+    message:        `Test download berhasil dari ${cfg.bucket}/${objectKey}`,
   });
 };
 
@@ -715,8 +935,16 @@ Deno.serve(async (req: Request) => {
   try {
     return await handler({ payload, userId: user.id, jwt });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
-    console.error(`[r2-storage] action=${action} error:`, err);
-    return errorResponse(message, 500);
+    const isErr = err instanceof Error;
+    const message = isErr ? err.message : String(err);
+    const stack   = isErr ? (err.stack ?? null) : null;
+    console.error(`[r2-storage] action=${action} unhandled error:`, err);
+    return jsonResponse({
+      ok:     false,
+      status: 'server_error',
+      action,
+      error:  message,
+      stack,
+    }, 500);
   }
 });
