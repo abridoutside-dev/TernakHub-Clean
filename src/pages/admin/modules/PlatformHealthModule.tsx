@@ -2610,12 +2610,37 @@ function UserAuthConfigDrawer({ onClose }: { onClose: () => void }) {
     setSaving(true);
     setMsg(null);
     try {
+      // ── Step 1: PATCH Supabase runtime via Management API (edge function) ──
+      // This actually changes auth behaviour in Supabase — not just a local record.
+      const { data, error } = await supabase.functions.invoke<{
+        ok: boolean;
+        updated?: Record<string, unknown>;
+        confirmed?: Record<string, unknown>;
+        error?: string;
+      }>('platform-health', {
+        body: {
+          action:                    'auth-config-update',
+          enableRegistration:        cfg.enableRegistration,
+          enableEmailVerification:   cfg.enableEmailVerification,
+          sessionTimeoutSec:         cfg.sessionTimeoutSec,
+          passwordMinLength:         cfg.passwordMinLength,
+          passwordRequireUppercase:  cfg.passwordRequireUppercase,
+          passwordRequireNumbers:    cfg.passwordRequireNumbers,
+          passwordRequireSpecial:    cfg.passwordRequireSpecial,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error(data?.error ?? 'auth-config-update gagal');
+
+      // ── Step 2: Persist to platform_config as reference/cache ──────────────
       await repoUpsertServiceConfig(
         CONFIG_KEYS.auth,
         cfg as unknown as Record<string, unknown>,
-        { description: 'Auth service configuration', isPublic: false },
+        { description: 'Auth service configuration — synced to Supabase Management API', isPublic: false },
       );
-      setMsg('✅ Konfigurasi disimpan');
+
+      setMsg('✅ Supabase runtime diperbarui');
     } catch (err) {
       setMsg(`❌ ${getErrorMessage(err)}`);
     } finally {
@@ -2630,9 +2655,9 @@ function UserAuthConfigDrawer({ onClose }: { onClose: () => void }) {
     <DrawerOverlay onClose={onClose}>
       <DrawerHeader icon="⚙️" title="Auth Configuration" badge={<LiveBadge />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
-        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginTop: 10, marginBottom: 16 }}>
-          Konfigurasi disimpan di <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>platform_config</code> (key: <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>{CONFIG_KEYS.auth}</code>).
-          Bukan API key.
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', fontSize: 11.5, color: '#1d4ed8', marginTop: 10, marginBottom: 16 }}>
+          🔗 Simpan → <strong>PATCH Supabase Management API</strong> secara langsung.<br />
+          <span style={{ opacity: 0.8 }}>Endpoint: <code style={{ fontSize: 10.5, background: 'rgba(59,130,246,0.08)', padding: '1px 4px', borderRadius: 3 }}>PATCH /v1/projects/&#123;ref&#125;/config/auth</code> via <code style={{ fontSize: 10.5, background: 'rgba(59,130,246,0.08)', padding: '1px 4px', borderRadius: 3 }}>platform-health</code> edge function.</span>
         </div>
 
         {loading ? (

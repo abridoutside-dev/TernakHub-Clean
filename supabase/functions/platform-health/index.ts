@@ -86,7 +86,11 @@ function projectRef(): string {
   return url.match(/https?:\/\/([\w-]+)\./)?.[1] ?? '';
 }
 
-async function managementApiFetch(path: string): Promise<Response> {
+async function managementApiFetch(
+  path: string,
+  method: 'GET' | 'PATCH' = 'GET',
+  body?: Record<string, unknown>,
+): Promise<Response> {
   const token = Deno.env.get('SUPABASE_ACCESS_TOKEN') ?? '';
   if (!token) {
     throw new Error('SUPABASE_ACCESS_TOKEN belum dikonfigurasi di Edge Function secrets');
@@ -94,10 +98,12 @@ async function managementApiFetch(path: string): Promise<Response> {
   const ref = projectRef();
   if (!ref) throw new Error('Tidak dapat menentukan project ref dari SUPABASE_URL');
   return fetch(`https://api.supabase.com/v1/projects/${ref}${path}`, {
+    method,
     headers: {
       Authorization:  `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 }
 
@@ -531,15 +537,106 @@ const handleAuthHealth: Handler = async () => {
   });
 };
 
+// ─── Action: auth-config-update ───────────────────────────────────────────────
+// PATCH /v1/projects/:ref/config/auth via Management API.
+// Maps AuthServiceConfig fields → Supabase auth config field names.
+// Requires SUPABASE_ACCESS_TOKEN in Edge Function secrets.
+//
+// Field mapping:
+//   enableRegistration       → disable_signup          (inverted)
+//   enableEmailVerification  → mailer_autoconfirm      (inverted)
+//   sessionTimeoutSec        → jwt_exp
+//   passwordMinLength        → password_min_length
+//   passwordRequire*         → password_required_characters (colon-joined char classes)
+
+const handleAuthConfigUpdate: Handler = async ({ payload }) => {
+  const updates: Record<string, unknown> = {};
+
+  // ── Registration ────────────────────────────────────────────────────────────
+  if (typeof payload.enableRegistration === 'boolean') {
+    updates.disable_signup = !payload.enableRegistration;
+  }
+
+  // ── Email Verification ──────────────────────────────────────────────────────
+  if (typeof payload.enableEmailVerification === 'boolean') {
+    // mailer_autoconfirm = true  → no verification required
+    // mailer_autoconfirm = false → verification required (email verification ON)
+    updates.mailer_autoconfirm = !payload.enableEmailVerification;
+  }
+
+  // ── Session Timeout ─────────────────────────────────────────────────────────
+  if (typeof payload.sessionTimeoutSec === 'number' && payload.sessionTimeoutSec >= 300) {
+    updates.jwt_exp = payload.sessionTimeoutSec;
+  }
+
+  // ── Password Policy ─────────────────────────────────────────────────────────
+  if (typeof payload.passwordMinLength === 'number' && payload.passwordMinLength >= 6) {
+    updates.password_min_length = payload.passwordMinLength;
+  }
+
+  // password_required_characters: colon-separated character groups.
+  // Supabase requires at least one char from each group.
+  if (
+    typeof payload.passwordRequireUppercase === 'boolean' ||
+    typeof payload.passwordRequireNumbers   === 'boolean' ||
+    typeof payload.passwordRequireSpecial   === 'boolean'
+  ) {
+    const groups: string[] = [];
+    if (payload.passwordRequireUppercase === true)
+      groups.push('abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+    if (payload.passwordRequireNumbers === true)
+      groups.push('0123456789');
+    if (payload.passwordRequireSpecial === true)
+      groups.push('!@#$%^&*()_+-=[]{}|;:,.<>?');
+    updates.password_required_characters = groups.join(':');
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return jsonResponse({ ok: false, error: 'Tidak ada field yang dapat diupdate' }, 400);
+  }
+
+  try {
+    const res = await managementApiFetch('/config/auth', 'PATCH', updates);
+    if (res.ok) {
+      const data = await res.json() as Record<string, unknown>;
+      // Return the patched fields back so the UI can confirm what changed
+      return jsonResponse({
+        ok:      true,
+        updated: updates,
+        // Reflect back the fields the API confirmed
+        confirmed: {
+          disable_signup:               data.disable_signup,
+          mailer_autoconfirm:           data.mailer_autoconfirm,
+          jwt_exp:                      data.jwt_exp,
+          password_min_length:          data.password_min_length,
+          password_required_characters: data.password_required_characters,
+        },
+      });
+    } else {
+      const text = await res.text().catch(() => '');
+      return jsonResponse({
+        ok:    false,
+        error: `Management API HTTP ${res.status}: ${text.slice(0, 300)}`,
+      });
+    }
+  } catch (err) {
+    return jsonResponse({
+      ok:    false,
+      error: err instanceof Error ? err.message : 'Management API tidak dapat dijangkau',
+    });
+  }
+};
+
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 const handlers: Record<string, Handler> = {
-  'db-info':        handleDbInfo,
-  'auth-config':    handleAuthConfig,
-  'functions-list': handleFunctionsList,
-  'secrets-list':   handleSecretsList,
-  'auth-users':     handleAuthUsers,
-  'auth-health':    handleAuthHealth,
+  'db-info':              handleDbInfo,
+  'auth-config':          handleAuthConfig,
+  'auth-config-update':   handleAuthConfigUpdate,
+  'functions-list':       handleFunctionsList,
+  'secrets-list':         handleSecretsList,
+  'auth-users':           handleAuthUsers,
+  'auth-health':          handleAuthHealth,
 };
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
