@@ -123,26 +123,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return respond({ ok: false, status: 'down', message: 'Authorization header diperlukan', project: null });
   }
 
-  // Resolve admin status — capture userId for debug
+  // Resolve admin status — capture full auth response for debug
   let userId: string | null = null;
   let isAdmin = false;
+  let authDebug: Record<string, unknown> = {};
   try {
     const sbUrl = Deno.env.get('SUPABASE_URL')      ?? '';
     const sbKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    // Do NOT set global.headers.Authorization here — auth.getUser(jwt) sets it
+    // internally via GoTrueClient. Overriding it in global.headers causes a
+    // header conflict that makes auth.getUser return user=null.
     const client = createClient(sbUrl, sbKey, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-      auth:   { persistSession: false },
+      auth: { persistSession: false },
     });
-    const { data: { user } } = await client.auth.getUser(jwt);
-    userId  = user?.id ?? null;
-    isAdmin = user?.user_metadata?.role === 'platform_admin';
-  } catch (_) { /* treat as not-admin */ }
+    const { data, error } = await client.auth.getUser(jwt);
+    authDebug = {
+      hasJwt,
+      authError:  error?.message  ?? null,
+      authStatus: (error as { status?: number } | null)?.status ?? null,
+      authCode:   (error as { code?: string }   | null)?.code   ?? null,
+      user:       data?.user ?? null,
+    };
+    userId  = data?.user?.id ?? null;
+    isAdmin = data?.user?.user_metadata?.role === 'platform_admin';
+  } catch (e) {
+    authDebug = {
+      hasJwt,
+      authError:  e instanceof Error ? e.message : String(e),
+      authStatus: null,
+      authCode:   null,
+      user:       null,
+    };
+  }
 
-  // Patch _debug with auth result
+  // Patch _debug with full auth result
   function respondWithAuth(body: Record<string, unknown>, httpStatus = 200): Response {
     const payload = {
       ...body,
-      _debug: { hasJwt, missingSecrets, userId, isPlatformAdmin: isAdmin },
+      _debug: { ...authDebug, missingSecrets, isPlatformAdmin: isAdmin },
     };
     console.log('[cloudflare-pages-status] RETURN:', JSON.stringify(payload));
     return jsonResponse(payload, httpStatus);
