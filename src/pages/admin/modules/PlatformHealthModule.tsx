@@ -215,15 +215,84 @@ function SaveFeedback({ msg }: { msg: string | null }) {
 //   • Project Region — derived: second subdomain segment of VITE_SUPABASE_URL
 //   • Database Status + Latency — live probe: supabase.from('workspaces').select(head:true)
 //
-// MANAGED BY TERNAKHUB (NYI) — requires Edge Function → Supabase service role
-// or Supabase Management API (SUPABASE_ACCESS_TOKEN not yet configured):
-//   All other fields: Database Version, Connection/Backup/Database/Security/Monitoring sections.
-//   Each field hint documents the exact Edge Function action or Management API endpoint needed.
-//
-// REMOVED (was hardcoded in previous version):
-//   • "Database Version: PostgreSQL 15" — replaced with NYI label
+interface DbInfo {
+  version: string | null;
+  max_connections: string | null;
+  active_connections: number | null;
+  database_size: string | null;
+  extensions: Array<{ extname?: string; extversion?: string }>;
+  schemas: string[];
+  latest_migration: string | null;
+  rls_tables: Array<{ tablename?: string; rowsecurity?: boolean }>;
+  checked_at: string;
+}
 
-const DB_NYI = 'Managed by TernakHub (Not Yet Implemented)';
+interface AuthConfigSnapshot {
+  external_email_enabled: boolean | null;
+  external_google_enabled: boolean | null;
+  external_github_enabled: boolean | null;
+  external_apple_enabled: boolean | null;
+  external_phone_enabled: boolean | null;
+  external_magic_link_enabled: boolean | null;
+  external_anonymous_sign_ins_enabled: boolean | null;
+  mailer_autoconfirm: boolean | null;
+  mfa_totp_enroll_enabled: boolean | null;
+  mfa_phone_enroll_enabled: boolean | null;
+  captcha_enabled: boolean | null;
+  captcha_provider: string | null;
+  password_min_length: number | null;
+  password_required_characters: string | null;
+  rate_limit_email_sent: number | null;
+  rate_limit_sms_sent: number | null;
+  rate_limit_otp: number | null;
+  site_url: string | null;
+  additional_redirect_urls: string[] | null;
+}
+
+interface AuthUsersSnapshot {
+  total: number;
+  verified: number;
+  anonymous: number;
+  active_last_24h: number;
+  checked_at: string;
+}
+
+interface FunctionSnapshot {
+  slug: string;
+  name: string;
+  status: string;
+  version: number;
+  updated_at: string;
+}
+
+interface SecretSnapshot {
+  name: string;
+}
+
+const DATA_UNAVAILABLE = 'Tidak tersedia dari probe';
+
+interface PlatformActionEnvelope<T> {
+  ok: boolean;
+  error?: string;
+  [key: string]: unknown;
+  data?: T;
+}
+
+async function invokePlatformAction<T>(action: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<PlatformActionEnvelope<T>>('platform-health', {
+    body: { action },
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? `${action} gagal`);
+  return data as T;
+}
+
+function liveValue(value: unknown, loading = false): string {
+  if (loading) return 'Memuat…';
+  if (value === null || value === undefined || value === '') return 'Tidak tersedia dari probe';
+  if (typeof value === 'boolean') return value ? 'Aktif' : 'Nonaktif';
+  return String(value);
+}
 
 type ProbeState = 'probing' | 'operational' | 'degraded' | 'down';
 
@@ -235,6 +304,9 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
+  const [dbInfoError, setDbInfoError] = useState<string | null>(null);
+  const [dbInfoLoading, setDbInfoLoading] = useState(true);
 
   // ── Runtime data: from VITE_SUPABASE_URL (no network call needed) ──────────
   const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
@@ -291,6 +363,15 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    invokePlatformAction<{ db_info: DbInfo }>('db-info')
+      .then(result => { if (!cancelled) setDbInfo(result.db_info); })
+      .catch(err => { if (!cancelled) setDbInfoError(getErrorMessage(err)); })
+      .finally(() => { if (!cancelled) setDbInfoLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Existing handlers (unchanged) ─────────────────────────────────────────
   const handleSave = async () => {
     setSaving(true); setSaveMsg(null);
@@ -339,18 +420,23 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
           🗄️ Database: <strong>{probeMsg}</strong>
           {probeState !== 'probing' && (
             <span style={{ marginLeft: 8, opacity: 0.7 }}>
-              · Field bertanda <em>"{DB_NYI}"</em> memerlukan Edge Function → Supabase service role / Management API.
+              · Data database diambil dari action <code>db-info</code> melalui Edge Function dengan service role.
             </span>
           )}
         </div>
+        {dbInfoError && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 12, color: '#b91c1c', marginBottom: 16 }}>
+            ❌ db-info: {dbInfoError}
+          </div>
+        )}
 
         {loading ? <SkeletonBox height={300} /> : (
           <>
             {/* ── Section 1: General ────────────────────────────────────────── */}
             <SectionLabel>1 — General</SectionLabel>
             <Field label="Project Name"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref (Supabase Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Nama proyek tidak dikembalikan oleh probe database; identitas proyek ditampilkan dari URL Supabase.">
+              <input style={fieldStyleRO} readOnly value={projectId || 'Tidak tersedia dari environment'} />
             </Field>
             <Field label="Project ID"
               hint="Derived from VITE_SUPABASE_URL: first subdomain segment">
@@ -361,8 +447,8 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
               <input style={fieldStyleRO} readOnly value={region} />
             </Field>
             <Field label="Database Version"
-              hint={`Edge Function action needed: "db-info" → SELECT version() via service role`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Edge Function action db-info → SELECT version()">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.version, dbInfoLoading)} />
             </Field>
             <Field label="Database Status"
               hint="Live probe: supabase.from('workspaces').select(head:true)">
@@ -376,81 +462,81 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
             {/* ── Section 2: Connection ─────────────────────────────────────── */}
             <SectionLabel>2 — Connection</SectionLabel>
             <Field label="Pooling"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/database/pooling`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Pooling tidak termasuk response db-info; status ditampilkan apa adanya dari probe.">
+              <input style={fieldStyleRO} readOnly value="Tidak tersedia dari probe" />
             </Field>
             <Field label="Connection Limit"
-              hint={`Edge Function action needed: "db-info" → pg_catalog.pg_settings WHERE name = 'max_connections'`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Edge Function action db-info → pg_settings.max_connections">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.max_connections, dbInfoLoading)} />
             </Field>
             <Field label="Active Connection"
-              hint={`Edge Function action needed: "db-info" → SELECT count(*) FROM pg_stat_activity (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Edge Function action db-info → pg_stat_activity">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.active_connections, dbInfoLoading)} />
             </Field>
             <Field label="Database Size"
-              hint={`Edge Function action needed: "db-info" → SELECT pg_database_size(current_database()) (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Edge Function action db-info → pg_database_size(current_database())">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.database_size, dbInfoLoading)} />
             </Field>
             <Field label="Storage Usage"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Storage object usage tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Tidak tersedia dari probe" />
             </Field>
 
             {/* ── Section 3: Backup ────────────────────────────────────────── */}
             <SectionLabel>3 — Backup</SectionLabel>
             <Field label="Backup Status"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Backup dikelola oleh Supabase dan tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Dikelola di Supabase Dashboard" />
             </Field>
             <Field label="Last Backup"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Backup dikelola oleh Supabase dan tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Dikelola di Supabase Dashboard" />
             </Field>
             <Field label="Point In Time Recovery"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="PITR dikelola oleh Supabase dan tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Dikelola di Supabase Dashboard" />
             </Field>
             <Field label="Retention"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/database/backups (Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Retention dikelola oleh Supabase dan tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Dikelola di Supabase Dashboard" />
             </Field>
 
             {/* ── Section 4: Database ───────────────────────────────────────── */}
             <SectionLabel>4 — Database</SectionLabel>
             <Field label="Extensions"
-              hint={`Edge Function action needed: "db-info" → SELECT extname, extversion FROM pg_catalog.pg_extension (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Edge Function action db-info → pg_catalog.pg_extension">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.extensions?.map(e => `${e.extname ?? '?'} ${e.extversion ?? ''}`).join(', '), dbInfoLoading)} />
             </Field>
             <Field label="Schema Version"
-              hint={`Edge Function action needed: "db-info" → SELECT schema_name FROM information_schema.schemata (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Schema names dari information_schema melalui action db-info">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.schemas?.join(', '), dbInfoLoading)} />
             </Field>
             <Field label="Migration Version"
-              hint={`Edge Function action needed: "db-info" → SELECT version FROM supabase_migrations.schema_migrations ORDER BY 1 DESC LIMIT 1 (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Migration terakhir dari supabase_migrations melalui action db-info">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.latest_migration, dbInfoLoading)} />
             </Field>
             <Field label="Replication"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/database/replication (Management API)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Status replication tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Tidak tersedia dari probe" />
             </Field>
 
             {/* ── Section 5: Security ───────────────────────────────────────── */}
             <SectionLabel>5 — Security</SectionLabel>
             <Field label="RLS Status"
-              hint={`Edge Function action needed: "db-info" → SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Daftar tabel public dan rowsecurity dari action db-info">
+              <input style={fieldStyleRO} readOnly value={liveValue(dbInfo?.rls_tables?.filter(t => t.rowsecurity).length + '/' + (dbInfo?.rls_tables?.length ?? 0) + ' tabel aktif', dbInfoLoading)} />
             </Field>
             <Field label="Database Encryption"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref (Management API) → project.db_encryption`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Informasi encryption dikelola oleh Supabase dan tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Dikelola di Supabase Dashboard" />
             </Field>
             <Field label="SSL"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/database (Management API) → ssl_enforced`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="SSL dikelola oleh Supabase dan tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Dikelola di Supabase Dashboard" />
             </Field>
             <Field label="API Protection"
-              hint={`Edge Function action needed: "db-info" → GET /v1/projects/:ref/config/auth (Management API) → jwt_secret status`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="JWT secret tidak pernah dibaca atau ditampilkan oleh aplikasi.">
+              <input style={fieldStyleRO} readOnly value="Rahasia dikelola Supabase" />
             </Field>
 
             {/* ── Section 6: Monitoring ─────────────────────────────────────── */}
@@ -470,16 +556,16 @@ function SupabaseConfigDrawer({ onClose }: { onClose: () => void }) {
               />
             </Field>
             <Field label="Query Health"
-              hint={`Edge Function action needed: "db-info" → SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10 (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Query health tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Tidak tersedia dari probe" />
             </Field>
             <Field label="Slow Query"
-              hint={`Edge Function action needed: "db-info" → SELECT * FROM pg_stat_statements WHERE mean_time > 1000 (service role + pg_stat_statements extension)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Slow query tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Tidak tersedia dari probe" />
             </Field>
             <Field label="Error Count"
-              hint={`Edge Function action needed: "db-info" → SELECT count(*) FROM pg_stat_activity WHERE state = 'idle in transaction (aborted)' (service role)`}>
-              <input style={fieldStyleRO} readOnly value={DB_NYI} />
+              hint="Error count tidak termasuk response db-info.">
+              <input style={fieldStyleRO} readOnly value="Tidak tersedia dari probe" />
             </Field>
 
             {/* ── Settings (existing editable config — unchanged) ───────────── */}
@@ -665,12 +751,8 @@ function derivePublicUrl(accountId: string, bucket: string, customDomain: string
 //              Connection Status from test-connection probe,
 //              Bucket Region + Visibility when returned by the probe
 //
-// NOT YET IMPLEMENTED (requires Cloudflare Management API + CF API Token):
-//   Section 3: Storage Used, Object Count
-//              (Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name}/usage)
-//              Upload Status, Download Status — live traffic metrics not readable from browser
-//   Section 4: Security — Public Access, Signed URL enforcement, Access Policy, Token Status
-//              (Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name})
+//   Storage usage, traffic metrics, and bucket security policy are not returned
+//   by the read-only r2-storage health probe.
 //
 // MANAGED BY CLOUDFLARE DASHBOARD (task spec — Sections 5, 6, 7):
 //   CORS, Lifecycle, Cache — Cloudflare Dashboard → R2 → [bucket] → Settings
@@ -678,7 +760,6 @@ function derivePublicUrl(accountId: string, bucket: string, customDomain: string
 // RETAINED (existing sections below Sections 1–7):
 //   Identity, Credential, Upload Policy, Delivery, Operations — unchanged
 
-const R2_NYI  = 'Not Yet Implemented';
 const R2_DASH = 'Managed by Cloudflare Dashboard';
 
 function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
@@ -1022,20 +1103,20 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
           </code>
         </div>
         <Field label="Storage Used"
-          hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name}/usage → used_bytes">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          hint="Usage metrics tidak dikembalikan oleh probe r2-storage.">
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Object Count"
-          hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name}/usage → object_count">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          hint="Object count tidak dikembalikan oleh probe r2-storage.">
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Upload Status"
-          hint="Cloudflare Dashboard → R2 → [bucket] → Metrics → Requests (PUT/POST). Auto-probe disabled — write operations have side effects.">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          hint="Probe kesehatan R2 memeriksa bucket dan akses object; status traffic upload tidak termasuk response.">
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Download Status"
-          hint="Cloudflare Dashboard → R2 → [bucket] → Metrics → Requests (GET). Auto-probe disabled — read operations require an existing object.">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          hint="Probe kesehatan R2 memeriksa bucket dan akses object; status traffic download tidak termasuk response.">
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
 
         {/* ── Section 4: Security ──────────────────────────────────────────── */}
@@ -1048,19 +1129,19 @@ function StorageConfigDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <Field label="Public Access"
           hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name} → public_access (enabled/disabled). Requires CF API Token.">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Signed URL"
           hint="Cloudflare Dashboard → R2 → [bucket] → Settings → Public Access → Allow Presigned URLs">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Access Policy"
           hint="Cloudflare API: GET /client/v4/accounts/{id}/r2/buckets/{name} → storage_class + access policy">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Token Status"
           hint="Cloudflare API: GET /client/v4/user/tokens/verify — validates the CF API Token attached to the R2 bucket">
-          <input style={fieldStyleRO} readOnly value={R2_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
 
         {/* ── Section 5: CORS ──────────────────────────────────────────────── */}
@@ -1610,12 +1691,6 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
 //   Section 3: Session — session.user.id, session.expires_at, refresh_token presence
 //              (refresh_token value is NEVER displayed — only presence/absence)
 //
-// NOT YET IMPLEMENTED (requires Edge Function → Supabase Management API):
-//   Section 2: Auth Providers  — GET /v1/projects/{ref}/config/auth
-//   Section 4: Security        — GET /v1/projects/{ref}/config/auth
-//   Section 6: Users           — GET /auth/v1/admin/users (Admin API, service_role)
-//   Section 7: Audit           — GET /v1/projects/{ref}/analytics/endpoints/logs.all
-//
 // MANAGED BY SUPABASE DASHBOARD (task spec — Section 5):
 //   Redirect Configuration     — Dashboard → Authentication → URL Configuration
 //
@@ -1623,7 +1698,6 @@ function CloudflarePagesConfigDrawer({ onClose }: { onClose: () => void }) {
 //   "Supabase Auth (GoTrue)"    — provider implementation detail, not runtime-readable
 //   "Email · OAuth (Google, dll.)" — provider list, requires Management API
 
-const AUTH_NYI  = 'Not Yet Implemented';
 const AUTH_DASH = 'Managed by Supabase Dashboard';
 
 function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
@@ -1635,6 +1709,11 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
   const [sessionUserId, setSessionUserId]     = useState<string | null>(null);
   const [sessionExpiry, setSessionExpiry]     = useState<string | null>(null);
   const [refreshStatus, setRefreshStatus]     = useState<string | null>(null);
+  const [authConfig, setAuthConfig]           = useState<AuthConfigSnapshot | null>(null);
+  const [authUsers, setAuthUsers]             = useState<AuthUsersSnapshot | null>(null);
+  const [authHealthSnapshot, setAuthHealthSnapshot] = useState<AuthHealthData | null>(null);
+  const [configLoading, setConfigLoading]     = useState(true);
+  const [configError, setConfigError]         = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1683,6 +1762,31 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setConfigLoading(true);
+    Promise.allSettled([
+      invokePlatformAction<{ auth_config: AuthConfigSnapshot }>('auth-config'),
+      invokePlatformAction<{ users: AuthUsersSnapshot }>('auth-users'),
+      invokePlatformAction<{ auth_health: AuthHealthData }>('auth-health'),
+    ]).then(results => {
+      if (cancelled) return;
+      const errors: string[] = [];
+      const configResult = results[0];
+      const usersResult = results[1];
+      const healthResult = results[2];
+      if (configResult.status === 'fulfilled') setAuthConfig(configResult.value.auth_config);
+      else errors.push(`auth-config: ${getErrorMessage(configResult.reason)}`);
+      if (usersResult.status === 'fulfilled') setAuthUsers(usersResult.value.users);
+      else errors.push(`auth-users: ${getErrorMessage(usersResult.reason)}`);
+      if (healthResult.status === 'fulfilled') setAuthHealthSnapshot(healthResult.value.auth_health);
+      else errors.push(`auth-health: ${getErrorMessage(healthResult.reason)}`);
+      setConfigError(errors.length > 0 ? errors.join(' · ') : null);
+      setConfigLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Probe styling (reuses the same palette as SupabaseConfigDrawer) ────────
   const probePalette: Record<ProbeState, { color: string; bg: string; border: string }> = {
     probing:     { color: '#475569', bg: 'rgba(71,85,105,0.07)',  border: '#e2e8f0' },
@@ -1712,6 +1816,11 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
             <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {probeCheckedAt}</span>
           )}
         </div>
+        {configError && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 12, color: '#c2410c', marginBottom: 16 }}>
+            ⚠️ Sebagian data Auth tidak dapat dimuat: {configError}
+          </div>
+        )}
 
         {/* ── Section 1: Authentication Status ─────────────────────────────── */}
         <SectionLabel>1 — Authentication Status</SectionLabel>
@@ -1742,10 +1851,21 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
             GET /v1/projects/{'{ref}'}/config/auth
           </code>
         </div>
-        {['Email', 'Google', 'GitHub', 'Apple', 'Phone', 'Magic Link', 'Anonymous'].map(provider => (
+        {([
+          ['Email', 'external_email_enabled'],
+          ['Google', 'external_google_enabled'],
+          ['GitHub', 'external_github_enabled'],
+          ['Apple', 'external_apple_enabled'],
+          ['Phone', 'external_phone_enabled'],
+          ['Magic Link', 'external_magic_link_enabled'],
+          ['Anonymous', 'external_anonymous_sign_ins_enabled'],
+        ] as Array<[string, keyof AuthConfigSnapshot]>).map(([provider, key]) => (
           <Field key={provider} label={provider}
-            hint={`Management API: GET /v1/projects/{ref}/config/auth → external_${provider.toLowerCase().replace(' ', '_')}_enabled`}>
-            <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+            hint={`Management API melalui platform-health → ${key}`}>
+            <input style={fieldStyleRO} readOnly value={
+              configLoading ? 'Memuat…' :
+              liveValue(authConfig?.[key])
+            } />
           </Field>
         ))}
 
@@ -1789,23 +1909,42 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <Field label="Email Confirmation"
           hint="Management API: mailer_autoconfirm (inverted = confirmation required)">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={
+            configLoading ? 'Memuat…' :
+            authConfig?.mailer_autoconfirm === null || authConfig?.mailer_autoconfirm === undefined
+              ? DATA_UNAVAILABLE
+              : authConfig.mailer_autoconfirm ? 'Nonaktif' : 'Aktif'
+          } />
         </Field>
         <Field label="MFA"
           hint="Management API: mfa_totp_enroll_enabled, mfa_phone_enroll_enabled">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={
+            configLoading ? 'Memuat…' :
+            `TOTP: ${liveValue(authConfig?.mfa_totp_enroll_enabled)} · Phone: ${liveValue(authConfig?.mfa_phone_enroll_enabled)}`
+          } />
         </Field>
         <Field label="CAPTCHA"
           hint="Management API: captcha_enabled, captcha_provider">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={
+            configLoading ? 'Memuat…' :
+            authConfig?.captcha_enabled === null || authConfig?.captcha_enabled === undefined
+              ? DATA_UNAVAILABLE
+              : authConfig.captcha_enabled ? `Aktif${authConfig.captcha_provider ? ` · ${authConfig.captcha_provider}` : ''}` : 'Nonaktif'
+          } />
         </Field>
         <Field label="Password Policy"
           hint="Management API: password_min_length, password_required_characters">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={
+            configLoading ? 'Memuat…' :
+            `${liveValue(authConfig?.password_min_length)} karakter${authConfig?.password_required_characters ? ` · ${authConfig.password_required_characters}` : ''}`
+          } />
         </Field>
         <Field label="Rate Limit"
           hint="Management API: rate_limit_email_sent, rate_limit_sms_sent, rate_limit_otp">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={
+            configLoading ? 'Memuat…' :
+            `Email: ${liveValue(authConfig?.rate_limit_email_sent)} · SMS: ${liveValue(authConfig?.rate_limit_sms_sent)} · OTP: ${liveValue(authConfig?.rate_limit_otp)}`
+          } />
         </Field>
 
         {/* ── Section 5: Redirect Configuration ────────────────────────────── */}
@@ -1815,66 +1954,65 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <Field label="Site URL"
           hint="Supabase Dashboard → Authentication → URL Configuration → Site URL">
-          <input style={fieldStyleRO} readOnly value={AUTH_DASH} />
+          <input style={fieldStyleRO} readOnly value={configLoading ? 'Memuat…' : liveValue(authConfig?.site_url)} />
         </Field>
         <Field label="Redirect URLs"
           hint="Supabase Dashboard → Authentication → URL Configuration → Redirect URLs (allow-list)">
-          <input style={fieldStyleRO} readOnly value={AUTH_DASH} />
+          <input style={fieldStyleRO} readOnly value={configLoading ? 'Memuat…' : liveValue(authConfig?.additional_redirect_urls?.join(', '))} />
         </Field>
         <Field label="Callback URL"
           hint="Supabase Dashboard → Authentication → URL Configuration → OAuth callback pattern: {project_url}/auth/v1/callback">
-          <input style={fieldStyleRO} readOnly value={AUTH_DASH} />
+          <input style={fieldStyleRO} readOnly value={configLoading ? 'Memuat…' : `${(authConfig?.site_url ?? '').replace(/\/$/, '') || DATA_UNAVAILABLE}/auth/v1/callback`} />
         </Field>
 
         {/* ── Section 6: Users ─────────────────────────────────────────────── */}
         <SectionLabel>6 — Users</SectionLabel>
         <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
-          User data requires Admin API (service_role) — not accessible from browser.
-          Implement via Edge Function.{' '}
+          User data dibaca melalui action <code>auth-users</code>; hanya agregat yang ditampilkan.{' '}
           <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
             GET /auth/v1/admin/users
           </code>
         </div>
         <Field label="Total Users"
           hint="Admin API: GET /auth/v1/admin/users (service_role) → total_count header">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={liveValue(authUsers?.total, configLoading)} />
         </Field>
         <Field label="Verified Users"
           hint="Admin API: GET /auth/v1/admin/users (service_role) → filter email_confirmed_at IS NOT NULL">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={liveValue(authUsers?.verified, configLoading)} />
         </Field>
         <Field label="Anonymous Users"
           hint="Admin API: GET /auth/v1/admin/users (service_role) → filter is_anonymous = true">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={liveValue(authUsers?.anonymous, configLoading)} />
         </Field>
-        <Field label="Active Sessions"
+        <Field label="Active Users (24h)"
           hint="Admin API: GET /auth/v1/admin/users (service_role) → aggregate active session count">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={liveValue(authUsers?.active_last_24h, configLoading)} />
         </Field>
 
         {/* ── Section 7: Audit ─────────────────────────────────────────────── */}
         <SectionLabel>7 — Audit</SectionLabel>
         <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
-          Audit log requires Supabase Management API. Implement via Edge Function.{' '}
+          Login audit dibaca melalui action <code>auth-health</code> jika analytics tersedia.{' '}
           <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
             GET /v1/projects/{'{ref}'}/analytics/endpoints/logs.all?service=auth
           </code>
         </div>
         <Field label="Successful Login"
           hint="Management API: logs.all?service=auth → filter path LIKE '%/token%' AND status=200">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={liveValue(authHealthSnapshot?.successful_logins_24h, configLoading)} />
         </Field>
         <Field label="Failed Login"
           hint="Management API: logs.all?service=auth → filter path LIKE '%/token%' AND status=4xx">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={liveValue(authHealthSnapshot?.failed_logins_24h, configLoading)} />
         </Field>
         <Field label="Password Reset"
           hint="Management API: logs.all?service=auth → filter path LIKE '%/recover%'">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Email Verification"
           hint="Management API: logs.all?service=auth → filter path LIKE '%/verify%'">
-          <input style={fieldStyleRO} readOnly value={AUTH_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
 
       </div>
@@ -1903,11 +2041,6 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
 //   Section 3: Runtime              — Runtime Status, Region (from VITE_SUPABASE_URL),
 //              Invocation Status, Last Response — all from invoke probe
 //
-// NOT YET IMPLEMENTED (requires Supabase Management API + SUPABASE_ACCESS_TOKEN):
-//   Section 2: Full function list — GET /v1/projects/{ref}/functions
-//   Section 4: Secrets           — GET /v1/projects/{ref}/secrets
-//   Section 6: Logs              — GET /v1/projects/{ref}/analytics/endpoints/logs.all
-//
 // MANAGED BY SUPABASE DASHBOARD (task spec — Section 5):
 //   Deployment Configuration     — Dashboard → Edge Functions → [function] → Details
 //
@@ -1916,7 +2049,6 @@ function SupabaseAuthConfigDrawer({ onClose }: { onClose: () => void }) {
 //   "Access-Control-Allow-Origin: *"          — CORS header value, not browser-readable
 //   r2-storage capability list                — source code inference, not runtime data
 
-const EF_NYI  = 'Not Yet Implemented';
 const EF_DASH = 'Managed by Supabase Dashboard';
 
 function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
@@ -1925,6 +2057,10 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
   const [probeLatency, setProbeLatency]       = useState<number | null>(null);
   const [probeCheckedAt, setProbeCheckedAt]   = useState<string | null>(null);
   const [invokeStatusMsg, setInvokeStatusMsg] = useState<string>('Probing…');
+  const [functions, setFunctions]             = useState<FunctionSnapshot[]>([]);
+  const [secrets, setSecrets]                 = useState<SecretSnapshot[]>([]);
+  const [managementLoading, setManagementLoading] = useState(true);
+  const [managementError, setManagementError] = useState<string | null>(null);
 
   // Region: Edge Functions run in the same Supabase project region.
   // Derived from VITE_SUPABASE_URL — same logic as SupabaseConfigDrawer.
@@ -1966,6 +2102,26 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      invokePlatformAction<{ functions: FunctionSnapshot[] }>('functions-list'),
+      invokePlatformAction<{ secrets: SecretSnapshot[] }>('secrets-list'),
+    ]).then(results => {
+      if (cancelled) return;
+      const errors: string[] = [];
+      const functionResult = results[0];
+      const secretResult = results[1];
+      if (functionResult.status === 'fulfilled') setFunctions(functionResult.value.functions ?? []);
+      else errors.push(`functions-list: ${getErrorMessage(functionResult.reason)}`);
+      if (secretResult.status === 'fulfilled') setSecrets(secretResult.value.secrets ?? []);
+      else errors.push(`secrets-list: ${getErrorMessage(secretResult.reason)}`);
+      setManagementError(errors.length > 0 ? errors.join(' · ') : null);
+      setManagementLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const probePalette: Record<ProbeState, { color: string; bg: string; border: string }> = {
     probing:     { color: '#475569', bg: 'rgba(71,85,105,0.07)',  border: '#e2e8f0' },
     operational: { color: '#15803d', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.2)' },
@@ -1992,6 +2148,11 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
             <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {probeCheckedAt}</span>
           )}
         </div>
+        {managementError && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 12, color: '#c2410c', marginBottom: 16 }}>
+            ⚠️ Sebagian metadata Edge Functions tidak dapat dimuat: {managementError}
+          </div>
+        )}
 
         {/* ── Section 1: Edge Function Status ──────────────────────────────── */}
         <SectionLabel>1 — Edge Function Status</SectionLabel>
@@ -2017,7 +2178,7 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
         {/* ── Section 2: Deployed Functions ────────────────────────────────── */}
         <SectionLabel>2 — Deployed Functions</SectionLabel>
         <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginBottom: 12 }}>
-          Daftar lengkap deployed functions memerlukan Supabase Management API →{' '}
+          Daftar deployed functions dibaca melalui action <code>functions-list</code>; secret hanya ditampilkan sebagai nama.
           <code style={{ fontFamily: 'monospace', fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>
             GET /v1/projects/{'{ref}'}/functions
           </code>
@@ -2033,9 +2194,12 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
             }
           />
         </Field>
-        <Field label="Other Functions"
-          hint="Management API: GET /v1/projects/{ref}/functions — memerlukan SUPABASE_ACCESS_TOKEN (server-side only)">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+        <Field label="Deployed Functions"
+          hint="Management API melalui platform-health → functions-list">
+          <input style={fieldStyleRO} readOnly value={
+            managementLoading ? 'Memuat…' :
+            functions.length > 0 ? functions.map(fn => `${fn.slug} v${fn.version} (${fn.status})`).join(', ') : DATA_UNAVAILABLE
+          } />
         </Field>
 
         {/* ── Section 3: Runtime ───────────────────────────────────────────── */}
@@ -2078,15 +2242,15 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <Field label="Secrets Count"
           hint="Management API: GET /v1/projects/{ref}/secrets → array.length">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          <input style={fieldStyleRO} readOnly value={managementLoading ? 'Memuat…' : String(secrets.length)} />
         </Field>
         <Field label="Secret Names"
           hint="Management API: GET /v1/projects/{ref}/secrets → [{ name, created_at }]">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          <input style={fieldStyleRO} readOnly value={managementLoading ? 'Memuat…' : secrets.length > 0 ? secrets.map(secret => secret.name).join(', ') : DATA_UNAVAILABLE} />
         </Field>
         <Field label="Last Updated"
-          hint="Management API: GET /v1/projects/{ref}/secrets → max(created_at)">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          hint="Secret names response tidak menyertakan timestamp; nilai tidak dibuat-buat.">
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
 
         {/* ── Section 5: Deployment ────────────────────────────────────────── */}
@@ -2122,19 +2286,19 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <Field label="Invocation Count"
           hint="Management API: logs.all?service=edge-functions → total invocation log events">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Error Count"
           hint="Management API: logs.all?service=edge-functions → filter status_code >= 500">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Last Error"
           hint="Management API: logs.all?service=edge-functions → latest log entry with error_type IS NOT NULL">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
         <Field label="Execution Time"
           hint="Management API: logs.all?service=edge-functions → execution_time_ms field">
-          <input style={fieldStyleRO} readOnly value={EF_NYI} />
+          <input style={fieldStyleRO} readOnly value={DATA_UNAVAILABLE} />
         </Field>
 
       </div>
@@ -2161,24 +2325,20 @@ function EdgeFunctionsConfigDrawer({ onClose }: { onClose: () => void }) {
 //   Section 2: Required Env Vars      — presence check: VITE_SUPABASE_URL,
 //              VITE_SUPABASE_ANON_KEY (value is NEVER displayed — only Available/Missing)
 //   Section 6: Validation             — Missing Variables, Invalid Configuration
-//              derived from import.meta.env (Duplicate Variables is NYI — cannot detect
-//              duplicates from browser runtime)
+//              derived from import.meta.env
 //   Section 7: Health Summary         — derived from Section 6 results
-//
-// NOT YET IMPLEMENTED (requires Supabase Management API + SUPABASE_ACCESS_TOKEN):
-//   Section 3: Supabase Edge Secrets  — GET /v1/projects/{ref}/secrets
-//   Section 6: Duplicate Variables    — GET /accounts/{id}/pages/projects/{name}
-//              → deployment_configs.*.env_vars (Cloudflare Pages API)
 //
 // MANAGED BY CLOUDFLARE DASHBOARD (task spec — Sections 4, 5):
 //   Cloudflare Pages Env Vars, Build Configuration
 
-const ENV_NYI  = 'Not Yet Implemented';
 const ENV_DASH = 'Managed by Cloudflare Dashboard';
 
 function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
   // checkedAt captured once on drawer open — all checks are synchronous
   const [checkedAt] = useState<string>(() => new Date().toLocaleString('id-ID'));
+  const [secrets, setSecrets] = useState<SecretSnapshot[]>([]);
+  const [secretsLoading, setSecretsLoading] = useState(true);
+  const [secretsError, setSecretsError] = useState<string | null>(null);
 
   // ── Required variable presence checks ─────────────────────────────────────
   // Values are NEVER read for display — only boolean presence is used.
@@ -2228,6 +2388,15 @@ function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
     mode === 'preview'     ? 'Preview'     :
     mode;
 
+  useEffect(() => {
+    let cancelled = false;
+    invokePlatformAction<{ secrets: SecretSnapshot[] }>('secrets-list')
+      .then(result => { if (!cancelled) setSecrets(result.secrets ?? []); })
+      .catch(err => { if (!cancelled) setSecretsError(getErrorMessage(err)); })
+      .finally(() => { if (!cancelled) setSecretsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Inline style helpers ───────────────────────────────────────────────────
   const varOkStyle: CSSProperties  = { ...fieldStyleRO, color: '#15803d', fontWeight: 600 };
   const varErrStyle: CSSProperties = { ...fieldStyleRO, color: '#b91c1c', fontWeight: 600 };
@@ -2243,6 +2412,11 @@ function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
           {summaryIcon} Environment: <strong>{summaryLabel}</strong>
           <span style={{ marginLeft: 8, opacity: 0.7 }}>· Checked: {checkedAt}</span>
         </div>
+        {secretsError && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 12, color: '#c2410c', marginBottom: 16 }}>
+            ⚠️ Metadata Edge Function secrets tidak dapat dimuat: {secretsError}
+          </div>
+        )}
 
         {/* ── Section 1: Deployment Environment ───────────────────────────── */}
         <SectionLabel>1 — Deployment Environment</SectionLabel>
@@ -2291,15 +2465,15 @@ function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
         </div>
         <Field label="Edge Function Secrets"
           hint="Management API: GET /v1/projects/{ref}/secrets → [{ name, created_at }] — names only, never values">
-          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+          <input style={fieldStyleRO} readOnly value={secretsLoading ? 'Memuat…' : secrets.length > 0 ? `${secrets.length} secret terdaftar` : DATA_UNAVAILABLE} />
         </Field>
         <Field label="SUPABASE_SERVICE_ROLE_KEY"
           hint="Management API: GET /v1/projects/{ref}/secrets — presence only, value never readable from browser">
-          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+          <input style={fieldStyleRO} readOnly value={secretsLoading ? 'Memuat…' : secrets.some(secret => secret.name === 'SUPABASE_SERVICE_ROLE_KEY') ? 'Terdaftar (nilai tersembunyi)' : 'Tidak terdaftar'} />
         </Field>
         <Field label="R2 Secrets (R2_ACCOUNT_ID, R2_BUCKET, etc.)"
           hint="Management API: GET /v1/projects/{ref}/secrets — set via: supabase secrets set KEY=value">
-          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+          <input style={fieldStyleRO} readOnly value={secretsLoading ? 'Memuat…' : secrets.filter(secret => /R2|CLOUDFLARE/i.test(secret.name)).map(secret => secret.name).join(', ') || 'Tidak terdaftar'} />
         </Field>
 
         {/* ── Section 4: Cloudflare Pages Environment Variables ───────────── */}
@@ -2355,8 +2529,8 @@ function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
           />
         </Field>
         <Field label="Duplicate Variables"
-          hint="Cannot detect from browser runtime. Cloudflare Pages API: GET /accounts/{id}/pages/projects/{name} → deployment_configs.*.env_vars">
-          <input style={fieldStyleRO} readOnly value={ENV_NYI} />
+          hint="Duplikasi environment variable hanya dapat diverifikasi dari konfigurasi Cloudflare Pages.">
+          <input style={fieldStyleRO} readOnly value={ENV_DASH} />
         </Field>
         <Field label="Invalid Configuration"
           hint="Checked from import.meta.env — validates https:// prefix and non-placeholder values for known VITE_ vars">
