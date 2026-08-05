@@ -41,7 +41,7 @@ async function isPlatformAdmin(jwt: string): Promise<boolean> {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth:   { persistSession: false },
   });
-  const { data: { user } } = await client.auth.getUser();
+  const { data: { user } } = await client.auth.getUser(jwt);
   return user?.user_metadata?.role === 'platform_admin';
 }
 
