@@ -1,0 +1,1 @@
+- [Supabase Auth production quirks](auth-production-quirks.md) — reserved secret names and partial Admin API pagination need explicit handling.

@@ -10,7 +10,7 @@
 //   SUPABASE_URL             — auto-injected by Supabase runtime
 //   SUPABASE_ANON_KEY        — auto-injected by Supabase runtime
 //   SUPABASE_SERVICE_ROLE_KEY — auto-injected by Supabase runtime (service role)
-//   SUPABASE_ACCESS_TOKEN    — Supabase personal/service access token
+//   MANAGEMENT_API_TOKEN     — Supabase personal/service access token
 //                              (Management API — GET /v1/projects/:ref/*)
 //
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -91,9 +91,9 @@ async function managementApiFetch(
   method: 'GET' | 'PATCH' = 'GET',
   body?: Record<string, unknown>,
 ): Promise<Response> {
-  const token = Deno.env.get('SUPABASE_ACCESS_TOKEN') ?? '';
+  const token = Deno.env.get('MANAGEMENT_API_TOKEN') ?? '';
   if (!token) {
-    throw new Error('SUPABASE_ACCESS_TOKEN belum dikonfigurasi di Edge Function secrets');
+    throw new Error('MANAGEMENT_API_TOKEN belum dikonfigurasi di Edge Function secrets');
   }
   const ref = projectRef();
   if (!ref) throw new Error('Tidak dapat menentukan project ref dari SUPABASE_URL');
@@ -340,6 +340,63 @@ interface AuthUser {
   created_at?:         string | null;
 }
 
+// Some production Auth deployments return a 500 when the Admin API is asked
+// for a large page, while the same users are available one at a time. Keep
+// this workaround in one place for both auth-users and auth-health.
+async function fetchAuthUsers(
+  url: string,
+  serviceRole: string,
+): Promise<{ users: AuthUser[]; total: number; error: string | null; partial: boolean }> {
+  const headers = {
+    Authorization: `Bearer ${serviceRole}`,
+    apikey: serviceRole,
+  };
+  const first = await fetch(`${url}/auth/v1/admin/users?per_page=1&page=1`, { headers });
+  if (!first.ok) {
+    const text = await first.text().catch(() => '');
+    return { users: [], total: 0, error: `Admin API HTTP ${first.status}: ${text.slice(0, 200)}`, partial: false };
+  }
+
+  const firstBody = await first.json() as { users?: AuthUser[] } | AuthUser[];
+  const firstUsers = Array.isArray(firstBody)
+    ? firstBody as AuthUser[]
+    : ((firstBody as { users?: AuthUser[] }).users ?? []);
+  const totalHeader = first.headers.get('x-total-count');
+  const total = totalHeader ? parseInt(totalHeader, 10) : firstUsers.length;
+  const users = [...firstUsers];
+
+  for (let page = 2; page <= total; page += 1) {
+    let pageResponse: Response | null = null;
+    let lastError = '';
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const candidate = await fetch(`${url}/auth/v1/admin/users?per_page=1&page=${page}`, { headers });
+      if (candidate.ok) {
+        pageResponse = candidate;
+        break;
+      }
+      lastError = await candidate.text().catch(() => '');
+    }
+    if (!pageResponse) {
+      // Keep the usable pages. A single malformed Auth record should not make
+      // the whole health widget BLOCKED; callers receive a degraded status and
+      // the exact page error for visibility.
+      return {
+        users,
+        total,
+        error: `Admin API page ${page} failed after retries: ${lastError.slice(0, 200)}`,
+        partial: true,
+      };
+    }
+    const pageBody = await pageResponse.json() as { users?: AuthUser[] } | AuthUser[];
+    const pageUsers = Array.isArray(pageBody)
+      ? pageBody as AuthUser[]
+      : ((pageBody as { users?: AuthUser[] }).users ?? []);
+    users.push(...pageUsers);
+  }
+
+  return { users, total, error: null, partial: false };
+}
+
 const handleAuthUsers: Handler = async () => {
   const url         = Deno.env.get('SUPABASE_URL')               ?? '';
   const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')  ?? '';
@@ -353,33 +410,21 @@ const handleAuthUsers: Handler = async () => {
   }
 
   try {
-    const res = await fetch(`${url}/auth/v1/admin/users?per_page=1000`, {
-      headers: {
-        Authorization:          `Bearer ${serviceRole}`,
-        apikey:                 serviceRole,
-        'X-Content-Type-Options': 'nosniff',
-      },
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
+    const fetched = await fetchAuthUsers(url, serviceRole);
+    if (fetched.error && !fetched.partial) {
       return jsonResponse({
         ok:    false,
-        error: `Admin API HTTP ${res.status}: ${text.slice(0, 200)}`,
+        error: fetched.error,
         users: null,
       });
     }
 
-    const totalHeader = res.headers.get('x-total-count');
-    const body        = await res.json() as { users?: AuthUser[] } | AuthUser[];
-    const userList    = Array.isArray(body)
-      ? body as AuthUser[]
-      : ((body as { users?: AuthUser[] }).users ?? []) as AuthUser[];
+    const userList = fetched.users;
 
     const now        = new Date();
     const cutoff24h  = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const total          = totalHeader ? parseInt(totalHeader, 10) : userList.length;
+    const total          = fetched.total;
     const verified       = userList.filter((u) => Boolean(u.email_confirmed_at)).length;
     const anonymous      = userList.filter((u) => u.is_anonymous === true).length;
     const activeLast24h  = userList.filter((u) => {
@@ -396,6 +441,7 @@ const handleAuthUsers: Handler = async () => {
         active_last_24h: activeLast24h,
         checked_at:      new Date().toISOString(),
       },
+      ...(fetched.error ? { warning: fetched.error } : {}),
     });
   } catch (err) {
     return jsonResponse({
@@ -432,19 +478,10 @@ const handleAuthHealth: Handler = async () => {
     adminApiError = 'SUPABASE_SERVICE_ROLE_KEY tidak tersedia';
   } else {
     try {
-      const res = await fetch(`${url}/auth/v1/admin/users?per_page=1000`, {
-        headers: {
-          Authorization: `Bearer ${serviceRole}`,
-          apikey:        serviceRole,
-        },
-      });
-      if (res.ok) {
-        const body = await res.json() as { users?: AuthUserFull[] } | AuthUserFull[];
-        const userList: AuthUserFull[] = Array.isArray(body)
-          ? body as AuthUserFull[]
-          : ((body as { users?: AuthUserFull[] }).users ?? []);
-        const totalHeader = res.headers.get('x-total-count');
-        const total       = totalHeader ? parseInt(totalHeader, 10) : userList.length;
+      const fetched = await fetchAuthUsers(url, serviceRole);
+      if (!fetched.error || fetched.partial) {
+        const userList = fetched.users as AuthUserFull[];
+        const total    = fetched.total;
         const verified    = userList.filter(u => Boolean(u.email_confirmed_at)).length;
         const anonymous   = userList.filter(u => u.is_anonymous === true).length;
         const active24h   = userList.filter(u => {
@@ -456,13 +493,13 @@ const handleAuthHealth: Handler = async () => {
           return new Date(u.created_at) >= cutoff24h;
         }).length;
         usersData      = { total, verified, unverified: Math.max(0, total - verified - anonymous), anonymous, active_last_24h: active24h, new_last_24h: new24h };
-        adminApiStatus = 'operational';
+        adminApiStatus = fetched.error ? 'degraded' : 'operational';
         jwtStatus      = 'operational';
+        adminApiError  = fetched.error;
       } else {
-        const text     = await res.text().catch(() => '');
-        adminApiError  = `Admin API HTTP ${res.status}: ${text.slice(0, 120)}`;
-        adminApiStatus = res.status >= 500 ? 'down' : 'degraded';
-        jwtStatus      = res.status === 401 ? 'down' : 'degraded';
+        adminApiError  = fetched.error;
+        adminApiStatus = 'down';
+        jwtStatus      = 'degraded';
       }
     } catch (err) {
       adminApiError  = err instanceof Error ? err.message : 'Admin API tidak dapat dijangkau';
@@ -540,7 +577,8 @@ const handleAuthHealth: Handler = async () => {
 // ─── Action: auth-config-update ───────────────────────────────────────────────
 // PATCH /v1/projects/:ref/config/auth via Management API.
 // Maps AuthServiceConfig fields → Supabase auth config field names.
-// Requires SUPABASE_ACCESS_TOKEN in Edge Function secrets.
+// Requires MANAGEMENT_API_TOKEN in Edge Function secrets. SUPABASE_* names are
+// reserved by the Supabase runtime and cannot be added as user secrets.
 //
 // Field mapping:
 //   enableRegistration       → disable_signup          (inverted)
