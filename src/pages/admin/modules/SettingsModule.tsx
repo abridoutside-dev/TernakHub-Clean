@@ -1,8 +1,9 @@
 // ─── Admin Settings — P0-005-018B ────────────────────────────────────────────
 // Wired to adminSettingsData.ts (full list, live filter, real stats).
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, type ReactNode } from 'react';
 import AdminLayout from '../layout/AdminLayout';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   ADMIN_SETTINGS_LIST,
   SETTINGS_PLATFORM_STATS,
@@ -76,7 +77,7 @@ function ValueDisplay({ record }: { record: AdminSettingRecord }) {
   return <span style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>{record.currentValue}</span>;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginTop: 20 }}>
       {children}
@@ -84,7 +85,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '7px 0', borderBottom: '1px solid #f1f5f9' }}>
       <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{label}</span>
@@ -191,7 +192,7 @@ function AuditEntryCard({ entry }: { entry: ConfigAuditEntry }) {
 
 // ─── Drawer ───────────────────────────────────────────────────────────────────
 
-function SettingDrawer({ record, onClose }: { record: AdminSettingRecord; onClose: () => void }) {
+function SettingDrawer({ record, onClose, adminName }: { record: AdminSettingRecord; onClose: () => void; adminName: string }) {
   const catConfig = SETTING_CATEGORY_CONFIG[record.category];
 
   // Local tick to force re-read of audit data after mutations
@@ -221,12 +222,12 @@ function SettingDrawer({ record, onClose }: { record: AdminSettingRecord; onClos
       configDisplayName: record.displayName,
       oldValue:          record.currentValue,
       newValue:          trimmed,
-      changedBy:         'System Admin',
+      changedBy:         adminName,
       notes:             newNotes.trim() || undefined,
     });
 
     // Single-admin: auto-approve immediately — no workflow block.
-    approveConfigChange(entry.auditId, 'System Admin');
+    approveConfigChange(entry.auditId, adminName);
 
     setFeedback({ ok: true, msg: `Perubahan diterapkan. Nilai baru: ${trimmed}` });
     setShowForm(false);
@@ -236,12 +237,12 @@ function SettingDrawer({ record, onClose }: { record: AdminSettingRecord; onClos
   }
 
   function handleApprove(auditId: string) {
-    approveConfigChange(auditId, 'System Admin');
+    approveConfigChange(auditId, adminName);
     refresh();
   }
 
   function handleReject(auditId: string) {
-    rejectConfigChange(auditId, 'System Admin', 'Ditolak oleh admin.');
+    rejectConfigChange(auditId, adminName, 'Ditolak oleh admin.');
     refresh();
   }
 
@@ -430,6 +431,11 @@ function SettingDrawer({ record, onClose }: { record: AdminSettingRecord; onClos
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsModule() {
+  const { currentUser } = useAuth();
+  const adminName = currentUser?.user_metadata?.full_name
+    || currentUser?.email
+    || 'System Admin';
+
   const [keyword, setKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<SettingCategory | 'All'>('All');
   const [statusFilter, setStatusFilter] = useState<SettingStatus | 'All'>('All');
@@ -659,7 +665,7 @@ export default function SettingsModule() {
         </div>
 
       </div>
-      {selected && <SettingDrawer record={selected} onClose={() => setSelected(null)} />}
+      {selected && <SettingDrawer record={selected} onClose={() => setSelected(null)} adminName={adminName} />}
     </AdminLayout>
   );
 }

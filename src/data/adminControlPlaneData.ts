@@ -63,6 +63,9 @@ export interface BlockedModuleRecord {
 // ISO date when ADMIN-SYNC-002 was applied — used as lastSync for verified LIVE widgets.
 const SYNC_DATE = '2026-08-02T00:00:00.000Z';
 
+// ISO date when ADMIN-SYNC-003 was applied (Feed & Medicine promoted to LIVE).
+const SYNC_DATE_003 = '2026-08-05T00:00:00.000Z';
+
 /** Not yet implemented — no data source wired. */
 const NI: WidgetStatus = {
   health: 'unknown',
@@ -88,6 +91,15 @@ const LIVE: WidgetStatus = {
   statistics: {},
   blocker: null,
   lastSync: SYNC_DATE,
+};
+
+/** Live (ADMIN-SYNC-003) — promoted from dummy to Supabase on 2026-08-05. */
+const LIVE_003: WidgetStatus = {
+  health: 'healthy',
+  syncStatus: 'synced',
+  statistics: {},
+  blocker: null,
+  lastSync: SYNC_DATE_003,
 };
 
 /** Build a DomainWidget with a given status (defaults to NI). */
@@ -166,6 +178,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
   },
 
   // ── 4. Workspace Feed Store ────────────────────────────────────────────────
+  // ADMIN-SYNC-003: fs-products promoted LIVE — FeedModule queries stok_inventaris.
   {
     domainKey: 'domain-feed-store',
     label: 'Workspace Feed Store',
@@ -173,7 +186,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     description: 'Feed store products, inventory, purchases, sales, and transactions.',
     primaryPath: '/admin/feed',
     widgets: [
-      w('fs-products',     'Products Summary',     '📦', DUM),
+      w('fs-products',     'Products Summary',     '📦', LIVE_003),
       w('fs-inventory',    'Inventory Summary',    '🏪'),
       w('fs-purchase',     'Purchase Summary',     '🛒'),
       w('fs-sales',        'Sales Summary',        '💰'),
@@ -182,6 +195,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
   },
 
   // ── 5. Workspace Drug Store ────────────────────────────────────────────────
+  // ADMIN-SYNC-003: ds-products promoted LIVE — MedicineModule queries stok_obat.
   {
     domainKey: 'domain-drug-store',
     label: 'Workspace Drug Store',
@@ -189,7 +203,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     description: 'Drug store products, inventory, purchases, sales, and transactions.',
     primaryPath: '/admin/medicine',
     widgets: [
-      w('ds-products',     'Products Summary',     '📦', DUM),
+      w('ds-products',     'Products Summary',     '📦', LIVE_003),
       w('ds-inventory',    'Inventory Summary',    '🏪'),
       w('ds-purchase',     'Purchase Summary',     '🛒'),
       w('ds-sales',        'Sales Summary',        '💰'),
