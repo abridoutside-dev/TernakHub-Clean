@@ -88,7 +88,7 @@ export interface AiInsightItem {
   title: string;
   summary: string;
   sourceModule: string; // label modul asal, ditampilkan di card
-  timestamp: string;    // ISO string — dummy, belum live
+  timestamp: string;    // ISO timestamp from the module's current analysis
   actions: InsightAction[];
 }
 

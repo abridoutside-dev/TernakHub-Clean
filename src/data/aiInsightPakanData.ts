@@ -6,7 +6,7 @@
  * Membaca data dari LP-002, LP-003, LP-004, LP-005 (riwayat & jadwal),
  * Stok Pakan, dan Master Pakan secara read-only.
  * TIDAK mengubah, menambah, atau menghapus data apapun.
- * TIDAK menggunakan LLM — seluruh analisis berbasis aturan deterministik.
+ * Seluruh analisis berbasis aturan deterministik.
  *
  * Sections:
  *   1. Types

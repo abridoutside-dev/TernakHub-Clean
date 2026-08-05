@@ -75,7 +75,10 @@ AI may generate:
 
 # Implementation
 
-Rule-based implementation comes first. LLM integration may be added in the future; the architecture must remain compatible with that addition without redesign.
+All current analysis is deterministic and rule-based. TernakHub does not
+connect to an external model, provider, or AI service. Analysis may only use
+the live data sources declared by its module and must remain explainable and
+read-only.
 
 ---
 

@@ -8,7 +8,7 @@
  * Pemeriksaan Kebuntingan, Kebuntingan, Kelahiran, Registrasi Anak, Sapih,
  * Riwayat Reproduksi) — TIDAK membuat, mengubah, atau menghapus data apapun,
  * dan TIDAK membuat sumber data baru. Seluruh analisis berbasis aturan
- * deterministik (rule-based) — belum menggunakan LLM.
+ * deterministik (rule-based).
  *
  * Sections:
  *   1. Types

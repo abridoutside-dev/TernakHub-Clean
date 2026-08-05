@@ -189,8 +189,8 @@ export default function AdminNewsEventReviewDetail() {
         background: '#f3f0fa', border: '1px solid #d1c4e9', borderRadius: 'var(--radius-md)',
         padding: '10px 14px', fontSize: 11, color: '#5e35b1', lineHeight: 1.6, marginBottom: 14,
       }}>
-        ℹ️ Validation Report di bawah dihasilkan oleh AI Validation Engine berbasis-aturan (rule-based) — bukan model
-        vision/LLM sungguhan. AI <strong>tidak pernah Approve atau Reject otomatis</strong>. Keputusan akhir sepenuhnya
+        ℹ️ Validation Report di bawah dihasilkan oleh Validation Engine berbasis-aturan (rule-based) dari data
+        submission. Engine <strong>tidak pernah Approve atau Reject otomatis</strong>. Keputusan akhir sepenuhnya
         berada pada Admin.
       </div>
 
@@ -361,7 +361,7 @@ export default function AdminNewsEventReviewDetail() {
                 background: '#fff8e1', border: '1px solid #f0dca0', borderRadius: 'var(--radius-sm)',
                 padding: '8px 12px', fontSize: 11, color: '#7b5e2a', marginBottom: 10,
               }}>
-                ⚠️ "OCR Poster" merupakan simulasi deterministik pada prototipe ini — bukan hasil vision model sungguhan.
+              ⚠️ "OCR Poster" merupakan pemeriksaan deterministik pada data submission.
                 Labeli jelas kepada pengguna bahwa ini adalah simulasi.
               </div>
               {Object.entries(report.ocrExtracted).map(([k, v]) => (

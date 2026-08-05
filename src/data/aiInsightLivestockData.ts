@@ -1,9 +1,9 @@
 /**
  * aiInsightLivestockData.ts  (LS-FIX-001)
  * ─────────────────────────────────────────────────────────────────────────────
- * Rule-based AI Insight Engine for the Livestock Hub.
+ * Rule-based insight engine for the Livestock Hub.
  *
- * AI is READ ONLY — no mutations, no transactions, no LLM calls.
+ * Analysis is READ ONLY — no mutations or transactions.
  * Mirrors the pattern from aiInsightMutasiData.ts / aiInsightKesehatanData.ts.
  *
  * Sections:
@@ -39,10 +39,6 @@ export interface InsightItem {
   title:         string;
   message:       string;
   subjectLabel?: string;
-  /** Forward-compatible field for future LLM integration — not populated by rule-based engine. */
-  evidence?:     string;
-  /** Forward-compatible field for future LLM integration — not populated by rule-based engine. */
-  reasoning?:    string;
 }
 
 export interface LivestockInsightReport {

@@ -6,9 +6,8 @@
  * AI is Decision Support only — AI is READ ONLY (see docs/architecture/03_AI_CONSTITUTION.md).
  * Reads existing data from MT-002..MT-004 (mutasiData.ts) only — TIDAK membuat,
  * mengubah, atau menghapus data apapun, dan TIDAK membuat sumber data baru.
- * Seluruh analisis berbasis aturan deterministik (rule-based) — belum
- * menggunakan LLM, mengikuti pola aiInsightReproduksiData.ts (RP-011) /
- * aiInsightPakanData.ts (LP-006) 1:1 (kategori ringkasan/analisis/peringatan/
+ * Seluruh analisis berbasis aturan deterministik (rule-based), mengikuti pola
+ * modul insight lain (kategori ringkasan/analisis/peringatan/
  * rekomendasi/prediksi).
  *
  * Sections:

@@ -104,8 +104,6 @@ export type InsightSourceModule =
 export type InsightGeneratedBy =
   | 'rule_based'     // Aturan bisnis deterministik (paling umum sekarang)
   | 'statistical'    // Perhitungan statistik sederhana (rata-rata, standar deviasi)
-  | 'ai_model'       // Model AI/ML — future ready
-  | 'third_party'    // Sumber eksternal — future ready
   | 'system';        // Dihasilkan otomatis oleh sistem platform
 
 // ─── Schema — AiInsightRecord ─────────────────────────────────────────────────

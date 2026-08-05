@@ -2919,8 +2919,8 @@ function SystemServicesHealthWidget({ health, loading, savedConfigs, onConfigure
 // ─── Analysis Engine Status ───────────────────────────────────────────────────
 //
 // The analysis layer consumes live platform data and produces decision support.
-// It has no external model/provider dependency; its status reflects the data
-// sources required by the deterministic read-only analysis rules.
+// It has no external provider dependency; its status reflects the data sources
+// required by the deterministic read-only analysis rules.
 function AnalysisEngineWidget({ health, loading }: {
   health: SystemServicesHealth | null;
   loading: boolean;
@@ -2933,6 +2933,8 @@ function AnalysisEngineWidget({ health, loading }: {
   const hasDegraded = checks.some(check => check.status === 'degraded' || check.status === 'not_configured');
   const status: ServiceStatus = loading
     ? 'not_configured'
+    : !health
+      ? 'down'
     : hasDown
       ? 'down'
       : hasDegraded
@@ -2941,6 +2943,8 @@ function AnalysisEngineWidget({ health, loading }: {
   const cfg = STATUS_CFG[status];
   const message = loading
     ? 'Memeriksa sumber data analisis…'
+    : !health
+      ? 'Sumber data analisis tidak tersedia'
     : `${readyCount}/${checks.length} sumber data siap · analisis rule-based read-only`;
 
   return (

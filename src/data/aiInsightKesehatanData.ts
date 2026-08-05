@@ -1,11 +1,11 @@
 /**
  * aiInsightKesehatanData.ts  (KH-009)
  * ─────────────────────────────────────────────────────────────────
- * Rule-based AI Insight Engine untuk Modul Kesehatan Hewan.
+ * Rule-based insight engine untuk Modul Kesehatan Hewan.
  *
  * Membaca seluruh data KH-002 hingga KH-007 secara read-only.
  * TIDAK mengubah, menambah, atau menghapus data apapun.
- * TIDAK menggunakan LLM — seluruh analisis berbasis aturan deterministik.
+ * Seluruh analisis berbasis aturan deterministik.
  *
  * Sections:
  *   1. Types
@@ -41,10 +41,6 @@ export interface InsightItem {
   title:         string;
   message:       string;
   subjectLabel?: string;
-  /** Forward-compatible LLM-ready field — not populated by rule-based engine. */
-  evidence?:     string;
-  /** Forward-compatible LLM-ready field — not populated by rule-based engine. */
-  reasoning?:    string;
 }
 
 export interface PrediksiObatItem {

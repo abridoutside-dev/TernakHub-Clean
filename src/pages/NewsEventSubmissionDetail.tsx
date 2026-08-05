@@ -114,9 +114,8 @@ export default function NewsEventSubmissionDetail() {
       {rec.validationReport && (
         <SectionCard title="AI Validation Report">
           <p style={{ margin: '0 0 12px', fontSize: 11.5, color: 'var(--color-muted)', lineHeight: 1.6 }}>
-            Report ini dihasilkan oleh AI Validation Engine berbasis-aturan (rule-based) pada prototipe ini — belum
-            terhubung ke model vision/LLM sungguhan. AI hanya membuat temuan &amp; rekomendasi, keputusan akhir tetap
-            berada pada Admin.
+            Report ini dihasilkan oleh Validation Engine berbasis-aturan (rule-based) dari data submission. Engine
+            hanya membuat temuan &amp; rekomendasi, keputusan akhir tetap berada pada Admin.
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>

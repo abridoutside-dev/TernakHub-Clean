@@ -45,14 +45,6 @@ export interface InsightItem {
   icon:       string;
   title:      string;
   message:    string;
-  // CB-FIX-002 / MIN-002: Optional LLM-ready fields — not populated by the
-  // rule-based engine but present in the type so that the interface is
-  // forward-compatible when LLM integration is added (see
-  // 03_AI_CONSTITUTION.md §Implementation: "the architecture must remain
-  // compatible with that addition without redesign"). Absent from peer modules
-  // today; neither field is mandated by the current ratified Constitution.
-  evidence?:  string;
-  reasoning?: string;
 }
 
 export interface BobotAnalytics {

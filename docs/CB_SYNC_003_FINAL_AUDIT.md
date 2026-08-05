@@ -145,7 +145,7 @@ Per `03_AI_CONSTITUTION.md`:
 | Requirement | Status | Evidence |
 |---|---|---|
 | Read only — no inserts/updates/deletes | ✅ | Engine reads `LIVESTOCK_DB`, `getWeightHistory`, `getLivestockStatus`, `BATCH_DB` only |
-| Rule-based implementation | ✅ | 5 deterministic rule categories; no LLM call |
+| Rule-based implementation | ✅ | 5 deterministic rule categories; no external model or provider call |
 | Priority levels (Info / Warning / Critical) | ✅ | `InsightLevel: 'info' \| 'warning' \| 'critical'` — sorted critical→warning→info |
 | `analyzedAt` (Analysis Time) | ✅ | `BobotInsightReport.analyzedAt: string` (ISO timestamp) |
 | `dataSource` (Data Source) | ✅ | `BobotInsightReport.dataSource: string[]` (4 named sources) |
