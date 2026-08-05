@@ -283,6 +283,8 @@ interface R2HealthResponse {
   readable:    boolean;
   latency:     number | null;
   lastChecked: string;
+  r2Error?:    string;
+  httpStatus?: number | null;
 }
 
 async function checkCloudflareR2(): Promise<ServiceCheck> {
@@ -339,7 +341,7 @@ async function checkCloudflareR2(): Promise<ServiceCheck> {
       };
     }
 
-    const r2Err = (data as Record<string, unknown>).r2Error as string | undefined;
+    const r2Err = data.r2Error;
     return {
       name:       'Cloudflare R2',
       status,
