@@ -68,7 +68,7 @@ function makeClient(jwt: string) {
 
 async function isPlatformAdmin(jwt: string): Promise<boolean> {
   const client = makeClient(jwt);
-  const { data: { user } } = await client.auth.getUser();
+  const { data: { user } } = await client.auth.getUser(jwt);
   // Initial implementation: check user_metadata.role.
   // Future: replace with a dedicated platform_admin table check.
   return user?.user_metadata?.role === 'platform_admin';

@@ -73,7 +73,7 @@ function makeServiceClient() {
 
 async function isPlatformAdmin(jwt: string): Promise<boolean> {
   const client = makeAnonClient(jwt);
-  const { data: { user } } = await client.auth.getUser();
+  const { data: { user } } = await client.auth.getUser(jwt);
   return user?.user_metadata?.role === 'platform_admin';
 }
 
@@ -437,7 +437,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!jwt) return errorResponse('Authorization header diperlukan', 401);
 
   const anonClient = makeAnonClient(jwt);
-  const { data: { user }, error: authError } = await anonClient.auth.getUser();
+  const { data: { user }, error: authError } = await anonClient.auth.getUser(jwt);
   if (authError || !user) return errorResponse('Token tidak valid atau sudah kedaluwarsa', 401);
 
   const isAdmin = user?.user_metadata?.role === 'platform_admin';
