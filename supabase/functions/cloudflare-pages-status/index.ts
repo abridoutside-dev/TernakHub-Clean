@@ -90,11 +90,7 @@ function resolveStatus(deployStatus: string): 'operational' | 'degraded' | 'down
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsOk();
 
-  // ── Auth ─────────────────────────────────────────────────────────────────────
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const jwt        = authHeader.replace(/^Bearer\s+/i, '');
-
-  // ── Secrets (checked regardless of auth, for debug probe) ─────────────────────
+  // ── 1. Read secrets FIRST — before any auth check ────────────────────────────
   const apiToken    = Deno.env.get('CF_API_TOKEN')          ?? '';
   const accountId   = Deno.env.get('CF_ACCOUNT_ID')         ?? '';
   const projectName = Deno.env.get('CF_PAGES_PROJECT_NAME') ?? '';
@@ -103,21 +99,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!accountId)   missingSecrets.push('CF_ACCOUNT_ID');
   if (!projectName) missingSecrets.push('CF_PAGES_PROJECT_NAME');
 
+  // ── 2. Auth ───────────────────────────────────────────────────────────────────
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const jwt        = authHeader.replace(/^Bearer\s+/i, '');
+  const hasJwt     = jwt.length > 0;
+
+  function respond(body: Record<string, unknown>, httpStatus = 200): Response {
+    const payload = {
+      ...body,
+      _debug: {
+        hasJwt,
+        missingSecrets,
+        // userId / isPlatformAdmin filled in below when available
+      },
+    };
+    console.log('[cloudflare-pages-status] RETURN:', JSON.stringify(payload));
+    return jsonResponse(payload, httpStatus);
+  }
+
   // Auth failures return HTTP 200 so supabase.functions.invoke can read the JSON
-  // body (non-2xx responses are converted to opaque FunctionsHttpError by the
-  // Supabase JS client before the caller sees any body content).
-  if (!jwt) {
-    return jsonResponse({ ok: false, status: 'down', message: 'Authorization header diperlukan', project: null });
+  // body (non-2xx responses are converted to opaque FunctionsHttpError).
+  if (!hasJwt) {
+    return respond({ ok: false, status: 'down', message: 'Authorization header diperlukan', project: null });
   }
 
-  const isAdmin = await isPlatformAdmin(jwt);
+  // Resolve admin status — capture userId for debug
+  let userId: string | null = null;
+  let isAdmin = false;
+  try {
+    const sbUrl = Deno.env.get('SUPABASE_URL')      ?? '';
+    const sbKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const client = createClient(sbUrl, sbKey, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth:   { persistSession: false },
+    });
+    const { data: { user } } = await client.auth.getUser(jwt);
+    userId  = user?.id ?? null;
+    isAdmin = user?.user_metadata?.role === 'platform_admin';
+  } catch (_) { /* treat as not-admin */ }
+
+  // Patch _debug with auth result
+  function respondWithAuth(body: Record<string, unknown>, httpStatus = 200): Response {
+    const payload = {
+      ...body,
+      _debug: { hasJwt, missingSecrets, userId, isPlatformAdmin: isAdmin },
+    };
+    console.log('[cloudflare-pages-status] RETURN:', JSON.stringify(payload));
+    return jsonResponse(payload, httpStatus);
+  }
+
   if (!isAdmin) {
-    return jsonResponse({ ok: false, status: 'down', message: 'Akses ditolak: platform admin only', project: null });
+    return respondWithAuth({ ok: false, status: 'down', message: 'Akses ditolak: platform admin only', project: null });
   }
 
-  // ── Missing secrets check ─────────────────────────────────────────────────────
+  // ── 3. Missing secrets check ──────────────────────────────────────────────────
   if (missingSecrets.length > 0) {
-    return jsonResponse({
+    return respondWithAuth({
       ok:      false,
       status:  'not_configured',
       message: `Supabase secret belum dikonfigurasi: ${missingSecrets.join(', ')}`,
@@ -125,22 +162,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  // ── Call Cloudflare Pages API ─────────────────────────────────────────────────
+  // ── 4. Call Cloudflare Pages API ──────────────────────────────────────────────
   const base    = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}`;
-  const headers = {
+  const cfHeaders = {
     Authorization:  `Bearer ${apiToken}`,
     'Content-Type': 'application/json',
   };
 
   try {
     const [projectRes, deploymentsRes] = await Promise.all([
-      fetch(base, { headers }),
-      fetch(`${base}/deployments?per_page=1&sort_by=created_on&sort_order=desc`, { headers }),
+      fetch(base, { headers: cfHeaders }),
+      fetch(`${base}/deployments?per_page=1&sort_by=created_on&sort_order=desc`, { headers: cfHeaders }),
     ]);
 
     if (!projectRes.ok) {
       const text = await projectRes.text().catch(() => '');
-      return jsonResponse({
+      return respondWithAuth({
         ok:      false,
         status:  'down',
         message: `Cloudflare Pages API error ${projectRes.status}: ${text.slice(0, 200)}`,
@@ -157,10 +194,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const latestDeploy = (deplData.result?.[0] ?? proj.canonical_deployment) as CfDeployment | undefined;
     const deployStatus = latestDeploy?.latest_stage?.status ?? '';
     const status       = resolveStatus(deployStatus);
-
     const last_checked = new Date().toISOString();
 
-    return jsonResponse({
+    return respondWithAuth({
       ok:      true,
       status,
       message: `Project "${proj.name}" · Branch: ${proj.production_branch} · Deploy: ${deployStatus || 'unknown'}`,
@@ -182,7 +218,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       },
     });
   } catch (err) {
-    return jsonResponse({
+    return respondWithAuth({
       ok:      false,
       status:  'down',
       message: err instanceof Error ? err.message : 'Cloudflare Pages API tidak dapat dijangkau',

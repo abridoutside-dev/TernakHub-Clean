@@ -105,6 +105,9 @@ async function checkCloudflarePages(): Promise<ServiceCheck> {
     );
     const latency_ms = Date.now() - start;
 
+    // DEBUG — log raw edge function response to browser console
+    console.log('[CF-Pages debug] raw response from edge function:', JSON.stringify({ data, error: error?.message ?? null }));
+
     if (error) {
       return {
         name:       'Cloudflare Pages',
