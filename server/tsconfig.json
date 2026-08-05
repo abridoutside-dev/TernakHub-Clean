@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["./index.ts", "./r2Client.ts", "./uploadPolicy.ts", "./supabaseAdmin.ts", "./middleware/**/*.ts", "./repositories/**/*.ts", "./routes/**/*.ts", "./utils/**/*.ts"]
+  "include": ["./index.ts", "./atomicRegistration.ts", "./registration.ts", "./r2Client.ts", "./uploadPolicy.ts", "./supabaseAdmin.ts", "./middleware/**/*.ts", "./repositories/**/*.ts", "./routes/**/*.ts", "./utils/**/*.ts"]
 }

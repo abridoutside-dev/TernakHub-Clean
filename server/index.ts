@@ -19,6 +19,11 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  AtomicRegistrationError,
+  type AtomicRegistrationInput,
+} from './atomicRegistration';
+import { registerWithSupabaseAdmin } from './registration';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -49,6 +54,52 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+
+// U-002 — Auth user + profile + default workspace with compensating rollback.
+// The service-role key is read only on request and is never sent to the client.
+app.post('/api/auth/register', async (req, res) => {
+  const input = req.body as Partial<AtomicRegistrationInput>;
+  const requiredFields: Array<keyof AtomicRegistrationInput> = [
+    'email', 'password', 'fullName', 'phone', 'province', 'regency', 'district', 'village',
+  ];
+  if (requiredFields.some((field) => typeof input[field] !== 'string')) {
+    res.status(400).json({ error: 'Data registrasi tidak lengkap.' });
+    return;
+  }
+
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    console.error('[U-002] Supabase Admin API is not configured.');
+    res.status(503).json({ error: 'Registrasi belum dapat diproses di server.' });
+    return;
+  }
+
+  try {
+    const result = await registerWithSupabaseAdmin(
+      input as AtomicRegistrationInput,
+      { url, serviceRoleKey },
+    );
+    res.status(201).json({ ok: true, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    if (message.includes('already registered') || message.includes('already been registered')) {
+      res.status(409).json({ error: 'Email ini sudah terdaftar.' });
+      return;
+    }
+
+    if (error instanceof AtomicRegistrationError) {
+      console.error('[U-002] Atomic registration rolled back.', {
+        step: error.step,
+        rollbackErrors: error.rollbackErrors.length,
+        cause: error.message,
+      });
+    } else {
+      console.error('[U-002] Atomic registration failed.', error);
+    }
+    res.status(500).json({ error: 'Registrasi gagal dan perubahan telah dibatalkan.' });
+  }
+});
 
 // Health check — used by deployment infra and admin dashboards.
 app.get('/api/ping', (_req, res) => {
