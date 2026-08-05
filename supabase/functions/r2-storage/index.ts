@@ -64,14 +64,13 @@ function makeClient(jwt: string) {
 }
 
 // ─── Authorization abstraction ────────────────────────────────────────────────
-// All admin callers must use isPlatformAdmin() — never read user_metadata.role directly.
+// All admin callers must use isSystemAdmin() — never read user_metadata.role directly.
 
 async function isPlatformAdmin(jwt: string): Promise<boolean> {
   const client = makeClient(jwt);
   const { data: { user } } = await client.auth.getUser(jwt);
-  // Initial implementation: check user_metadata.role.
-  // Future: replace with a dedicated platform_admin table check.
-  return user?.user_metadata?.role === 'platform_admin';
+  // Check user_metadata.role === 'system_admin' (canonical admin role).
+  return user?.user_metadata?.role === 'system_admin';
 }
 
 // ─── R2 Config ────────────────────────────────────────────────────────────────

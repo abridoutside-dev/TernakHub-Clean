@@ -4,7 +4,7 @@
 // from the browser (service role queries, Supabase Management API).
 //
 // Dispatcher pattern — one function, multiple actions (same style as r2-storage).
-// Caller must be authenticated as platform_admin.
+// Caller must be authenticated as system_admin.
 //
 // ─── Required Supabase Edge Function Secrets ─────────────────────────────────
 //   SUPABASE_URL             — auto-injected by Supabase runtime
@@ -74,7 +74,7 @@ function makeServiceClient() {
 async function isPlatformAdmin(jwt: string): Promise<boolean> {
   const client = makeAnonClient(jwt);
   const { data: { user } } = await client.auth.getUser(jwt);
-  return user?.user_metadata?.role === 'platform_admin';
+  return user?.user_metadata?.role === 'system_admin';
 }
 
 // ─── Management API helper ────────────────────────────────────────────────────
@@ -440,8 +440,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: { user }, error: authError } = await anonClient.auth.getUser(jwt);
   if (authError || !user) return errorResponse('Token tidak valid atau sudah kedaluwarsa', 401);
 
-  const isAdmin = user?.user_metadata?.role === 'platform_admin';
-  if (!isAdmin) return errorResponse('Akses ditolak: platform admin only', 403);
+  const isAdmin = user?.user_metadata?.role === 'system_admin';
+  if (!isAdmin) return errorResponse('Akses ditolak: system admin only', 403);
 
   const handler = handlers[action];
   if (!handler) {

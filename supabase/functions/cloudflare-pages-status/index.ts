@@ -8,7 +8,7 @@
 //   CF_ACCOUNT_ID         — Cloudflare Account ID
 //   CF_PAGES_PROJECT_NAME — Nama project Cloudflare Pages
 //
-// Caller harus authenticated (platform admin).
+// Caller harus authenticated (system_admin).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -42,7 +42,7 @@ async function isPlatformAdmin(jwt: string): Promise<boolean> {
     auth:   { persistSession: false },
   });
   const { data: { user } } = await client.auth.getUser(jwt);
-  return user?.user_metadata?.role === 'platform_admin';
+  return user?.user_metadata?.role === 'system_admin';
 }
 
 // ─── Cloudflare API types ─────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       email:         u.email,
       app_metadata:  u.app_metadata,
       user_metadata: u.user_metadata,
-      isPlatformAdmin: u.user_metadata?.role === 'platform_admin',
+      isPlatformAdmin: u.user_metadata?.role === 'system_admin',
     }));
     return jsonResponse({ users });
   }
@@ -171,7 +171,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       user:       data?.user ?? null,
     };
     userId  = data?.user?.id ?? null;
-    isAdmin = data?.user?.user_metadata?.role === 'platform_admin';
+    isAdmin = data?.user?.user_metadata?.role === 'system_admin';
   } catch (e) {
     authDebug = {
       hasJwt,
