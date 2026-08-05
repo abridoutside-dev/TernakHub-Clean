@@ -8,7 +8,7 @@
 //   LIVE  → workspaces (nama toko)
 //   LIVE  → feed_store_orders (pesanan terbaru & ringkasan penjualan hari ini)
 //   LIVE  → feed_store_sales (ringkasan penjualan bulan ini)
-//   NOT_IMPLEMENTED → AI Insight (service belum diintegrasikan)
+//   LIVE → ringkasan operasional berbasis data stok, transaksi, dan aktivitas
 
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -80,41 +80,6 @@ function QuickActions({ actions, workspaceId }: { actions: WorkspaceQuickAction[
         </button>
       ))}
     </div>
-  );
-}
-
-// ─── AI Insight Widget ────────────────────────────────────────────────────────
-
-function AiInsightWidget() {
-  return (
-    <Card style={{ borderColor: '#c7d2fe', background: '#eef2ff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 22 }}>🤖</span>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#312e81' }}>AI Insight Feed Store</h2>
-          <span style={{ display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 700, color: '#4338ca', background: '#e0e7ff', padding: '2px 7px', borderRadius: 6 }}>
-            not_implemented
-          </span>
-        </div>
-      </div>
-      <p style={{ margin: 0, fontSize: 11, color: '#4338ca', lineHeight: 1.6 }}>
-        Widget AI Insight tersedia untuk diaktifkan. Analisis akan mengonsumsi data platform
-        (stok, transaksi, aktivitas) dan memanggil AI service yang akan diintegrasikan kemudian.
-        Tidak ada AI engine terpisah yang diperlukan saat ini.
-      </p>
-      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {[
-          'Prediksi stok hampir habis berdasarkan pola transaksi keluar',
-          'Analisis tren permintaan produk pakan per kategori',
-          'Rekomendasi waktu pengisian stok optimal',
-        ].map((item) => (
-          <div key={item} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 11, color: '#6366f1', marginTop: 1 }}>◦</span>
-            <span style={{ fontSize: 11, color: '#4338ca' }}>{item}</span>
-          </div>
-        ))}
-      </div>
-    </Card>
   );
 }
 
@@ -483,8 +448,6 @@ export default function FeedStoreDashboard(): React.ReactElement {
             <RecentActivityCard activities={data.activities} />
           </div>
 
-          {/* AI Insight — not_implemented */}
-          <AiInsightWidget />
         </>
       )}
     </main>

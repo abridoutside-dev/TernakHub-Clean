@@ -21,7 +21,7 @@
 //   operational     — Service responded normally
 //   degraded        — Service responded but reported an issue
 //   down            — Service failed / timed out
-//   not_implemented — Cannot probe from browser (no credentials exposed)
+//   not_configured — Service credentials/configuration are unavailable
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from '../lib/supabase';
@@ -32,8 +32,7 @@ export type ServiceStatus =
   | 'operational'
   | 'degraded'
   | 'down'
-  | 'not_configured'
-  | 'not_implemented';
+  | 'not_configured';
 
 export interface ServiceCheck {
   name: string;
@@ -118,8 +117,8 @@ async function checkCloudflarePages(): Promise<ServiceCheck> {
       };
     }
 
-    const validStatuses: ServiceStatus[] = ['operational', 'degraded', 'down', 'not_configured', 'not_implemented'];
-    const status = data && validStatuses.includes(data.status) ? data.status : 'not_implemented';
+    const validStatuses: ServiceStatus[] = ['operational', 'degraded', 'down', 'not_configured'];
+    const status = data && validStatuses.includes(data.status) ? data.status : 'down';
 
     return {
       name:       'Cloudflare Pages',
@@ -264,7 +263,7 @@ async function checkEdgeFunctions(): Promise<ServiceCheck> {
   } catch {
     return {
       name:       'Supabase Edge Functions',
-      status:     'not_implemented',
+      status:     'down',
       latency_ms: Date.now() - start,
       message:    'Edge Functions tidak dapat dijangkau',
       checked_at: new Date().toISOString(),

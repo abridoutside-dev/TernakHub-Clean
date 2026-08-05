@@ -279,9 +279,6 @@ export default function FarmDashboardModule() {
           </div>
         </div>
 
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 16px', fontSize: 12.5, color: '#78350f' }}>
-          ℹ️ Modul <strong>AI Insight Farm</strong> belum tersedia karena backend AI/ML belum ada. Lihat Blocked Modules Panel di Control Plane.
-        </div>
       </div>
     </AdminLayout>
   );

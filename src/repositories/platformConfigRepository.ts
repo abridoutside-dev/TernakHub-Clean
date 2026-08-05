@@ -10,13 +10,12 @@
 // Service config keys used by Platform Health:
 //   service.supabase        — Supabase database / project settings
 //   service.storage         — Cloudflare R2 object storage settings
-//   service.message_queue   — Message queue settings (not_implemented)
-//   service.ai_service      — AI service settings (not_implemented)
+//   service.message_queue   — Message queue settings
 //
 // Rules:
 //   - Never import from pages, components, or contexts.
 //   - Write operations require an authenticated Supabase session.
-//   - Sensitive values (API keys) are stored in JSONB with is_public=false.
+//   - Sensitive credentials are stored in JSONB with is_public=false.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from '../lib/supabase';
@@ -132,31 +131,6 @@ export const DEFAULT_MESSAGE_QUEUE_CONFIG: MessageQueueConfig = {
   timeoutMs: 30000,
 };
 
-export type AIProvider = 'OpenAI' | 'Gemini' | 'Claude' | 'OpenRouter' | 'Ollama' | 'Custom';
-export const AI_PROVIDERS: AIProvider[] = ['OpenAI', 'Gemini', 'Claude', 'OpenRouter', 'Ollama', 'Custom'];
-
-export interface AIServiceConfig {
-  enableAI: boolean;
-  provider: AIProvider;
-  apiKey: string;
-  baseUrl: string;
-  defaultModel: string;
-  temperature: number;
-  maxTokens: number;
-  timeoutMs: number;
-}
-
-export const DEFAULT_AI_SERVICE_CONFIG: AIServiceConfig = {
-  enableAI: false,
-  provider: 'OpenAI',
-  apiKey: '',
-  baseUrl: '',
-  defaultModel: '',
-  temperature: 0.7,
-  maxTokens: 2048,
-  timeoutMs: 30000,
-};
-
 export interface AuthServiceConfig {
   enableRegistration:       boolean;
   enableEmailVerification:  boolean;
@@ -185,7 +159,6 @@ export const CONFIG_KEYS = {
   supabase:      'service.supabase',
   storage:       'service.storage',
   messageQueue:  'service.message_queue',
-  aiService:     'service.ai_service',
   auth:          'service.auth',
 } as const;
 

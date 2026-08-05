@@ -7,7 +7,6 @@
 // BLOCKED → TransportDriversAdmin   (tidak ada tabel transport_drivers)
 // BLOCKED → TransportScheduleAdmin  (tidak ada tabel transport_schedules)
 // BLOCKED → TransportTrackingAdmin  (GPS/tracking tidak tersedia)
-// N/I    → TransportAIInsightAdmin  (AI backend belum tersedia)
 
 import { useEffect, useState } from 'react';
 import AdminLayout from '../layout/AdminLayout';
@@ -139,50 +138,6 @@ export function TransportRouteAdmin() {
       dependency="transport_routes (id UUID, workspace_id UUID, asal TEXT, tujuan TEXT, jarak_km FLOAT, estimasi_menit INT, biaya_tol INT) + integrasi GPS provider"
       priority="low"
     />
-  );
-}
-
-// ─── 5. AI Insight — NOT IMPLEMENTED ─────────────────────────────────────────
-
-export function TransportAIInsightAdmin() {
-  return (
-    <AdminLayout>
-      <div style={{ maxWidth: 700, margin: '0 auto' }}>
-        <PageHeader title="🤖 AI Insight Transport" subtitle="Analisis dan rekomendasi berbasis AI untuk domain Transport" badge="N/I" />
-        <div style={{ padding: 20, borderRadius: 12, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
-            <span style={{ fontSize: 36 }}>🤖</span>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>AI Insight — Not Implemented</div>
-              <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
-                AI Insight pada TernakHub adalah <strong>consumer terhadap data platform</strong>, bukan AI engine tersendiri.
-                Widget ini akan memanggil AI service yang akan diintegrasikan di milestone mendatang.
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { icon: '📊', label: 'Analisis Efisiensi Armada',     desc: 'Rekomendasi optimasi rute dan utilisasi kendaraan' },
-              { icon: '📦', label: 'Prediksi Demand Pengiriman',     desc: 'Estimasi volume order berdasarkan seasonal pattern' },
-              { icon: '💰', label: 'Analisis Revenue Transport',     desc: 'Tren pendapatan dan anomali pricing' },
-              { icon: '🔧', label: 'Prediksi Maintenance Kendaraan', desc: 'Estimasi kebutuhan servis berdasarkan jam operasional' },
-            ].map(({ icon, label, desc }) => (
-              <div key={label} style={{ padding: '10px 14px', borderRadius: 8, background: '#fff', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.6 }}>
-                <span style={{ fontSize: 18 }}>{icon}</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{label}</div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>{desc}</div>
-                </div>
-                <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'rgba(71,85,105,0.1)', color: '#475569' }}>N/I</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 12, color: '#92400e' }}>
-            ℹ️ Status: <strong>not_implemented</strong>. Tidak ada AI engine atau AI backend yang perlu dibuat saat ini. Widget akan aktif setelah AI service platform diintegrasikan.
-          </div>
-        </div>
-      </div>
-    </AdminLayout>
   );
 }
 

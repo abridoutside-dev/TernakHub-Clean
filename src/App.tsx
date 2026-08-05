@@ -267,7 +267,6 @@ import {
   TransportScheduleAdmin,
   TransportRouteAdmin,
   TransportReportsAdmin,
-  TransportAIInsightAdmin,
 } from './pages/admin/modules/TransportSubPages';
 
 // ─── PublicRoute ──────────────────────────────────────────────────────────────
@@ -755,7 +754,6 @@ export default function App() {
         <Route path="/admin/transport/schedule"   element={<TransportScheduleAdmin />} />
         <Route path="/admin/transport/route"      element={<TransportRouteAdmin />} />
         <Route path="/admin/transport/reports"    element={<TransportReportsAdmin />} />
-        <Route path="/admin/transport/ai-insight" element={<TransportAIInsightAdmin />} />
 
         {/* ── News / RSS / Publication — admin-only content management ── */}
         <Route path="/admin/news-event/review"               element={<AdminNewsEventReview />} />

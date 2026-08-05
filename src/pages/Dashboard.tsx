@@ -20,14 +20,14 @@ import { getVisibleWidgetsInOrder, getWidgetMeta, type WidgetId } from '../data/
 // Mengikuti docs/architecture/DASHBOARD_MODULE_CONSTITUTION.md
 //
 // Dashboard adalah Control Center — BUKAN Master Data, BUKAN CRUD, BUKAN
-// tempat penyimpanan data. Semua section (AI Insight s.d. Business Snapshot)
+// tempat penyimpanan data. Semua section (Analysis s.d. Business Snapshot)
 // membaca data LIVE dari modul asal masing-masing — tidak ada nilai hardcode,
 // tidak ada duplikasi kalkulasi, tidak ada database milik Dashboard sendiri.
 //
 // Quick Action (DB-002): shortcut ke modul lain. Workspace-aware. Tidak
 // memiliki logic bisnis sendiri.
 //
-// Section 2–9 (AI Insight s.d. Business Snapshot) dirender berdasarkan
+// Section 2–9 (Analysis s.d. Business Snapshot) dirender berdasarkan
 // struktur personalisasi (urutan + visibility) dari
 // src/data/dashboardPersonalizationData.ts (DB-010), per Workspace aktif.
 // Header (section 1) selalu tampil dan tidak termasuk widget yang bisa

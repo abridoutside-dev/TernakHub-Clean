@@ -13,8 +13,6 @@
 //   BLOCKED → Jadwal & Rute (transport_schedules belum ada)
 //   BLOCKED → GPS Tracking (belum ada integrasi GPS)
 //
-// NOT_IMPLEMENTED → AI Insight Transport
-
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
@@ -380,14 +378,6 @@ export default function TransportOperational(): React.ReactElement {
         icon="🚫"
         reason="GPS tracking tidak tersedia. Platform belum terintegrasi dengan provider GPS third-party."
       />
-
-      {/* ── AI Insight — NOT IMPLEMENTED ───────────────────────────────── */}
-      <WorkspaceCard style={{ marginBottom: 14 }}>
-        <WorkspaceSectionTitle title="🤖 AI Insight Transport" action="Not Implemented" accentColor="#94a3b8" />
-        <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b' }}>
-          AI Insight belum tersedia. Akan aktif setelah AI service platform diintegrasikan.
-        </div>
-      </WorkspaceCard>
 
     </div>
   );

@@ -2813,7 +2813,6 @@ const STATUS_CFG: Record<ServiceStatus, { label: string; color: string; bg: stri
   degraded:        { label: 'degraded',        color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
   down:            { label: 'down',            color: '#b91c1c', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.2)',  dot: '#ef4444' },
   not_configured:  { label: 'not_configured',  color: '#9333ea', bg: 'rgba(147,51,234,0.07)', border: 'rgba(147,51,234,0.18)', dot: '#a855f7' },
-  not_implemented: { label: 'not_implemented', color: '#475569', bg: 'rgba(71,85,105,0.07)', border: 'rgba(71,85,105,0.15)', dot: '#94a3b8' },
 };
 
 function ServiceRow({
@@ -2886,12 +2885,12 @@ function SystemServicesHealthWidget({ health, loading, savedConfigs, onConfigure
         health.environment,
       ]
     : [
-        { name: 'Cloudflare Pages',        status: 'not_implemented' as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Supabase Database',       status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Supabase Auth',           status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Supabase Edge Functions', status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Cloudflare R2',           status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
-        { name: 'Environment',             status: 'operational'     as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Cloudflare Pages',        status: 'not_configured' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Supabase Database',       status: 'not_configured' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Supabase Auth',           status: 'not_configured' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Supabase Edge Functions', status: 'not_configured' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Cloudflare R2',           status: 'not_configured' as ServiceStatus, latency_ms: null, message: '' },
+        { name: 'Environment',             status: 'not_configured' as ServiceStatus, latency_ms: null, message: '' },
       ];
 
   return (
@@ -2914,6 +2913,58 @@ function SystemServicesHealthWidget({ health, loading, savedConfigs, onConfigure
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Analysis Engine Status ───────────────────────────────────────────────────
+//
+// The analysis layer consumes live platform data and produces decision support.
+// It has no external model/provider dependency; its status reflects the data
+// sources required by the deterministic read-only analysis rules.
+function AnalysisEngineWidget({ health, loading }: {
+  health: SystemServicesHealth | null;
+  loading: boolean;
+}) {
+  const checks = health
+    ? [health.database, health.supabase_auth, health.edge_functions, health.environment]
+    : [];
+  const readyCount = checks.filter(check => check.status === 'operational').length;
+  const hasDown = checks.some(check => check.status === 'down');
+  const hasDegraded = checks.some(check => check.status === 'degraded' || check.status === 'not_configured');
+  const status: ServiceStatus = loading
+    ? 'not_configured'
+    : hasDown
+      ? 'down'
+      : hasDegraded
+        ? 'degraded'
+        : 'operational';
+  const cfg = STATUS_CFG[status];
+  const message = loading
+    ? 'Memeriksa sumber data analisis…'
+    : `${readyCount}/${checks.length} sumber data siap · analisis rule-based read-only`;
+
+  return (
+    <SectionCard
+      title="Analysis Engine"
+      icon="📐"
+      badge={loading
+        ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: '#f1f5f9', color: '#94a3b8' }}>CHECKING</span>
+        : <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>{cfg.label}</span>}
+    >
+      <div style={{ padding: '12px 14px', borderRadius: 9, background: cfg.bg, border: `1px solid ${cfg.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: cfg.dot, flexShrink: 0, boxShadow: status === 'operational' ? `0 0 0 3px ${cfg.dot}28` : 'none' }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Data → Analysis → Decision support</div>
+          <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>{message}</div>
+        </div>
+        {!loading && health && health.database.latency_ms !== null && (
+          <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{health.database.latency_ms}ms</span>
+        )}
+      </div>
+      <div style={{ marginTop: 10, fontSize: 11, color: '#64748b' }}>
+        Status ini berasal dari konektivitas data platform, bukan konfigurasi layanan eksternal.
+      </div>
+    </SectionCard>
   );
 }
 
@@ -3273,17 +3324,7 @@ export default function PlatformHealthModule() {
           );
         })()}
 
-        {/* ── AI Service (not implemented) ──────────────────────────────────────── */}
-        <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 15 }}>🤖</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#475569', flex: 1 }}>AI Service Status</span>
-            <NIBadge />
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
-            AI backend belum diintegrasikan. Status: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>not_implemented</code>
-          </div>
-        </div>
+        <AnalysisEngineWidget health={systemHealth} loading={systemHealthLoading} />
 
       </div>
     </AdminLayout>

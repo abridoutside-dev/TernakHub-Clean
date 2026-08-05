@@ -30,7 +30,7 @@ import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboar
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SectionId = 'products' | 'stock' | 'incoming' | 'outgoing' | 'movements' | 'supplier' | 'customers' | 'reports' | 'ai_insight';
+type SectionId = 'products' | 'stock' | 'incoming' | 'outgoing' | 'movements' | 'supplier' | 'customers' | 'reports' | 'analysis';
 
 interface Section {
   id: SectionId;
@@ -100,10 +100,10 @@ const SECTIONS: Section[] = [
     blocked: false,
   },
   {
-    id: 'ai_insight',
-    icon: '🤖',
-    title: 'AI Insight',
-    description: 'Analisis cerdas berbasis data platform.',
+    id: 'analysis',
+    icon: '📐',
+    title: 'Analysis',
+    description: 'Ringkasan rule-based dari data stok dan transaksi.',
     blocked: false,
   },
 ];
@@ -538,37 +538,42 @@ function ReportsDetail({
   );
 }
 
-// ─── AI Insight Detail ────────────────────────────────────────────────────────
+// ─── Analysis Detail ───────────────────────────────────────────────────────────
 
-function AiInsightDetail() {
+function AnalysisDetail({
+  items,
+  transactions,
+}: {
+  items: StokInventarisDbRow[];
+  transactions: StokTransactionDbRow[];
+}) {
+  const lowStockCount = getLowStockItems(items).length;
+  const incomingCount = getTransaksiMasuk(transactions).length;
+  const outgoingCount = getTransaksiKeluar(transactions).length;
   return (
-    <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 10, padding: 14 }}>
+    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 20 }}>🤖</span>
+        <span style={{ fontSize: 20 }}>📐</span>
         <div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#312e81' }}>AI Insight Feed Store</p>
-          <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, color: '#4338ca', background: '#e0e7ff', padding: '2px 7px', borderRadius: 5 }}>
-            not_implemented
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#166534' }}>Analysis Feed Store</p>
+          <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '2px 7px', borderRadius: 5 }}>
+            live
           </span>
         </div>
       </div>
-      <p style={{ margin: '0 0 10px', fontSize: 11, color: '#4338ca', lineHeight: 1.6 }}>
-        Modul AI Insight sudah tersedia untuk diaktifkan. Analisis akan mengonsumsi data platform
-        yang ada (stok_inventaris, stok_inventaris_transactions, activity_log) dan memanggil
-        AI service eksternal yang akan diintegrasikan kemudian.
+      <p style={{ margin: '0 0 10px', fontSize: 11, color: '#166534', lineHeight: 1.6 }}>
+        Ringkasan dihitung langsung dari data stok dan transaksi yang sedang dimuat. Tidak ada
+        provider atau layanan eksternal yang dipanggil.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { label: 'Prediksi stok hampir habis', source: 'stok_inventaris + stok_inventaris_transactions' },
-          { label: 'Analisis tren transaksi keluar', source: 'stok_inventaris_transactions (type=Keluar)' },
-          { label: 'Rekomendasi pengisian stok optimal', source: 'stok_inventaris (min_stock threshold)' },
-          { label: 'Ringkasan aktivitas anomali', source: 'activity_log (severity=warning|error)' },
+          { label: 'Stok perlu perhatian', value: `${formatNumber(lowStockCount)} item` },
+          { label: 'Transaksi masuk', value: `${formatNumber(incomingCount)} transaksi` },
+          { label: 'Transaksi keluar', value: `${formatNumber(outgoingCount)} transaksi` },
         ].map((insight) => (
-          <div key={insight.label} style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', border: '1px solid #e0e7ff' }}>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#312e81' }}>{insight.label}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 10, color: '#6366f1' }}>
-              Data: <code style={{ fontSize: 9, background: '#e0e7ff', padding: '1px 4px', borderRadius: 3 }}>{insight.source}</code>
-            </p>
+          <div key={insight.label} style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', border: '1px solid #dcfce7' }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#166534' }}>{insight.label}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 10, color: '#15803d' }}>{insight.value}</p>
           </div>
         ))}
       </div>
@@ -599,7 +604,7 @@ function getSectionCountLabel(
     case 'supplier':   return `${formatNumber(suppliers.length)} supplier`;
     case 'customers':  return `${formatNumber(customers.length)} pelanggan`;
     case 'reports':    return salesSummary.todayRevenue > 0 ? formatRupiah(salesSummary.todayRevenue) : `${formatNumber(recentOrders.length)} order`;
-    case 'ai_insight': return 'not_implemented';
+    case 'analysis':    return 'rule-based';
     default: return '-';
   }
 }
@@ -690,8 +695,6 @@ export default function FeedStoreOperational(): ReactElement {
                 data.recentOrders,
                 data.salesSummary,
               );
-              const isAi = section.id === 'ai_insight';
-
               return (
                 <button
                   key={section.id}
@@ -707,10 +710,7 @@ export default function FeedStoreOperational(): ReactElement {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ fontSize: 23 }}>{section.icon}</span>
-                    {isAi
-                      ? <span style={{ fontSize: 10, color: '#6366f1', fontWeight: 700 }}>N/I</span>
-                      : <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>Live</span>
-                    }
+                    <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>Live</span>
                   </div>
                   <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>
                     {section.title}
@@ -755,8 +755,8 @@ export default function FeedStoreOperational(): ReactElement {
                 stokItems={data.stokItems}
                 transactions={data.transactions}
               />
-            ) : selected.id === 'ai_insight' ? (
-              <AiInsightDetail />
+            ) : selected.id === 'analysis' ? (
+              <AnalysisDetail items={data.stokItems} transactions={data.transactions} />
             ) : null}
           </section>
         </>

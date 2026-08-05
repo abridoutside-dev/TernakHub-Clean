@@ -6,7 +6,7 @@
 //   LIVE → stok_obat, stok_obat_masuk, stok_obat_keluar
 //   LIVE → drug_catalog (count), activity_log, workspaces
 //   LIVE → drug_store_suppliers, drug_store_orders, drug_store_sales
-//   NOT_IMPLEMENTED → AI Insight
+//   LIVE → ringkasan data operasional dari tabel yang tersedia
 
 import { type ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
@@ -85,7 +85,7 @@ export default function DrugStoreOperational(): ReactElement {
   // Ringkasan laporan: total order penjualan dari drug_store_orders
   const totalPenjualanOrders = data.recentOrders.filter((o) => o.order_type === 'Penjualan').length;
 
-  type SectionStatus = 'live' | 'not_implemented';
+  type SectionStatus = 'live';
 
   interface OperationalSection {
     id:          string;
@@ -169,14 +169,6 @@ export default function DrugStoreOperational(): ReactElement {
       count:       `${formatNumber(totalPenjualanOrders)} order penjualan · ${formatNumber(salesCount)} catatan penjualan`,
       status:      'live',
     },
-    {
-      id:          'ai-insight',
-      icon:        '🤖',
-      title:       'AI Insight',
-      description: 'Analisis berbasis data platform — belum diintegrasikan.',
-      count:       'not_implemented',
-      status:      'not_implemented',
-    },
   ];
 
   return (
@@ -257,17 +249,11 @@ export default function DrugStoreOperational(): ReactElement {
           gap: 10,
         }}>
           {OPERATIONAL_SECTIONS.map((section) => {
-            const isNotImplemented = section.status === 'not_implemented';
-            const isLive           = section.status === 'live';
-
-            const borderColor = isNotImplemented ? '#c7d2fe' : COLORS.border;
-            const bgColor     = isNotImplemented ? '#eef2ff' : 'var(--color-surface)';
-
-            const badgeColor = isNotImplemented
-              ? { color: '#4338ca', bg: '#e0e7ff' }
-              : { color: COLORS.primary, bg: COLORS.bg };
-
-            const badgeLabel = isNotImplemented ? 'not_implemented' : 'live';
+            const borderColor = COLORS.border;
+            const bgColor     = 'var(--color-surface)';
+            const badgeColor = { color: COLORS.primary, bg: COLORS.bg };
+            const badgeLabel = 'live';
+            const isLive = true;
 
             return (
               <div

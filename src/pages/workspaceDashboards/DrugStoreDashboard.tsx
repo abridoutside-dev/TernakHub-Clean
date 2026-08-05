@@ -7,7 +7,7 @@
 //   LIVE → activity_log, drug_store_suppliers
 //   LIVE → drug_store_orders (Pesanan Terbaru, Ringkasan Penjualan)
 //   LIVE → drug_store_sales  (Ringkasan Penjualan)
-//   NOT_IMPLEMENTED → AI Insight (service belum diintegrasikan)
+//   LIVE → ringkasan operasional berbasis stok, transaksi, dan kedaluwarsa
 
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -430,44 +430,6 @@ function RecentActivityCard({ activities }: { activities: ActivityLogDbRow[] }) 
   );
 }
 
-// ─── AI Insight Widget — not_implemented ──────────────────────────────────────
-
-function AiInsightWidget() {
-  return (
-    <WorkspaceCard style={{ borderColor: '#c7d2fe', background: '#eef2ff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 22 }}>🤖</span>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#312e81' }}>AI Insight Drug Store</h2>
-          <span style={{
-            display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 700,
-            color: '#4338ca', background: '#e0e7ff', padding: '2px 7px', borderRadius: 6,
-          }}>
-            not_implemented
-          </span>
-        </div>
-      </div>
-      <p style={{ margin: 0, fontSize: 11, color: '#4338ca', lineHeight: 1.6 }}>
-        Widget AI Insight tersedia untuk diaktifkan. Analisis akan mengonsumsi data platform
-        (stok, transaksi, aktivitas) dan memanggil AI service yang akan diintegrasikan kemudian.
-      </p>
-      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {[
-          'Prediksi stok obat hampir habis berdasarkan pola transaksi keluar',
-          'Peringatan dini obat mendekati tanggal kedaluwarsa',
-          'Analisis tren permintaan obat per kategori',
-          'Rekomendasi waktu pengisian stok optimal',
-        ].map((item) => (
-          <div key={item} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 11, color: '#6366f1', marginTop: 1 }}>◦</span>
-            <span style={{ fontSize: 11, color: '#4338ca' }}>{item}</span>
-          </div>
-        ))}
-      </div>
-    </WorkspaceCard>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DrugStoreDashboard(): React.ReactElement {
@@ -570,8 +532,6 @@ export default function DrugStoreDashboard(): React.ReactElement {
             <RecentActivityCard activities={data.activities} />
           </div>
 
-          {/* AI Insight — not_implemented */}
-          <AiInsightWidget />
         </>
       )}
     </main>

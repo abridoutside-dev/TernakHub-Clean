@@ -270,7 +270,7 @@ function SystemHealth({ db, loading }: { db: DbStatus; loading: boolean }) {
         {[
           { key: 'storage', label: 'Object Storage', icon: '📦' },
           { key: 'queue',   label: 'Message Queue',  icon: '📨' },
-          { key: 'ai',      label: 'AI Service',     icon: '🤖' },
+          { key: 'analysis', label: 'Analysis Engine', icon: '📐' },
         ].map((svc) => (
           <div key={svc.key} style={{
             background: '#fff', borderRadius: 12, padding: '16px 18px',

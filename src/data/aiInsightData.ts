@@ -92,9 +92,7 @@ export interface AiInsightItem {
   actions: InsightAction[];
 }
 
-// ─── AI Generated Summary (Future Ready placeholder) ────────────────────────
-// Disiapkan agar AI Engine masa depan (Summary/Prediction/Recommendation)
-// tinggal mengisi field ini tanpa mengubah struktur komponen.
+// ─── Analysis Summary ─────────────────────────────────────────────────────────
 export interface AiGeneratedSummary {
   generatedAt: string;
   summaryText: string;
@@ -105,9 +103,9 @@ export interface AiGeneratedSummary {
 export function getAiGeneratedSummary(): AiGeneratedSummary {
   return {
     generatedAt: new Date().toISOString(),
-    summaryText: 'Insight diambil langsung dari modul AI yang aktif: Livestock, Bobot, Kesehatan, Pakan, Batch, Mutasi, dan Reproduksi.',
-    predictionText: 'Prediksi AI (proyeksi berbasis LLM) belum tersedia — placeholder untuk fase implementasi berikutnya.',
-    recommendationText: 'Rekomendasi otomatis berbasis LLM akan tersedia pada fase implementasi berikutnya.',
+    summaryText: 'Ringkasan dihitung dari analisis rule-based Livestock, Bobot, Kesehatan, Pakan, Batch, Mutasi, dan Reproduksi.',
+    predictionText: 'Proyeksi ditampilkan hanya jika tersedia dari data historis modul terkait.',
+    recommendationText: 'Rekomendasi berasal dari kondisi data dan aturan operasional yang dapat ditelusuri.',
   };
 }
 

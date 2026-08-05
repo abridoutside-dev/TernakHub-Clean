@@ -13,7 +13,6 @@
 //   Jadwal           → BLOCKED (tidak ada tabel transport_schedules)
 //   Tracking         → BLOCKED (tidak ada tabel transport_tracking)
 //   Laporan          → LIVE (aggregate dari marketplace data)
-//   AI Insight       → NOT_IMPLEMENTED (AI backend belum tersedia)
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -291,7 +290,6 @@ export default function TransportModule() {
             { label: 'Driver',                  icon: '👷', path: '/admin/transport/drivers',  badge: 'blocked', desc: 'Tabel transport_drivers belum ada' },
             { label: 'Jadwal',                  icon: '📅', path: '/admin/transport/schedule', badge: 'blocked', desc: 'Tabel transport_schedules belum ada' },
             { label: 'Rute & Tracking',          icon: '🗺️', path: '/admin/transport/route',    badge: 'blocked', desc: 'Tabel transport_routes & GPS belum ada' },
-            { label: 'AI Insight',              icon: '🤖', path: '/admin/transport/ai-insight', badge: 'ni',   desc: 'AI backend belum tersedia' },
           ].map(({ label, icon, path, badge, desc }) => (
             <div
               key={path}
@@ -338,17 +336,6 @@ export default function TransportModule() {
           dependency="transport_tracking atau integrasi GPS third-party"
           priority="low"
         />
-        <div style={{ padding: 14, borderRadius: 10, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0', marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 16 }}>🤖</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#475569' }}>AI Insight Transport</span>
-            <NotImplementedBadge />
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b' }}>
-            AI Insight adalah consumer terhadap data platform. Backend AI belum diintegrasikan. Widget tersedia dengan status <code>not_implemented</code> — tidak ada blocker palsu.
-          </div>
-        </div>
-
       </div>
     </AdminLayout>
   );

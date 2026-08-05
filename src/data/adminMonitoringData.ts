@@ -1,7 +1,7 @@
 // ─── Admin Monitoring Data — ADM-003C ────────────────────────────────────────
 // Realistic dummy data only. No production database, no external API.
 
-export type ServiceType = 'API Gateway' | 'Database' | 'Storage' | 'Queue' | 'AI Service' | 'CDN' | 'Auth Service' | 'Scheduler';
+export type ServiceType = 'API Gateway' | 'Database' | 'Storage' | 'Queue' | 'CDN' | 'Auth Service' | 'Scheduler';
 export type ServiceStatus = 'Healthy' | 'Degraded' | 'Down' | 'Maintenance';
 export type IncidentSeverity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
 
@@ -45,9 +45,6 @@ export interface AdminServiceRecord {
   // Storage-specific
   storageUsedGb?: number;
   storageTotalGb?: number;
-  // AI-specific
-  inferenceTimeMs?: number;
-  modelVersion?: string;
 }
 
 // ─── Platform stats ───────────────────────────────────────────────────────────
@@ -88,7 +85,6 @@ export const SERVICE_TYPE_CONFIG: Record<ServiceType, { icon: string; color: str
   'Database':      { icon: '🗄️', color: '#8b5cf6' },
   'Storage':       { icon: '📦', color: '#f59e0b' },
   'Queue':         { icon: '📨', color: '#10b981' },
-  'AI Service':    { icon: '🤖', color: '#ec4899' },
   'CDN':           { icon: '⚡', color: '#06b6d4' },
   'Auth Service':  { icon: '🔐', color: '#64748b' },
   'Scheduler':     { icon: '⏰', color: '#f97316' },
@@ -160,18 +156,6 @@ export const ADMIN_SERVICE_LIST: AdminServiceRecord[] = [
     queueDepth: 142, queueProcessingRate: 890,
     recentIncidents: [
       { id: 'INC-0224', title: 'Queue backlog spike', severity: 'Medium', occurredAt: '2026-05-30 08:10', resolvedAt: '2026-05-30 08:55', description: 'Backlog mencapai 12.000 messages saat pengumuman platform besar dikirim bersamaan.' },
-    ],
-  },
-  {
-    id: 'SVC-006', name: 'AI Inference Service', type: 'AI Service',
-    status: 'Degraded', region: 'Asia Pacific (Jakarta)', version: 'v2.1.0',
-    uptimePercent: 98.42, responseTimeMs: 1_240, p99ResponseTimeMs: 4_800,
-    requestsPerMin: 284, errorRatePercent: 2.4,
-    lastChecked: '2026-07-18 10:42:00', lastIncident: '2026-07-18',
-    description: 'Layanan AI untuk insight ternak, analitik marketplace, deteksi penyakit, dan OCR dokumen.',
-    inferenceTimeMs: 1_240, modelVersion: 'TernakAI-v2.1.0',
-    recentIncidents: [
-      { id: 'INC-0318', title: 'AI inference latency degradation (OPEN)', severity: 'High', occurredAt: '2026-07-18 06:20', resolvedAt: null, description: 'Latensi AI meningkat 5× baseline sejak 06:20 WIB. Tim ML sedang investigasi kemungkinan memory leak pada model inference container.' },
     ],
   },
   {
@@ -483,7 +467,6 @@ export interface MonitoringEventRecord {
 }
 
 export const RECENT_MONITORING_EVENTS: MonitoringEventRecord[] = [
-  { eventId: 'EVT-0318', module: 'AI Service',   moduleIcon: '🤖', title: 'AI inference latency degradation — investigasi ML', severity: 'High',     status: 'In Progress', timestamp: '18 Jul 2026 · 06:20' },
   { eventId: 'EVT-0319', module: 'Marketplace',  moduleIcon: '🛒', title: 'Escrow Engine maintenance window terjadwal',          severity: 'Info',     status: 'In Progress', timestamp: '18 Jul 2026 · 02:00' },
   { eventId: 'EVT-0317', module: 'User',         moduleIcon: '👥', title: 'Login anomali terdeteksi — 3 akun IP asing',          severity: 'Medium',   status: 'Acknowledged', timestamp: '17 Jul 2026 · 22:14' },
   { eventId: 'EVT-0316', module: 'Marketplace',  moduleIcon: '🛒', title: 'Volume transaksi harian 91 — di atas rata-rata',       severity: 'Info',     status: 'Resolved',    timestamp: '16 Jul 2026 · 23:59' },

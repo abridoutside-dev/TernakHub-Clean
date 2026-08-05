@@ -7,7 +7,7 @@
 //
 // Domain yang tersedia:
 //   LIVE → Pasien, Pemeriksaan, Kunjungan, Diagnosis, Tindakan, Resep/Obat, Jadwal, Transaksi, Laporan
-//   NOT_IMPLEMENTED → AI Insight Veterinary
+//   LIVE → ringkasan data operasional dari tabel yang tersedia
 //
 // Blocked Modules (dependency platform belum tersedia):
 //   - Daftar Dokter/Staff  → tidak ada tabel vet_staff di Supabase
@@ -85,7 +85,7 @@ export default function DokterHewanOperational(): React.ReactElement {
   // Laporan: ringkasan dari semua modul LIVE
   const laporanSummary = `${checkupCount} pemeriksaan · ${treatmentCount} tindakan · ${jadwalCount} jadwal`;
 
-  type SectionStatus = 'live' | 'not_implemented' | 'blocked';
+  type SectionStatus = 'live' | 'blocked';
 
   interface OperationalSection {
     id:          string;
@@ -169,14 +169,6 @@ export default function DokterHewanOperational(): React.ReactElement {
       description: 'Ringkasan data dari seluruh modul LIVE.',
       count:       laporanSummary,
       status:      'live',
-    },
-    {
-      id:          'ai-insight',
-      icon:        '🤖',
-      title:       'AI Insight',
-      description: 'Analisis berbasis data platform — belum diintegrasikan.',
-      count:       'not_implemented',
-      status:      'not_implemented',
     },
   ];
 
@@ -289,17 +281,14 @@ export default function DokterHewanOperational(): React.ReactElement {
           marginBottom: 16,
         }}>
           {OPERATIONAL_SECTIONS.map((section) => {
-            const isNotImplemented = section.status === 'not_implemented';
             const isLive           = section.status === 'live';
 
-            const borderColor = isNotImplemented ? '#c7d2fe' : COLORS.border;
-            const bgColor     = isNotImplemented ? '#eef2ff' : 'var(--color-surface)';
+            const borderColor = COLORS.border;
+            const bgColor     = 'var(--color-surface)';
 
-            const badgeColor = isNotImplemented
-              ? { color: '#4338ca', bg: '#e0e7ff' }
-              : { color: COLORS.primary, bg: COLORS.bg };
+            const badgeColor = { color: COLORS.primary, bg: COLORS.bg };
 
-            const badgeLabel = isNotImplemented ? 'not_implemented' : 'live';
+            const badgeLabel = isLive ? 'live' : 'blocked';
 
             return (
               <div

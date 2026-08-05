@@ -15,12 +15,12 @@ import {
 // DB-003R / HOME-002 — "Lihat Semua Insight" (halaman terpisah dari Dashboard)
 // Mengikuti docs/architecture/DASHBOARD_MODULE_CONSTITUTION.md
 //
-// Dashboard (Control Center) HANYA menampilkan ringkasan (AI Generated
+// Dashboard (Control Center) HANYA menampilkan ringkasan (Analysis
 // Summary + maksimal 3 Insight Prioritas) — lihat
 // src/components/dashboard/AiInsight.tsx. Daftar Insight LENGKAP (seluruh
 // priority: Critical/Warning/Recommendation/Information, dengan detail
 // badge/source/timestamp/aksi) dipindahkan ke halaman ini agar Dashboard
-// tidak menjadi "halaman AI". Halaman ini tetap TIDAK mengubah data modul
+// tidak menjadi halaman detail analisis. Halaman ini tetap TIDAK mengubah data modul
 // manapun — "Tandai Sudah Dibaca" hanya state UI lokal per sesi.
 //
 // formatRelativeTime diambil dari data layer (tidak duplikat) dan selalu
@@ -44,7 +44,7 @@ function AiSummaryPanel() {
           ✨
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>AI Generated Summary</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>Analysis Summary</div>
           <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>Dianalisis {formatRelativeTime(summary.generatedAt)}</div>
         </div>
       </div>
@@ -54,11 +54,11 @@ function AiSummaryPanel() {
           <div style={{ fontSize: 13, color: 'var(--color-text)', marginTop: 2 }}>{summary.summaryText}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>Prediksi (AI Prediction)</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>Prediksi berbasis data</div>
           <div style={{ fontSize: 13, color: 'var(--color-text)', marginTop: 2 }}>{summary.predictionText}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>Rekomendasi (AI Recommendation)</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>Rekomendasi operasional</div>
           <div style={{ fontSize: 13, color: 'var(--color-text)', marginTop: 2 }}>{summary.recommendationText}</div>
         </div>
       </div>
@@ -170,7 +170,7 @@ function AiInsightEmptyState() {
 /**
  * Halaman "Lihat Semua Insight" — daftar Insight lengkap dikelompokkan per
  * Section (Critical → Warning → Recommendation → Information), dibuka dari
- * Dashboard. Seluruh data adalah dummy/placeholder (belum ada AI Engine).
+ * Dashboard. Seluruh item dihitung dari modul rule-based yang tersedia.
  */
 export default function DashboardAiInsight() {
   const navigate = useNavigate();

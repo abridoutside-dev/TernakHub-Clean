@@ -1,8 +1,7 @@
 // ─── Admin Control Plane Data — ADMIN-ARCH-003 / ADMIN-SYNC-002 ─────────────
 // Defines every domain's Control Center: widgets, health, sync status,
 // statistics, blockers, and last-sync timestamps.
-// ADMIN-SYNC-002: BLOCKED_MODULES_PANEL is now auto-computed from widget
-// syncStatus (blocked | dummy | not_implemented). No manual entries.
+// ADMIN-SYNC-002: BLOCKED_MODULES_PANEL is auto-computed from widget syncStatus.
 
 import type { SyncStatus, ModuleHealth } from './adminNavData';
 
@@ -137,17 +136,16 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
   },
 
   // ── 3. Workspace Farm ──────────────────────────────────────────────────────
-  // ADMIN-SYNC-004 + ADMIN-FOUNDATION-001: semua modul Farm LIVE kecuali AI.
+  // ADMIN-SYNC-004 + ADMIN-FOUNDATION-001: semua modul Farm LIVE.
   // Live: farm-summary, farm-livestock, farm-batch, farm-bobot,
   //   farm-pemberian-pakan, farm-stok-pakan, farm-master-pakan, farm-formula,
   //   farm-stok-obat, farm-health, farm-repro, farm-mutasi, farm-master-obat,
   //   farm-riwayat-aktivitas.
-  // Blocked (not_implemented): farm-ai (no AI engine backend).
   {
     domainKey: 'domain-farm',
     label: 'Workspace Farm',
     icon: '🐄',
-    description: 'Cross-workspace livestock, feed, medicine, health, and AI insights.',
+     description: 'Cross-workspace livestock, feed, medicine, health, and operational analysis.',
     primaryPath: '/admin/farm/dashboard',
     widgets: [
       w('farm-summary',            'Farm Dashboard',         '🐄', LIVE),
@@ -163,12 +161,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('farm-repro',              'Reproduksi',             '🔬', LIVE),
       w('farm-mutasi',             'Mutasi / Transfer',      '🔀', LIVE),
       w('farm-master-obat',        'Master Obat',            '📋', LIVE),
-      w('farm-riwayat-aktivitas',  'Riwayat Aktivitas Farm', '📋', LIVE),
-      w('farm-ai',                 'AI Insight Farm',        '🤖', {
-        health: 'unknown', syncStatus: 'not_implemented', statistics: {},
-        blocker: { reason: 'Belum ada backend AI/ML untuk farm insight; membutuhkan integrasi AI engine.', blockedSince: '2026-08-03' },
-        lastSync: null,
-      }),
+       w('farm-riwayat-aktivitas',  'Riwayat Aktivitas Farm', '📋', LIVE),
     ],
   },
 
@@ -185,7 +178,6 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('fs-purchase',     'Purchase Summary',     '🛒'),
       w('fs-sales',        'Sales Summary',        '💰'),
       w('fs-transactions', 'Transactions Summary', '💳'),
-      w('fs-ai',           'AI Summary',           '🤖'),
     ],
   },
 
@@ -202,7 +194,6 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('ds-purchase',     'Purchase Summary',     '🛒'),
       w('ds-sales',        'Sales Summary',        '💰'),
       w('ds-transactions', 'Transactions Summary', '💳'),
-      w('ds-ai',           'AI Summary',           '🤖'),
     ],
   },
 
@@ -219,7 +210,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('vet-treatment',      'Treatment Summary',      '💉'),
       w('vet-prescription',   'Prescription Summary',   '📝'),
       w('vet-reports',        'Reports Summary',        '📊'),
-      w('vet-ai',             'AI Summary',             '🤖'),
+      w('vet-analysis',       'Analysis Summary',       '📐'),
     ],
   },
 
@@ -231,7 +222,6 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
   // NI     → Driver    (transport_drivers belum ada)
   // NI     → Schedule  (transport_schedules belum ada)
   // NI     → Route     (transport_routes belum ada)
-  // NI     → AI        (AI backend belum tersedia)
   {
     domainKey: 'domain-transport',
     label: 'Workspace Transport',
@@ -246,7 +236,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('trans-driver',    'Driver Summary',    '👷'),
       w('trans-schedule',  'Schedule Summary',  '📅'),
       w('trans-route',     'Route Summary',     '🗺️'),
-      w('trans-ai',        'AI Summary',        '🤖'),
+      w('trans-analysis',  'Analysis Summary',  '📐'),
     ],
   },
 
@@ -273,14 +263,14 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     domainKey: 'domain-platform-services',
     label: 'Platform Services',
     icon: '⚡',
-    description: 'News, notifications, publications, RSS feeds, and AI global service.',
+   description: 'News, notifications, publications, RSS feeds, and platform analysis.',
     primaryPath: '/admin/notifications',
     widgets: [
       w('ps-news',          'News Summary',         '📰', DUM),
       w('ps-notification',  'Notification Summary', '🔔', DUM),
       w('ps-publication',   'Publication Summary',  '📤'),
       w('ps-rss',           'RSS Summary',          '📡'),
-      w('ps-ai-global',     'AI Global Summary',    '🤖'),
+      w('ps-analysis',      'Analysis Summary',     '📐'),
     ],
   },
 
@@ -314,7 +304,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('cfg-auth-n',      'Authentication Status', '🔐'),
       w('cfg-auth-z',      'Authorization Status',  '🔑'),
       w('cfg-flags',       'Feature Flags',         '🚩'),
-      w('cfg-ai',          'AI Configuration',      '🤖'),
+      w('cfg-analysis',    'Analysis Configuration','📐'),
       w('cfg-mp-rules',    'Marketplace Rules',     '🛒'),
       w('cfg-sub-rules',   'Subscription Rules',    '⭐'),
     ],
@@ -325,13 +315,12 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
     domainKey: 'domain-monitoring',
     label: 'Monitoring',
     icon: '📡',
-    description: 'Database, API, storage, AI, queue, scheduler, workspace, and marketplace health.',
+   description: 'Database, API, storage, queue, scheduler, workspace, and marketplace health.',
     primaryPath: '/admin/monitoring',
     widgets: [
       w('mon-db',          'Database Health',    '🗄️', DUM),
       w('mon-api',         'API Health',         '🔌'),
       w('mon-storage',     'Storage Health',     '💾'),
-      w('mon-ai',          'AI Engine Health',   '🤖'),
       w('mon-queue',       'Queue Health',       '📬'),
       w('mon-scheduler',   'Scheduler Health',   '⏰'),
       w('mon-workspace',   'Workspace Health',   '🏢'),

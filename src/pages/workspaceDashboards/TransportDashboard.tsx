@@ -13,7 +13,7 @@
 //   BLOCKED → Driver            (transport_drivers belum ada)
 //   BLOCKED → Jadwal & Tracking (transport_schedules / GPS belum ada)
 //
-//   NOT_IMPLEMENTED → AI Insight Transport
+//   LIVE → ringkasan operasional dari marketplace dan aktivitas workspace
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -412,14 +412,6 @@ export default function TransportDashboard(): React.ReactElement {
 
       {/* ── Aktivitas Terkini ───────────────────────────────────────────── */}
       {data && <AktivitasCard activities={data.activities} />}
-
-      {/* ── AI Insight — NOT IMPLEMENTED ───────────────────────────────── */}
-      <WorkspaceCard style={{ marginBottom: 14 }}>
-        <WorkspaceSectionTitle title="🤖 AI Insight Transport" action="Not Implemented" accentColor="#94a3b8" />
-        <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0', fontSize: 12, color: '#64748b' }}>
-          AI Insight adalah consumer terhadap data platform. Backend AI belum diintegrasikan. Akan aktif setelah AI service platform tersedia.
-        </div>
-      </WorkspaceCard>
 
     </div>
   );
