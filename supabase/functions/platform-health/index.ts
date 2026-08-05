@@ -327,10 +327,11 @@ const handleSecretsList: Handler = async () => {
 // Caller must be platform_admin.
 
 interface AuthUser {
-  id:                string;
+  id:                  string;
   email_confirmed_at?: string | null;
   is_anonymous?:       boolean;
   last_sign_in_at?:    string | null;
+  created_at?:         string | null;
 }
 
 const handleAuthUsers: Handler = async () => {
@@ -399,6 +400,137 @@ const handleAuthUsers: Handler = async () => {
   }
 };
 
+// ─── Action: auth-health ──────────────────────────────────────────────────────
+// Comprehensive auth health: user counts (Admin API) + service status checks
+// + login stats (Management API logs, graceful degradation if unavailable).
+// Caller must be platform_admin.
+
+const handleAuthHealth: Handler = async () => {
+  const url         = Deno.env.get('SUPABASE_URL')              ?? '';
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const now         = new Date();
+  const cutoff24h   = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  // ── 1. Fetch users via Admin API ─────────────────────────────────────────
+  type AuthUserFull = AuthUser & { created_at?: string | null };
+
+  let usersData: {
+    total: number; verified: number; unverified: number;
+    anonymous: number; active_last_24h: number; new_last_24h: number;
+  } | null = null;
+  let adminApiStatus: 'operational' | 'degraded' | 'down' = 'down';
+  let jwtStatus:      'operational' | 'degraded' | 'down' = 'down';
+  let adminApiError:  string | null = null;
+
+  if (!serviceRole) {
+    adminApiError = 'SUPABASE_SERVICE_ROLE_KEY tidak tersedia';
+  } else {
+    try {
+      const res = await fetch(`${url}/auth/v1/admin/users?per_page=1000`, {
+        headers: {
+          Authorization: `Bearer ${serviceRole}`,
+          apikey:        serviceRole,
+        },
+      });
+      if (res.ok) {
+        const body = await res.json() as { users?: AuthUserFull[] } | AuthUserFull[];
+        const userList: AuthUserFull[] = Array.isArray(body)
+          ? body as AuthUserFull[]
+          : ((body as { users?: AuthUserFull[] }).users ?? []);
+        const totalHeader = res.headers.get('x-total-count');
+        const total       = totalHeader ? parseInt(totalHeader, 10) : userList.length;
+        const verified    = userList.filter(u => Boolean(u.email_confirmed_at)).length;
+        const anonymous   = userList.filter(u => u.is_anonymous === true).length;
+        const active24h   = userList.filter(u => {
+          if (!u.last_sign_in_at) return false;
+          return new Date(u.last_sign_in_at) >= cutoff24h;
+        }).length;
+        const new24h = userList.filter(u => {
+          if (!u.created_at) return false;
+          return new Date(u.created_at) >= cutoff24h;
+        }).length;
+        usersData      = { total, verified, unverified: Math.max(0, total - verified - anonymous), anonymous, active_last_24h: active24h, new_last_24h: new24h };
+        adminApiStatus = 'operational';
+        jwtStatus      = 'operational';
+      } else {
+        const text     = await res.text().catch(() => '');
+        adminApiError  = `Admin API HTTP ${res.status}: ${text.slice(0, 120)}`;
+        adminApiStatus = res.status >= 500 ? 'down' : 'degraded';
+        jwtStatus      = res.status === 401 ? 'down' : 'degraded';
+      }
+    } catch (err) {
+      adminApiError  = err instanceof Error ? err.message : 'Admin API tidak dapat dijangkau';
+      adminApiStatus = 'down';
+      jwtStatus      = 'degraded';
+    }
+  }
+
+  const authServiceStatus: 'operational' | 'degraded' | 'down' = adminApiStatus;
+  const sessionStatus:     'operational' | 'degraded' | 'down' = adminApiStatus === 'operational' ? 'operational' : 'degraded';
+
+  // ── 2. Auth config + email service via Management API ───────────────────
+  let registrationEnabled:       boolean | null = null;
+  let emailVerificationEnabled:  boolean | null = null;
+  let sessionTimeoutSec:         number  | null = null;
+  let passwordMinLength:         number  | null = null;
+  let emailServiceStatus: 'operational' | 'degraded' | 'down' = 'degraded';
+
+  try {
+    const cfgRes = await managementApiFetch('/config/auth');
+    if (cfgRes.ok) {
+      const cfgData              = await cfgRes.json() as Record<string, unknown>;
+      registrationEnabled        = !(cfgData.disable_signup as boolean | undefined ?? false);
+      emailVerificationEnabled   = !(cfgData.mailer_autoconfirm as boolean | undefined ?? false);
+      sessionTimeoutSec          = (cfgData.jwt_exp as number | null | undefined) ?? null;
+      passwordMinLength          = (cfgData.password_min_length as number | null | undefined) ?? null;
+      emailServiceStatus         = 'operational';
+    }
+  } catch {
+    // Management API unavailable — degrade gracefully, still return user counts
+  }
+
+  // ── 3. Login stats via Management API logs (graceful degradation) ────────
+  let failedLogins24h:     number | null = null;
+  let successfulLogins24h: number | null = null;
+
+  try {
+    const logsRes = await managementApiFetch(
+      '/analytics/endpoints/logs.all?service=auth&limit=500&iso_timestamp_start=' + cutoff24h.toISOString(),
+    );
+    if (logsRes.ok) {
+      const logsBody = await logsRes.json() as {
+        result?: Array<{ path?: string; status_code?: number; timestamp?: string }>;
+      };
+      const logs      = logsBody.result ?? [];
+      const tokenLogs = logs.filter(l => typeof l.path === 'string' && l.path.includes('/token'));
+      successfulLogins24h = tokenLogs.filter(l => (l.status_code ?? 0) >= 200 && (l.status_code ?? 0) < 300).length;
+      failedLogins24h     = tokenLogs.filter(l => (l.status_code ?? 0) >= 400).length;
+    }
+  } catch {
+    // Analytics logs unavailable — null values displayed as "Tidak Tersedia" in UI
+  }
+
+  return jsonResponse({
+    ok: true,
+    auth_health: {
+      users:                      usersData,
+      failed_logins_24h:          failedLogins24h,
+      successful_logins_24h:      successfulLogins24h,
+      registration_enabled:       registrationEnabled,
+      email_verification_enabled: emailVerificationEnabled,
+      session_timeout_sec:        sessionTimeoutSec,
+      password_min_length:        passwordMinLength,
+      auth_service_status:        authServiceStatus,
+      jwt_status:                 jwtStatus,
+      admin_api_status:           adminApiStatus,
+      email_service_status:       emailServiceStatus,
+      session_service_status:     sessionStatus,
+      admin_api_error:            adminApiError,
+      checked_at:                 now.toISOString(),
+    },
+  });
+};
+
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 const handlers: Record<string, Handler> = {
@@ -407,6 +539,7 @@ const handlers: Record<string, Handler> = {
   'functions-list': handleFunctionsList,
   'secrets-list':   handleSecretsList,
   'auth-users':     handleAuthUsers,
+  'auth-health':    handleAuthHealth,
 };
 
 // ─── Entry point ──────────────────────────────────────────────────────────────

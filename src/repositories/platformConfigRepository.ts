@@ -157,6 +157,28 @@ export const DEFAULT_AI_SERVICE_CONFIG: AIServiceConfig = {
   timeoutMs: 30000,
 };
 
+export interface AuthServiceConfig {
+  enableRegistration:       boolean;
+  enableEmailVerification:  boolean;
+  sessionTimeoutSec:        number;
+  passwordMinLength:        number;
+  passwordRequireUppercase: boolean;
+  passwordRequireNumbers:   boolean;
+  passwordRequireSpecial:   boolean;
+  mfaEnabled:               boolean;
+}
+
+export const DEFAULT_AUTH_SERVICE_CONFIG: AuthServiceConfig = {
+  enableRegistration:       true,
+  enableEmailVerification:  true,
+  sessionTimeoutSec:        3600,
+  passwordMinLength:        8,
+  passwordRequireUppercase: false,
+  passwordRequireNumbers:   false,
+  passwordRequireSpecial:   false,
+  mfaEnabled:               false,
+};
+
 // ─── Config Keys ──────────────────────────────────────────────────────────────
 
 export const CONFIG_KEYS = {
@@ -164,6 +186,7 @@ export const CONFIG_KEYS = {
   storage:       'service.storage',
   messageQueue:  'service.message_queue',
   aiService:     'service.ai_service',
+  auth:          'service.auth',
 } as const;
 
 // ─── Read ─────────────────────────────────────────────────────────────────────

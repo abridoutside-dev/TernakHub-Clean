@@ -399,6 +399,59 @@ function checkEnvironment(): ServiceCheck {
   };
 }
 
+// ─── Auth Health ──────────────────────────────────────────────────────────────
+// Calls the platform-health Edge Function with action: 'auth-health'.
+// Returns real user counts + service status from the Admin API.
+
+export type AuthSubStatus = 'operational' | 'degraded' | 'down';
+
+export interface AuthHealthUsers {
+  total:           number;
+  verified:        number;
+  unverified:      number;
+  anonymous:       number;
+  active_last_24h: number;
+  new_last_24h:    number;
+}
+
+export interface AuthHealthData {
+  users:                      AuthHealthUsers | null;
+  failed_logins_24h:          number | null;
+  successful_logins_24h:      number | null;
+  registration_enabled:       boolean | null;
+  email_verification_enabled: boolean | null;
+  session_timeout_sec:        number  | null;
+  password_min_length:        number  | null;
+  auth_service_status:        AuthSubStatus;
+  jwt_status:                 AuthSubStatus;
+  admin_api_status:           AuthSubStatus;
+  email_service_status:       AuthSubStatus;
+  session_service_status:     AuthSubStatus;
+  admin_api_error:            string | null;
+  checked_at:                 string;
+}
+
+interface AuthHealthResponse {
+  ok:           boolean;
+  auth_health?: AuthHealthData;
+  error?:       string;
+}
+
+export async function fetchAuthHealth(): Promise<AuthHealthData> {
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke<AuthHealthResponse>('platform-health', {
+      body: { action: 'auth-health' },
+    }),
+    15000,
+  );
+
+  if (error) throw error;
+  if (!data?.ok || !data.auth_health) {
+    throw new Error((data as unknown as { error?: string })?.error ?? 'auth-health tidak mengembalikan data');
+  }
+  return data.auth_health;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function fetchSystemServicesHealth(): Promise<SystemServicesHealth> {

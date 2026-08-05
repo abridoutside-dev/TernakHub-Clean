@@ -1,20 +1,23 @@
 // ─── Admin Platform Health — ADMIN-PLATFORM-002 / ADMIN-PLATFORM-003 ─────────
 //
 // Widget status:
-//   LIVE → Workspace Overview     (workspaces)
-//   LIVE → Marketplace Health     (marketplace_listings, marketplace_transactions)
-//   LIVE → Recent Activity        (activity_log)
-//   LIVE → System Services Health (real-time probes + configuration)
-//   BLOCKED → Auth Stats          (auth.users RLS-blocked)
+//   LIVE → Workspace Overview          (workspaces)
+//   LIVE → Marketplace Health          (marketplace_listings, marketplace_transactions)
+//   LIVE → Recent Activity             (activity_log)
+//   LIVE → System Services Health      (real-time probes + configuration)
+//   LIVE → User Authentication Stats   (platform-health edge fn: auth-health action)
 
 import { useEffect, useState, useCallback, type ReactNode, type CSSProperties } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
 import {
   fetchSystemServicesHealth,
+  fetchAuthHealth,
   type SystemServicesHealth,
   type ServiceStatus,
   type CfPagesStatusData,
+  type AuthHealthData,
+  type AuthSubStatus,
 } from '../../../repositories/systemHealthRepository';
 import {
   repoGetConfig,
@@ -23,8 +26,10 @@ import {
   CONFIG_KEYS,
   DEFAULT_SUPABASE_CONFIG,
   DEFAULT_STORAGE_CONFIG,
+  DEFAULT_AUTH_SERVICE_CONFIG,
   type SupabaseServiceConfig,
   type StorageServiceConfig,
+  type AuthServiceConfig,
 } from '../../../repositories/platformConfigRepository';
 import { type ServiceCheck } from '../../../repositories/systemHealthRepository';
 import { getErrorMessage } from '../../../utils/errorUtils';
@@ -71,7 +76,7 @@ interface PlatformData {
   workspaces: WorkspaceStats; marketplace: MarketplaceStats; recentActivity: ActivityLogDbRow[];
 }
 
-type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions' | 'environment';
+type ConfigDrawerKey = 'supabase' | 'storage' | 'cloudflare_pages' | 'supabase_auth' | 'edge_functions' | 'environment' | 'user_auth_detail' | 'user_auth_config';
 
 // ─── Shared UI primitives ─────────────────────────────────────────────────────
 
@@ -2401,6 +2406,332 @@ function EnvironmentConfigDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── User Auth Detail Drawer ──────────────────────────────────────────────────
+// PH-008: detailed read-only view of auth-health edge function results.
+
+const AUTH_SUB_CFG: Record<AuthSubStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  operational: { label: 'Operational', color: '#15803d', bg: 'rgba(22,163,74,0.08)',  border: 'rgba(22,163,74,0.2)',  dot: '#16a34a' },
+  degraded:    { label: 'Warning',     color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
+  down:        { label: 'Offline',     color: '#b91c1c', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.2)',  dot: '#ef4444' },
+};
+
+function AuthStatusChip({ status }: { status: AuthSubStatus }) {
+  const c = AUTH_SUB_CFG[status];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 20, background: c.bg, border: `1px solid ${c.border}` }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
+      <span style={{ fontSize: 11, fontWeight: 700, color: c.color }}>{c.label}</span>
+    </span>
+  );
+}
+
+function AuthDetailRow({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f8fafc', gap: 12 }}>
+      <div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{label}</div>
+        {hint && <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>{hint}</div>}
+      </div>
+      <div style={{ flexShrink: 0, textAlign: 'right' }}>{value}</div>
+    </div>
+  );
+}
+
+function AuthDetailValue({ v }: { v: string | number | null | undefined; fallback?: string }) {
+  const display = v === null || v === undefined ? '—' : String(v);
+  return <span style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a' }}>{display}</span>;
+}
+
+function UserAuthDetailDrawer({ authHealth, loading, onClose }: { authHealth: AuthHealthData | null; loading: boolean; onClose: () => void }) {
+  const u = authHealth?.users ?? null;
+  const checkedAt = authHealth?.checked_at
+    ? new Date(authHealth.checked_at).toLocaleString('id-ID')
+    : null;
+
+  const overallStatus: AuthSubStatus =
+    !authHealth ? 'down' :
+    authHealth.auth_service_status === 'operational' ? 'operational' :
+    authHealth.auth_service_status === 'degraded'    ? 'degraded'    : 'down';
+
+  return (
+    <DrawerOverlay onClose={onClose}>
+      <DrawerHeader icon="👤" title="User Authentication Stats — Detail" badge={loading ? undefined : <AuthStatusChip status={overallStatus} />} onClose={onClose} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
+
+        {loading && (
+          <div style={{ padding: '24px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+            <div style={{ marginBottom: 8, fontSize: 22 }}>⏳</div>
+            Memuat data autentikasi…
+          </div>
+        )}
+
+        {!loading && !authHealth && (
+          <div style={{ padding: '24px 16px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 10, margin: '12px 0', fontSize: 13, color: '#b91c1c' }}>
+            ❌ Gagal memuat data auth-health dari Edge Function.
+          </div>
+        )}
+
+        {!loading && authHealth && (
+          <>
+            {/* Status banner */}
+            <div style={{ padding: '10px 14px', borderRadius: 8, background: AUTH_SUB_CFG[overallStatus].bg, border: `1px solid ${AUTH_SUB_CFG[overallStatus].border}`, fontSize: 12, color: AUTH_SUB_CFG[overallStatus].color, marginTop: 8, marginBottom: 16 }}>
+              👤 Auth: <strong>{AUTH_SUB_CFG[overallStatus].label}</strong>
+              {checkedAt && <span style={{ marginLeft: 8, opacity: 0.7 }}>· Diperiksa: {checkedAt}</span>}
+            </div>
+
+            {/* ── Auth Summary ─────────────────────────────────────────────── */}
+            <SectionLabel>Auth Summary</SectionLabel>
+            <AuthDetailRow label="Total Users"    hint="Admin API: GET /auth/v1/admin/users"            value={<AuthDetailValue v={u?.total} />} />
+            <AuthDetailRow label="Verified Email" hint="email_confirmed_at IS NOT NULL"                 value={<AuthDetailValue v={u?.verified} />} />
+            <AuthDetailRow label="Unverified"     hint="Total − Verified − Anonymous"                   value={<AuthDetailValue v={u?.unverified} />} />
+            <AuthDetailRow label="Anonymous"      hint="is_anonymous = true"                            value={<AuthDetailValue v={u?.anonymous} />} />
+            <AuthDetailRow label="Active (24h)"   hint="last_sign_in_at >= now − 24h"                   value={<AuthDetailValue v={u?.active_last_24h} />} />
+            <AuthDetailRow label="New Users (24h)" hint="created_at >= now − 24h"                       value={<AuthDetailValue v={u?.new_last_24h} />} />
+
+            {/* ── Email Verification ───────────────────────────────────────── */}
+            <SectionLabel>Email Verification</SectionLabel>
+            <AuthDetailRow
+              label="Email Verification Required"
+              hint="Management API: !mailer_autoconfirm"
+              value={<span style={{ fontSize: 12.5, fontWeight: 600, color: authHealth.email_verification_enabled === true ? '#15803d' : authHealth.email_verification_enabled === false ? '#b45309' : '#94a3b8' }}>
+                {authHealth.email_verification_enabled === true ? '✅ Aktif' : authHealth.email_verification_enabled === false ? '⚠️ Nonaktif' : '—'}
+              </span>}
+            />
+            <AuthDetailRow
+              label="Verification Rate"
+              hint="Verified / Total × 100"
+              value={<AuthDetailValue v={u && u.total > 0 ? `${Math.round((u.verified / u.total) * 100)}%` : '—'} />}
+            />
+
+            {/* ── Session ──────────────────────────────────────────────────── */}
+            <SectionLabel>Session</SectionLabel>
+            <AuthDetailRow
+              label="Session Timeout"
+              hint="Management API: jwt_exp (seconds)"
+              value={<AuthDetailValue v={authHealth.session_timeout_sec !== null ? `${authHealth.session_timeout_sec}s (${Math.round(authHealth.session_timeout_sec / 3600)}h)` : null} />}
+            />
+            <AuthDetailRow
+              label="Registration"
+              hint="Management API: !disable_signup"
+              value={<span style={{ fontSize: 12.5, fontWeight: 600, color: authHealth.registration_enabled === true ? '#15803d' : authHealth.registration_enabled === false ? '#b91c1c' : '#94a3b8' }}>
+                {authHealth.registration_enabled === true ? '✅ Terbuka' : authHealth.registration_enabled === false ? '🔒 Ditutup' : '—'}
+              </span>}
+            />
+
+            {/* ── Provider ─────────────────────────────────────────────────── */}
+            <SectionLabel>Provider</SectionLabel>
+            <AuthDetailRow
+              label="Email Provider"
+              hint="Supabase GoTrue — provider default"
+              value={<span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(22,163,74,0.1)', color: '#15803d', border: '1px solid rgba(22,163,74,0.2)' }}>Email / Password</span>}
+            />
+            <AuthDetailRow
+              label="OAuth Providers"
+              hint="Management API: GET /v1/projects/{ref}/config/auth → external_*_enabled"
+              value={<span style={{ fontSize: 11, color: '#94a3b8' }}>Lihat Supabase Dashboard</span>}
+            />
+
+            {/* ── Configuration ────────────────────────────────────────────── */}
+            <SectionLabel>Configuration</SectionLabel>
+            <AuthDetailRow
+              label="Password Min Length"
+              hint="Management API: password_min_length"
+              value={<AuthDetailValue v={authHealth.password_min_length} />}
+            />
+            <AuthDetailRow
+              label="MFA"
+              hint="Management API: mfa_totp_enroll_enabled, mfa_phone_enroll_enabled"
+              value={<span style={{ fontSize: 11, color: '#94a3b8' }}>Lihat Configure</span>}
+            />
+
+            {/* ── Recent Health Check ──────────────────────────────────────── */}
+            <SectionLabel>Recent Health Check</SectionLabel>
+            <AuthDetailRow label="Auth Service"    value={<AuthStatusChip status={authHealth.auth_service_status} />} />
+            <AuthDetailRow label="JWT Validation"  value={<AuthStatusChip status={authHealth.jwt_status} />} />
+            <AuthDetailRow label="Admin API"       value={<AuthStatusChip status={authHealth.admin_api_status} />} />
+            <AuthDetailRow label="Email Service"   value={<AuthStatusChip status={authHealth.email_service_status} />} />
+            <AuthDetailRow label="Session Service" value={<AuthStatusChip status={authHealth.session_service_status} />} />
+            {authHealth.admin_api_error && (
+              <div style={{ padding: '8px 12px', borderRadius: 7, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', fontSize: 11.5, color: '#b91c1c', marginTop: 6 }}>
+                Error: {authHealth.admin_api_error}
+              </div>
+            )}
+
+            {/* ── Last Updated ─────────────────────────────────────────────── */}
+            <SectionLabel>Last Updated</SectionLabel>
+            <AuthDetailRow label="Checked At" value={<AuthDetailValue v={checkedAt} />} />
+            <AuthDetailRow
+              label="Login Stats"
+              hint="Login sukses/gagal 24h — tersedia jika Management API aktif"
+              value={<AuthDetailValue v={
+                authHealth.successful_logins_24h !== null || authHealth.failed_logins_24h !== null
+                  ? `✅ ${authHealth.successful_logins_24h ?? 0} sukses · ❌ ${authHealth.failed_logins_24h ?? 0} gagal`
+                  : 'Tidak Tersedia (perlu SUPABASE_ACCESS_TOKEN)'
+              } />}
+            />
+          </>
+        )}
+      </div>
+      <DrawerFooter>
+        <div style={{ flex: 1 }} />
+        <a href="https://supabase.com/dashboard/project/_/auth/users" target="_blank" rel="noopener noreferrer"
+          style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          Supabase Dashboard ↗
+        </a>
+        <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
+      </DrawerFooter>
+    </DrawerOverlay>
+  );
+}
+
+// ─── User Auth Configure Drawer ───────────────────────────────────────────────
+// PH-008: editable auth configuration stored in platform_config (service.auth).
+// Does NOT expose API keys — only auth behaviour settings.
+
+function UserAuthConfigDrawer({ onClose }: { onClose: () => void }) {
+  const [cfg,     setCfg]     = useState<AuthServiceConfig>(DEFAULT_AUTH_SERVICE_CONFIG);
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [msg,     setMsg]     = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await repoGetServiceConfig<AuthServiceConfig>(CONFIG_KEYS.auth, DEFAULT_AUTH_SERVICE_CONFIG);
+        if (!cancelled) setCfg(loaded);
+      } catch { /* use defaults */ }
+      finally   { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await repoUpsertServiceConfig(
+        CONFIG_KEYS.auth,
+        cfg as unknown as Record<string, unknown>,
+        { description: 'Auth service configuration', isPublic: false },
+      );
+      setMsg('✅ Konfigurasi disimpan');
+    } catch (err) {
+      setMsg(`❌ ${getErrorMessage(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const set = <K extends keyof AuthServiceConfig>(k: K, v: AuthServiceConfig[K]) =>
+    setCfg(prev => ({ ...prev, [k]: v }));
+
+  return (
+    <DrawerOverlay onClose={onClose}>
+      <DrawerHeader icon="⚙️" title="Auth Configuration" badge={<LiveBadge />} onClose={onClose} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px' }}>
+        <div style={{ padding: '8px 12px', borderRadius: 7, background: '#f8fafc', border: '1px solid #f1f5f9', fontSize: 11.5, color: '#64748b', marginTop: 10, marginBottom: 16 }}>
+          Konfigurasi disimpan di <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>platform_config</code> (key: <code style={{ fontSize: 11, background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>{CONFIG_KEYS.auth}</code>).
+          Bukan API key.
+        </div>
+
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[1,2,3,4,5].map(i => <SkeletonBox key={i} height={52} />)}
+          </div>
+        ) : (
+          <>
+            {/* ── 1. Registration ─────────────────────────────────────────── */}
+            <SectionLabel>1 — Registrasi</SectionLabel>
+            <div style={fieldGroupStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <label style={labelStyle}>Enable Registration</label>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>Izinkan pengguna baru mendaftar</p>
+                </div>
+                <Toggle value={cfg.enableRegistration} onChange={v => set('enableRegistration', v)} />
+              </div>
+            </div>
+
+            {/* ── 2. Email Verification ───────────────────────────────────── */}
+            <SectionLabel>2 — Email Verification</SectionLabel>
+            <div style={fieldGroupStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <label style={labelStyle}>Enable Email Verification</label>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>Email harus diverifikasi sebelum login</p>
+                </div>
+                <Toggle value={cfg.enableEmailVerification} onChange={v => set('enableEmailVerification', v)} />
+              </div>
+            </div>
+
+            {/* ── 3. Session ──────────────────────────────────────────────── */}
+            <SectionLabel>3 — Session</SectionLabel>
+            <Field label="Session Timeout (detik)" hint="Durasi token JWT sebelum kedaluwarsa (default: 3600 = 1 jam)">
+              <input
+                style={fieldStyle}
+                type="number"
+                min={300}
+                max={604800}
+                value={cfg.sessionTimeoutSec}
+                onChange={e => set('sessionTimeoutSec', Number(e.target.value))}
+              />
+            </Field>
+
+            {/* ── 4. Password Policy ──────────────────────────────────────── */}
+            <SectionLabel>4 — Password Policy</SectionLabel>
+            <Field label="Panjang Minimum Password" hint="Minimum karakter yang diperlukan (default: 8)">
+              <input
+                style={fieldStyle}
+                type="number"
+                min={6}
+                max={72}
+                value={cfg.passwordMinLength}
+                onChange={e => set('passwordMinLength', Number(e.target.value))}
+              />
+            </Field>
+            <div style={fieldGroupStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Huruf Besar (A-Z)</label>
+                <Toggle value={cfg.passwordRequireUppercase} onChange={v => set('passwordRequireUppercase', v)} />
+              </div>
+            </div>
+            <div style={fieldGroupStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Angka (0-9)</label>
+                <Toggle value={cfg.passwordRequireNumbers} onChange={v => set('passwordRequireNumbers', v)} />
+              </div>
+            </div>
+            <div style={fieldGroupStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Karakter Spesial (!@#…)</label>
+                <Toggle value={cfg.passwordRequireSpecial} onChange={v => set('passwordRequireSpecial', v)} />
+              </div>
+            </div>
+
+            {/* ── 5. MFA ──────────────────────────────────────────────────── */}
+            <SectionLabel>5 — MFA (Future)</SectionLabel>
+            <div style={fieldGroupStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <label style={labelStyle}>Enable MFA</label>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>Multi-factor authentication — belum tersedia</p>
+                </div>
+                <Toggle value={false} onChange={() => {}} />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+      <DrawerFooter>
+        <SaveFeedback msg={msg} />
+        <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+        {!loading && <SaveBtn onClick={save} saving={saving} />}
+      </DrawerFooter>
+    </DrawerOverlay>
+  );
+}
+
 // ─── System Services Health Widget ────────────────────────────────────────────
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -2547,6 +2878,10 @@ export default function PlatformHealthModule() {
   const [systemHealth,        setSystemHealth]        = useState<SystemServicesHealth | null>(null);
   const [systemHealthLoading, setSystemHealthLoading] = useState(true);
 
+  const [authHealth,        setAuthHealth]        = useState<AuthHealthData | null>(null);
+  const [authHealthLoading, setAuthHealthLoading] = useState(true);
+  const [authHealthError,   setAuthHealthError]   = useState<string | null>(null);
+
   const [configDrawer, setConfigDrawer] = useState<ConfigDrawerKey | null>(null);
 
   // ── Saved service configs (from platform_config table) ──────────────────────
@@ -2624,6 +2959,24 @@ export default function PlatformHealthModule() {
     return () => { cancelled = true; };
   }, []);
 
+  // ── Auth health probe (platform-health: auth-health) ────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setAuthHealthLoading(true);
+      setAuthHealthError(null);
+      try {
+        const h = await fetchAuthHealth();
+        if (!cancelled) setAuthHealth(h);
+      } catch (err: unknown) {
+        if (!cancelled) setAuthHealthError(getErrorMessage(err));
+      } finally {
+        if (!cancelled) setAuthHealthLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <AdminLayout>
       <style>{`@keyframes ph-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
@@ -2635,6 +2988,8 @@ export default function PlatformHealthModule() {
       {configDrawer === 'supabase_auth'    && <SupabaseAuthConfigDrawer      onClose={closeDrawer} />}
       {configDrawer === 'edge_functions'   && <EdgeFunctionsConfigDrawer     onClose={closeDrawer} />}
       {configDrawer === 'environment'      && <EnvironmentConfigDrawer       onClose={closeDrawer} />}
+      {configDrawer === 'user_auth_detail' && <UserAuthDetailDrawer authHealth={authHealth} loading={authHealthLoading} onClose={closeDrawer} />}
+      {configDrawer === 'user_auth_config' && <UserAuthConfigDrawer          onClose={closeDrawer} />}
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 4px' }}>
 
@@ -2743,25 +3098,136 @@ export default function PlatformHealthModule() {
           )}
         </SectionCard>
 
-        {/* ── 5. Remaining Blocked Widgets ─────────────────────────────────────── */}
-        <SectionCard title="Blocked Widgets" icon="🚫" badge={<BlockedBadge />}>
-          <BlockedWidget
-            title="User Authentication Stats"
-            reason="auth.users tidak dapat diakses dari client-side Supabase (RLS). Statistik pengguna membutuhkan query server-side atau Supabase admin API."
-            dependency="Admin-level auth API endpoint (server-side) atau tabel user_profiles yang disinkronkan dengan auth.users via trigger"
-            priority="medium"
-          />
-          <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 15 }}>🤖</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#475569', flex: 1 }}>AI Service Status</span>
-              <NIBadge />
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
-              AI backend belum diintegrasikan. Status: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>not_implemented</code>
-            </div>
+        {/* ── 5. User Authentication Stats ─────────────────────────────────────── */}
+        {(() => {
+          const u = authHealth?.users ?? null;
+
+          // Derive overall badge
+          const overallStatus: AuthSubStatus | null = authHealthLoading ? null
+            : !authHealth ? 'down'
+            : authHealth.auth_service_status === 'operational' ? 'operational'
+            : authHealth.auth_service_status === 'degraded'    ? 'degraded'
+            : 'down';
+
+          const badge = authHealthLoading
+            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: '#f1f5f9', color: '#94a3b8' }}>LOADING</span>
+            : overallStatus
+            ? <AuthStatusChip status={overallStatus} />
+            : null;
+
+          const NA = '—';
+
+          // Sub-status row helper (inline for this section)
+          function SubStatusRow({ label, status }: { label: string; status: AuthSubStatus }) {
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f8fafc' }}>
+                <span style={{ fontSize: 12.5, color: '#374151', fontWeight: 500 }}>{label}</span>
+                <AuthStatusChip status={status} />
+              </div>
+            );
+          }
+
+          return (
+            <SectionCard
+              title="User Authentication Stats"
+              icon="👤"
+              badge={<>{badge}<span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>Sumber: platform-health · auth-health</span></>}
+            >
+              {authHealthError && (
+                <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', fontSize: 12.5, color: '#b91c1c', marginBottom: 14 }}>
+                  ❌ {authHealthError}
+                </div>
+              )}
+
+              {/* ── Overview ────────────────────────────────────────────── */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Overview</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+                <StatTile label="Total Users"      value={u?.total          ?? 0} icon="👥" color="#3b82f6" loading={authHealthLoading} />
+                <StatTile label="Active Users (24h)" value={u?.active_last_24h ?? 0} icon="🟢" color="#16a34a" loading={authHealthLoading} />
+                <StatTile label="New Users (24h)"  value={u?.new_last_24h   ?? 0} icon="✨" color="#8b5cf6" loading={authHealthLoading} />
+                <StatTile label="Verified Email"   value={u?.verified       ?? 0} icon="✅" color="#059669" loading={authHealthLoading} />
+                <StatTile label="Unverified Email" value={u?.unverified     ?? 0} icon="📧" color="#f59e0b" loading={authHealthLoading} />
+              </div>
+
+              {/* ── Security ────────────────────────────────────────────── */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Security</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+                <StatTile
+                  label="Failed Login (24h)"
+                  value={authHealthLoading ? 0 : (authHealth?.failed_logins_24h !== null && authHealth?.failed_logins_24h !== undefined ? authHealth.failed_logins_24h : NA)}
+                  icon="🔴" color="#ef4444"
+                  loading={authHealthLoading}
+                />
+                <StatTile
+                  label="Login Sukses (24h)"
+                  value={authHealthLoading ? 0 : (authHealth?.successful_logins_24h !== null && authHealth?.successful_logins_24h !== undefined ? authHealth.successful_logins_24h : NA)}
+                  icon="🔓" color="#16a34a"
+                  loading={authHealthLoading}
+                />
+                <StatTile label="Anonymous"   value={u?.anonymous ?? 0}   icon="👤" color="#6366f1" loading={authHealthLoading} />
+                <StatTile label="Suspicious Activity" value={NA}           icon="⚠️" color="#f59e0b" loading={false} />
+              </div>
+
+              {/* ── Status ──────────────────────────────────────────────── */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Status</div>
+              {authHealthLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[1,2,3,4,5].map(i => <SkeletonBox key={i} height={30} />)}
+                </div>
+              ) : authHealth ? (
+                <div style={{ marginBottom: 14 }}>
+                  <SubStatusRow label="Auth Service"    status={authHealth.auth_service_status} />
+                  <SubStatusRow label="JWT Validation"  status={authHealth.jwt_status} />
+                  <SubStatusRow label="Admin API"       status={authHealth.admin_api_status} />
+                  <SubStatusRow label="Email Service"   status={authHealth.email_service_status} />
+                  <SubStatusRow label="Session Service" status={authHealth.session_service_status} />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+                  {['Auth Service','JWT Validation','Admin API','Email Service','Session Service'].map(l => (
+                    <div key={l} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f8fafc' }}>
+                      <span style={{ fontSize: 12.5, color: '#374151', fontWeight: 500 }}>{l}</span>
+                      <AuthStatusChip status="down" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Actions ─────────────────────────────────────────────── */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
+                {authHealth?.checked_at && (
+                  <span style={{ fontSize: 10.5, color: '#94a3b8', alignSelf: 'center', flex: 1 }}>
+                    Diperiksa: {new Date(authHealth.checked_at).toLocaleTimeString('id-ID')}
+                  </span>
+                )}
+                <button
+                  onClick={() => setConfigDrawer('user_auth_detail')}
+                  style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Detail
+                </button>
+                <button
+                  onClick={() => setConfigDrawer('user_auth_config')}
+                  style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #3b82f6', background: '#3b82f6', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Configure
+                </button>
+              </div>
+            </SectionCard>
+          );
+        })()}
+
+        {/* ── AI Service (not implemented) ──────────────────────────────────────── */}
+        <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(71,85,105,0.06)', border: '1px solid #e2e8f0', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15 }}>🤖</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#475569', flex: 1 }}>AI Service Status</span>
+            <NIBadge />
           </div>
-        </SectionCard>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+            AI backend belum diintegrasikan. Status: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>not_implemented</code>
+          </div>
+        </div>
 
       </div>
     </AdminLayout>
