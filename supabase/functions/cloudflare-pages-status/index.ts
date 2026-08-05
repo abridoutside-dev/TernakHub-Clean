@@ -90,6 +90,32 @@ function resolveStatus(deployStatus: string): 'operational' | 'degraded' | 'down
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsOk();
 
+  // ── DEBUG PROBE: ?action=debug-users ─────────────────────────────────────────
+  // Temporary endpoint — no auth gate. Uses service role key to pull every
+  // user's id, email, app_metadata, user_metadata from Supabase Auth admin API.
+  const url = new URL(req.url);
+  if (url.searchParams.get('action') === 'debug-users') {
+    const sbUrl = Deno.env.get('SUPABASE_URL')              ?? '';
+    const svcKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    if (!svcKey) {
+      return jsonResponse({ error: 'SUPABASE_SERVICE_ROLE_KEY not available' }, 500);
+    }
+    const adminClient = createClient(sbUrl, svcKey, { auth: { persistSession: false } });
+    const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
+    if (error) {
+      return jsonResponse({ error: error.message, code: (error as { code?: string }).code ?? null });
+    }
+    const users = (data?.users ?? []).map((u) => ({
+      id:            u.id,
+      email:         u.email,
+      app_metadata:  u.app_metadata,
+      user_metadata: u.user_metadata,
+      isPlatformAdmin: u.user_metadata?.role === 'platform_admin',
+    }));
+    return jsonResponse({ users });
+  }
+  // ── END DEBUG PROBE ───────────────────────────────────────────────────────────
+
   // ── 1. Read secrets FIRST — before any auth check ────────────────────────────
   const apiToken    = Deno.env.get('CF_API_TOKEN')          ?? '';
   const accountId   = Deno.env.get('CF_ACCOUNT_ID')         ?? '';
