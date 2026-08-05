@@ -340,6 +340,145 @@ interface AuthUser {
   created_at?:         string | null;
 }
 
+type AuthIntegrityStatus = 'operational' | 'degraded' | 'down';
+
+interface AuthIntegrityIssue {
+  id:          string;
+  email:       string | null;
+  issue_codes: string[];
+}
+
+interface AuthIntegrityResult {
+  status:      AuthIntegrityStatus;
+  issue_count: number;
+  issues:      AuthIntegrityIssue[];
+  error:       string | null;
+  checked_at:  string;
+}
+
+/*
+ * Auth Admin API failures can be caused by malformed rows in Supabase-owned
+ * auth tables. Keep this check read-only and deliberately narrow:
+ *   - non-anonymous email users need an email identity;
+ *   - Auth's email-change token fields use empty-string defaults, not NULL.
+ *
+ * The query returns one JSON row so it can use the existing query_raw RPC
+ * without exposing auth.users secrets such as password hashes or tokens.
+ */
+async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityResult> {
+  const checkedAt = new Date().toISOString();
+  if (!serviceRole) {
+    return {
+      status: 'down',
+      issue_count: 0,
+      issues: [],
+      error: 'SUPABASE_SERVICE_ROLE_KEY tidak tersedia',
+      checked_at: checkedAt,
+    };
+  }
+
+  const sql = `
+    SELECT COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', issue.id,
+          'email', issue.email,
+          'issue_codes', issue.issue_codes
+        )
+        ORDER BY issue.id
+      ),
+      '[]'::jsonb
+    ) AS rows
+    FROM (
+      SELECT
+        u.id::text AS id,
+        u.email,
+        array_remove(
+          ARRAY[
+            CASE
+              WHEN NOT COALESCE(u.is_anonymous, false)
+                AND u.email IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM auth.identities i
+                  WHERE i.user_id = u.id
+                    AND i.provider = 'email'
+                )
+              THEN 'missing_email_identity'
+            END,
+            CASE
+              WHEN u.email_change_token_new IS NULL
+              THEN 'email_change_token_new_null'
+            END,
+            CASE
+              WHEN u.email_change IS NULL
+              THEN 'email_change_null'
+            END
+          ]::text[],
+          NULL
+        ) AS issue_codes
+      FROM auth.users u
+      WHERE (
+        (
+          NOT COALESCE(u.is_anonymous, false)
+          AND u.email IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM auth.identities i
+            WHERE i.user_id = u.id
+              AND i.provider = 'email'
+          )
+        )
+        OR u.email_change_token_new IS NULL
+        OR u.email_change IS NULL
+      )
+    ) AS issue
+    WHERE cardinality(issue.issue_codes) > 0
+  `;
+
+  try {
+    const svc = makeServiceClient();
+    const { data, error } = await svc.rpc('query_raw', { sql }).maybeSingle();
+    if (error) throw error;
+
+    const rawRows = (data as { rows?: unknown } | null)?.rows;
+    const issues = Array.isArray(rawRows)
+      ? rawRows.filter((row): row is AuthIntegrityIssue => {
+          if (!row || typeof row !== 'object') return false;
+          const candidate = row as Partial<AuthIntegrityIssue>;
+          return typeof candidate.id === 'string'
+            && (typeof candidate.email === 'string' || candidate.email === null)
+            && Array.isArray(candidate.issue_codes)
+            && candidate.issue_codes.every((code) => typeof code === 'string');
+        })
+      : [];
+
+    return {
+      status: issues.length === 0 ? 'operational' : 'degraded',
+      issue_count: issues.length,
+      issues,
+      error: null,
+      checked_at: checkedAt,
+    };
+  } catch (err) {
+    return {
+      status: 'down',
+      issue_count: 0,
+      issues: [],
+      error: err instanceof Error ? err.message : 'Auth integrity check gagal',
+      checked_at: checkedAt,
+    };
+  }
+}
+
+const handleAuthIntegrity: Handler = async () => {
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  return jsonResponse({
+    ok: true,
+    auth_integrity: await checkAuthIntegrity(serviceRole),
+  });
+};
+
 // Some production Auth deployments return a 500 when the Admin API is asked
 // for a large page, while the same users are available one at a time. Keep
 // this workaround in one place for both auth-users and auth-health.
@@ -462,6 +601,7 @@ const handleAuthHealth: Handler = async () => {
   const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   const now         = new Date();
   const cutoff24h   = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const authIntegrity = await checkAuthIntegrity(serviceRole);
 
   // ── 1. Fetch users via Admin API ─────────────────────────────────────────
   type AuthUserFull = AuthUser & { created_at?: string | null };
@@ -508,7 +648,12 @@ const handleAuthHealth: Handler = async () => {
     }
   }
 
-  const authServiceStatus: 'operational' | 'degraded' | 'down' = adminApiStatus;
+  const authServiceStatus: 'operational' | 'degraded' | 'down' =
+    adminApiStatus === 'down'
+      ? 'down'
+      : adminApiStatus === 'degraded' || authIntegrity.status !== 'operational'
+        ? 'degraded'
+        : 'operational';
   const sessionStatus:     'operational' | 'degraded' | 'down' = adminApiStatus === 'operational' ? 'operational' : 'degraded';
 
   // ── 2. Auth config + email service via Management API ───────────────────
@@ -569,6 +714,7 @@ const handleAuthHealth: Handler = async () => {
       email_service_status:       emailServiceStatus,
       session_service_status:     sessionStatus,
       admin_api_error:            adminApiError,
+       auth_integrity:              authIntegrity,
       checked_at:                 now.toISOString(),
     },
   });
@@ -674,6 +820,7 @@ const handlers: Record<string, Handler> = {
   'functions-list':       handleFunctionsList,
   'secrets-list':         handleSecretsList,
   'auth-users':           handleAuthUsers,
+  'auth-integrity':       handleAuthIntegrity,
   'auth-health':          handleAuthHealth,
 };
 

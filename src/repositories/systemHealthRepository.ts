@@ -414,6 +414,22 @@ export interface AuthHealthUsers {
   new_last_24h:    number;
 }
 
+export type AuthIntegrityStatus = 'operational' | 'degraded' | 'down';
+
+export interface AuthIntegrityIssue {
+  id:          string;
+  email:       string | null;
+  issue_codes: string[];
+}
+
+export interface AuthIntegrityData {
+  status:      AuthIntegrityStatus;
+  issue_count: number;
+  issues:      AuthIntegrityIssue[];
+  error:       string | null;
+  checked_at:  string;
+}
+
 export interface AuthHealthData {
   users:                      AuthHealthUsers | null;
   failed_logins_24h:          number | null;
@@ -428,6 +444,7 @@ export interface AuthHealthData {
   email_service_status:       AuthSubStatus;
   session_service_status:     AuthSubStatus;
   admin_api_error:            string | null;
+  auth_integrity:             AuthIntegrityData;
   checked_at:                 string;
 }
 
@@ -448,6 +465,21 @@ export async function fetchAuthHealth(): Promise<AuthHealthData> {
   if (error) throw error;
   if (!data?.ok || !data.auth_health) {
     throw new Error((data as unknown as { error?: string })?.error ?? 'auth-health tidak mengembalikan data');
+  }
+  if (!data.auth_health.auth_integrity) {
+    return {
+      ...data.auth_health,
+      auth_service_status: data.auth_health.auth_service_status === 'operational'
+        ? 'degraded'
+        : data.auth_health.auth_service_status,
+      auth_integrity: {
+        status: 'down',
+        issue_count: 0,
+        issues: [],
+        error: 'Auth integrity check belum tersedia pada Edge Function yang aktif',
+        checked_at: new Date().toISOString(),
+      },
+    };
   }
   return data.auth_health;
 }

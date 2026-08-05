@@ -516,3 +516,57 @@ test('DB-001A production schema contract', async () => {
     status: 'PASS',
   }));
 });
+
+test('DB-001A production Auth integrity contract', async () => {
+  const issues = await queryProduction(`
+    SELECT
+      u.id::text AS user_id,
+      array_remove(
+        ARRAY[
+          CASE
+            WHEN NOT COALESCE(u.is_anonymous, false)
+              AND u.email IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1
+                FROM auth.identities i
+                WHERE i.user_id = u.id
+                  AND i.provider = 'email'
+              )
+            THEN 'missing_email_identity'
+          END,
+          CASE WHEN u.email_change_token_new IS NULL
+            THEN 'email_change_token_new_null' END,
+          CASE WHEN u.email_change IS NULL
+            THEN 'email_change_null' END
+        ]::text[],
+        NULL
+      ) AS issue_codes
+    FROM auth.users u
+    WHERE (
+      (
+        NOT COALESCE(u.is_anonymous, false)
+        AND u.email IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM auth.identities i
+          WHERE i.user_id = u.id
+            AND i.provider = 'email'
+        )
+      )
+      OR u.email_change_token_new IS NULL
+      OR u.email_change IS NULL
+    )
+  `);
+
+  assert.deepEqual(
+    issues,
+    [],
+    `production Auth integrity issues detected:\n${JSON.stringify(issues, null, 2)}`,
+  );
+
+  console.log(JSON.stringify({
+    checked: 'auth.users identity relationships and email-change defaults',
+    issueCount: issues.length,
+    status: 'PASS',
+  }));
+});

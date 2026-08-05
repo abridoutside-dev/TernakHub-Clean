@@ -18,6 +18,7 @@ import {
   type CfPagesStatusData,
   type AuthHealthData,
   type AuthSubStatus,
+  type AuthIntegrityStatus,
 } from '../../../repositories/systemHealthRepository';
 import {
   repoGetConfig,
@@ -2425,6 +2426,21 @@ function AuthStatusChip({ status }: { status: AuthSubStatus }) {
   );
 }
 
+function AuthIntegrityChip({ status }: { status: AuthIntegrityStatus }) {
+  const config: Record<AuthIntegrityStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
+    operational: { label: 'Operational', color: '#15803d', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.2)', dot: '#16a34a' },
+    degraded:    { label: 'Issues Found', color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
+    down:        { label: 'Check Failed', color: '#b91c1c', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', dot: '#ef4444' },
+  };
+  const c = config[status];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 20, background: c.bg, border: `1px solid ${c.border}` }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
+      <span style={{ fontSize: 11, fontWeight: 700, color: c.color }}>{c.label}</span>
+    </span>
+  );
+}
+
 function AuthDetailRow({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f8fafc', gap: 12 }}>
@@ -2551,6 +2567,21 @@ function UserAuthDetailDrawer({ authHealth, loading, onClose }: { authHealth: Au
             <AuthDetailRow label="Admin API"       value={<AuthStatusChip status={authHealth.admin_api_status} />} />
             <AuthDetailRow label="Email Service"   value={<AuthStatusChip status={authHealth.email_service_status} />} />
             <AuthDetailRow label="Session Service" value={<AuthStatusChip status={authHealth.session_service_status} />} />
+            <AuthDetailRow
+              label="Auth Data Integrity"
+              hint="Read-only check: auth.users ↔ auth.identities + Auth default fields"
+              value={<AuthIntegrityChip status={authHealth.auth_integrity.status} />}
+            />
+            {authHealth.auth_integrity.issue_count > 0 && (
+              <div style={{ padding: '8px 12px', borderRadius: 7, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', fontSize: 11.5, color: '#92400e', marginTop: 6 }}>
+                Issues found: {authHealth.auth_integrity.issues.map((issue) => `${issue.id} (${issue.issue_codes.join(', ')})`).join(' · ')}
+              </div>
+            )}
+            {authHealth.auth_integrity.error && (
+              <div style={{ padding: '8px 12px', borderRadius: 7, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', fontSize: 11.5, color: '#b91c1c', marginTop: 6 }}>
+                Integrity check error: {authHealth.auth_integrity.error}
+              </div>
+            )}
             {authHealth.admin_api_error && (
               <div style={{ padding: '8px 12px', borderRadius: 7, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', fontSize: 11.5, color: '#b91c1c', marginTop: 6 }}>
                 Error: {authHealth.admin_api_error}
