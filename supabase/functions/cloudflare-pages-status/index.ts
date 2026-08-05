@@ -94,33 +94,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.replace(/^Bearer\s+/i, '');
 
+  // ── Secrets (checked regardless of auth, for debug probe) ─────────────────────
+  const apiToken    = Deno.env.get('CF_API_TOKEN')          ?? '';
+  const accountId   = Deno.env.get('CF_ACCOUNT_ID')         ?? '';
+  const projectName = Deno.env.get('CF_PAGES_PROJECT_NAME') ?? '';
+  const missingSecrets: string[] = [];
+  if (!apiToken)    missingSecrets.push('CF_API_TOKEN');
+  if (!accountId)   missingSecrets.push('CF_ACCOUNT_ID');
+  if (!projectName) missingSecrets.push('CF_PAGES_PROJECT_NAME');
+
   // Auth failures return HTTP 200 so supabase.functions.invoke can read the JSON
   // body (non-2xx responses are converted to opaque FunctionsHttpError by the
   // Supabase JS client before the caller sees any body content).
   if (!jwt) {
-    return jsonResponse({ ok: false, status: 'not_configured', message: 'Authorization header diperlukan', project: null });
+    return jsonResponse({ ok: false, status: 'down', message: 'Authorization header diperlukan', project: null });
   }
 
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) {
-    return jsonResponse({ ok: false, status: 'not_configured', message: 'Akses ditolak: platform admin only', project: null });
+    return jsonResponse({ ok: false, status: 'down', message: 'Akses ditolak: platform admin only', project: null });
   }
 
-  // ── Secrets ───────────────────────────────────────────────────────────────────
-  const apiToken    = Deno.env.get('CF_API_TOKEN')          ?? '';
-  const accountId   = Deno.env.get('CF_ACCOUNT_ID')         ?? '';
-  const projectName = Deno.env.get('CF_PAGES_PROJECT_NAME') ?? '';
-
-  if (!apiToken || !accountId || !projectName) {
-    const missing: string[] = [];
-    if (!apiToken)    missing.push('CF_API_TOKEN');
-    if (!accountId)   missing.push('CF_ACCOUNT_ID');
-    if (!projectName) missing.push('CF_PAGES_PROJECT_NAME');
-
+  // ── Missing secrets check ─────────────────────────────────────────────────────
+  if (missingSecrets.length > 0) {
     return jsonResponse({
       ok:      false,
       status:  'not_configured',
-      message: `Supabase secret belum dikonfigurasi: ${missing.join(', ')}`,
+      message: `Supabase secret belum dikonfigurasi: ${missingSecrets.join(', ')}`,
       project: null,
     });
   }
