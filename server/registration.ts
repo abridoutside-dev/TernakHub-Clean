@@ -1,6 +1,7 @@
 // U-002 — Supabase Admin API adapter for atomic registration.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import {
   registerUserAtomically,
   RegistrationStepError,
@@ -68,33 +69,45 @@ function makeAdapter(admin: SupabaseClient): RegistrationAdapter {
     },
 
     async createWorkspace(input) {
-      const { data: workspace, error } = await admin
-        .from('workspaces')
-        .insert({
-          owner_id: input.ownerId,
-          name: input.name,
-          type: 'Farm',
-          status: 'Aktif',
-          province: input.province,
-          city: input.city,
-          district: input.district,
-          village: input.village,
-          phone: input.phone,
-          email: input.email,
-          metadata: {
-            slug: input.slug,
-            plan: 'Free',
-            timezone: 'Asia/Jakarta',
-            currency: 'IDR',
-            language: 'id',
-            registration: 'atomic',
-          },
-        })
-        .select('id')
-        .single();
-
-      if (error || !workspace?.id) {
-        throw new Error(error?.message ?? 'Default workspace was not created.');
+      // Allocate the ID before the request so a successful INSERT followed by
+      // a response/select failure still has a cleanup handle.
+      const workspaceId = randomUUID();
+      let workspace: { id: string } | null = null;
+      try {
+        const { data, error } = await admin
+          .from('workspaces')
+          .insert({
+            id: workspaceId,
+            owner_id: input.ownerId,
+            name: input.name,
+            type: 'Farm',
+            status: 'Aktif',
+            province: input.province,
+            city: input.city,
+            district: input.district,
+            village: input.village,
+            phone: input.phone,
+            email: input.email,
+            metadata: {
+              slug: input.slug,
+              plan: 'Free',
+              timezone: 'Asia/Jakarta',
+              currency: 'IDR',
+              language: 'id',
+              registration: 'atomic',
+            },
+          })
+          .select('id')
+          .single();
+        if (error || !data?.id) {
+          throw new Error(error?.message ?? 'Default workspace was not created.');
+        }
+        workspace = data as { id: string };
+      } catch (error) {
+        throw new RegistrationStepError(
+          error instanceof Error ? error.message : 'Default workspace was not created.',
+          workspaceId,
+        );
       }
 
       try {
