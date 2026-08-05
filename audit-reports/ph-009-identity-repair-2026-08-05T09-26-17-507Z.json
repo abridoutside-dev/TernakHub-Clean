@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-08-05T09:26:17.508Z",
+  "project_ref": "wujofkqwksyoulmfgquc",
+  "target_user_id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+  "operation": "INSERT missing auth.identities email row; guarded by NOT EXISTS",
+  "endpoint": "https://api.supabase.com/v1/projects/wujofkqwksyoulmfgquc/database/query",
+  "method": "POST",
+  "response_status": 201,
+  "response": [
+    {
+      "id": "1c82045f-bb40-4e7d-84d5-03ef51c061c7",
+      "provider_id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+      "user_id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+      "identity_data": {
+        "sub": "80687cab-c316-4037-b2b5-ec07a38960e7",
+        "email": "flow001qa@gmail.com",
+        "email_verified": false,
+        "phone_verified": false
+      },
+      "provider": "email",
+      "email": "flow001qa@gmail.com",
+      "created_at": "2026-07-28 01:19:03.302655+00",
+      "updated_at": "2026-07-28 01:19:03.302655+00"
+    }
+  ]
+}

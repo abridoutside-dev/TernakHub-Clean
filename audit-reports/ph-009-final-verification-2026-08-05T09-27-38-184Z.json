@@ -1,0 +1,819 @@
+{
+  "generated_at": "2026-08-05T09:27:35.235Z",
+  "project_ref": "wujofkqwksyoulmfgquc",
+  "target_user_id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+  "checks": [
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users/80687cab-c316-4037-b2b5-ec07a38960e7",
+      "method": "GET",
+      "status": 200,
+      "response_headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a264c44d5d551326-BOM",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Wed, 05 Aug 2026 09:27:35 GMT",
+        "sb-gateway-version": "1",
+        "sb-project-ref": "wujofkqwksyoulmfgquc",
+        "sb-request-id": "019fd13f-ec6a-73e0-99db-fbfaed61eac4",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "transfer-encoding": "chunked",
+        "vary": "Origin, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-envoy-attempt-count": "1",
+        "x-envoy-upstream-service-time": "114"
+      },
+      "response_body": {
+        "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+        "aud": "authenticated",
+        "role": "authenticated",
+        "email": "flow001qa@gmail.com",
+        "email_confirmed_at": "2026-07-28T01:19:03.302655Z",
+        "phone": "",
+        "confirmed_at": "2026-07-28T01:19:03.302655Z",
+        "app_metadata": {
+          "provider": "email",
+          "providers": [
+            "email"
+          ]
+        },
+        "user_metadata": {
+          "foto": "U+1F464",
+          "full_name": "FLOW-001 QA User",
+          "subscription": "FREE"
+        },
+        "identities": [
+          {
+            "identity_id": "1c82045f-bb40-4e7d-84d5-03ef51c061c7",
+            "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+            "user_id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+            "identity_data": {
+              "email": "flow001qa@gmail.com",
+              "email_verified": false,
+              "phone_verified": false,
+              "sub": "80687cab-c316-4037-b2b5-ec07a38960e7"
+            },
+            "provider": "email",
+            "created_at": "2026-07-28T01:19:03.302655Z",
+            "updated_at": "2026-07-28T01:19:03.302655Z",
+            "email": "flow001qa@gmail.com"
+          }
+        ],
+        "created_at": "2026-07-28T01:19:03.302655Z",
+        "updated_at": "2026-07-28T01:19:03.302655Z",
+        "is_anonymous": false
+      }
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=1",
+      "method": "GET",
+      "per_page": 1,
+      "page": 1,
+      "offset_start": 0,
+      "offset_end_inclusive": 0,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "76aa69dd-b296-4cd5-8e4b-87aec01e8121",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "yooutside10@gmail.com",
+            "email_confirmed_at": "2026-07-31T14:58:44.529886Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-07-31T14:57:51.357002Z",
+            "confirmed_at": "2026-07-31T14:58:44.529886Z",
+            "last_sign_in_at": "2026-07-31T16:40:59.195008Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "yooutside10@gmail.com",
+              "email_verified": true,
+              "foto": "👤",
+              "full_name": "Yooutside",
+              "phone": "+6285701665761",
+              "phone_verified": false,
+              "sub": "76aa69dd-b296-4cd5-8e4b-87aec01e8121",
+              "subscription": "FREE"
+            },
+            "identities": null,
+            "created_at": "2026-07-31T14:57:51.284327Z",
+            "updated_at": "2026-07-31T16:40:59.236506Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "76aa69dd-b296-4cd5-8e4b-87aec01e8121"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=2",
+      "method": "GET",
+      "per_page": 1,
+      "page": 2,
+      "offset_start": 1,
+      "offset_end_inclusive": 1,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "fb8a2ed4-47e0-4706-98fb-b0912e9dc336",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "e2e-flow001d-1785229581553@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T09:06:39.711973Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T09:06:39.711973Z",
+            "last_sign_in_at": "2026-07-28T09:06:56.446918Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true,
+              "full_name": "E2E Flow 001D"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T09:06:39.699151Z",
+            "updated_at": "2026-07-28T09:06:56.44956Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "fb8a2ed4-47e0-4706-98fb-b0912e9dc336"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=3",
+      "method": "GET",
+      "per_page": 1,
+      "page": 3,
+      "offset_start": 2,
+      "offset_end_inclusive": 2,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "928fcf37-9147-46a5-8e52-00eb87c7e7de",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "rpc-fix-1785229431487@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T09:03:52.199402Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T09:03:52.199402Z",
+            "last_sign_in_at": "2026-07-28T09:03:52.583179Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-28T09:03:52.172966Z",
+            "updated_at": "2026-07-28T09:03:52.59579Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "928fcf37-9147-46a5-8e52-00eb87c7e7de"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=4",
+      "method": "GET",
+      "per_page": 1,
+      "page": 4,
+      "offset_start": 3,
+      "offset_end_inclusive": 3,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "210968d0-dc17-4c6c-9258-dcc6d183c1dc",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "rls-diag-1785228614038@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T08:50:14.50945Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T08:50:14.50945Z",
+            "last_sign_in_at": "2026-07-28T08:50:15.080148Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-28T08:50:14.505978Z",
+            "updated_at": "2026-07-28T08:50:15.083194Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "210968d0-dc17-4c6c-9258-dcc6d183c1dc"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=5",
+      "method": "GET",
+      "per_page": 1,
+      "page": 5,
+      "offset_start": 4,
+      "offset_end_inclusive": 4,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "85a842a0-0284-41f5-9270-cf83ee70d42a",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "rls-test-1785228569648@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T08:49:30.023655Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T08:49:30.023655Z",
+            "last_sign_in_at": "2026-07-28T08:49:30.383351Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-28T08:49:30.015718Z",
+            "updated_at": "2026-07-28T08:49:30.392248Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "85a842a0-0284-41f5-9270-cf83ee70d42a"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=6",
+      "method": "GET",
+      "per_page": 1,
+      "page": 6,
+      "offset_start": 5,
+      "offset_end_inclusive": 5,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "b8f2018d-7787-4995-8dfa-dde018b568eb",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "e2e-flow001d-1785228366725@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T08:46:15.698094Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T08:46:15.698094Z",
+            "last_sign_in_at": "2026-07-28T08:46:27.988101Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true,
+              "full_name": "E2E Flow 001D"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T08:46:15.662618Z",
+            "updated_at": "2026-07-28T08:46:27.990835Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "b8f2018d-7787-4995-8dfa-dde018b568eb"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=7",
+      "method": "GET",
+      "per_page": 1,
+      "page": 7,
+      "offset_start": 6,
+      "offset_end_inclusive": 6,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "55e16eac-e665-4ca5-a953-02fb23f2fee0",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "flow001.e2e.1785203660259@ternakhub.test",
+            "email_confirmed_at": "2026-07-28T01:54:21.450462Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T01:54:21.450462Z",
+            "last_sign_in_at": "2026-07-28T01:54:21.647412Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true,
+              "full_name": "FLOW-001 E2E Test"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T01:54:21.416432Z",
+            "updated_at": "2026-07-28T01:54:21.682427Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "55e16eac-e665-4ca5-a953-02fb23f2fee0"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=8",
+      "method": "GET",
+      "per_page": 1,
+      "page": 8,
+      "offset_start": 7,
+      "offset_end_inclusive": 7,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "flow001qa@gmail.com",
+            "email_confirmed_at": "2026-07-28T01:19:03.302655Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T01:19:03.302655Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "foto": "U+1F464",
+              "full_name": "FLOW-001 QA User",
+              "subscription": "FREE"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T01:19:03.302655Z",
+            "updated_at": "2026-07-28T01:19:03.302655Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "80687cab-c316-4037-b2b5-ec07a38960e7"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=9",
+      "method": "GET",
+      "per_page": 1,
+      "page": 9,
+      "offset_start": 8,
+      "offset_end_inclusive": 8,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "29294f97-6875-4eeb-88c4-0f063e618612",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "qa.viewer@ternakhub.local",
+            "email_confirmed_at": "2026-07-20T18:21:02.479794Z",
+            "phone": "",
+            "confirmed_at": "2026-07-20T18:21:02.479794Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-20T18:21:02.449317Z",
+            "updated_at": "2026-07-20T18:21:02.485701Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "29294f97-6875-4eeb-88c4-0f063e618612"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=10",
+      "method": "GET",
+      "per_page": 1,
+      "page": 10,
+      "offset_start": 9,
+      "offset_end_inclusive": 9,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "0cd71abc-41c7-47e5-8680-102021ef5f88",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "qa.admin@ternakhub.local",
+            "email_confirmed_at": "2026-07-20T18:20:25.950981Z",
+            "phone": "",
+            "confirmed_at": "2026-07-20T18:20:25.950981Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-20T18:20:25.943011Z",
+            "updated_at": "2026-07-20T18:20:25.951825Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "0cd71abc-41c7-47e5-8680-102021ef5f88"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=11",
+      "method": "GET",
+      "per_page": 1,
+      "page": 11,
+      "offset_start": 10,
+      "offset_end_inclusive": 10,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "56eb7d26-568c-435c-9670-41441c20173c",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "qa.marketplace@ternakhub.local",
+            "email_confirmed_at": "2026-07-20T18:20:01.263814Z",
+            "phone": "",
+            "confirmed_at": "2026-07-20T18:20:01.263814Z",
+            "last_sign_in_at": "2026-07-20T18:26:28.568339Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-20T18:20:01.259959Z",
+            "updated_at": "2026-07-20T18:26:28.572183Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "56eb7d26-568c-435c-9670-41441c20173c"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=12",
+      "method": "GET",
+      "per_page": 1,
+      "page": 12,
+      "offset_start": 11,
+      "offset_end_inclusive": 11,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "3dd57dc2-afa7-499c-a173-8d7bf3a16b5e",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "qa.peternak@ternakhub.local",
+            "email_confirmed_at": "2026-07-20T18:19:13.74194Z",
+            "phone": "",
+            "confirmed_at": "2026-07-20T18:19:13.74194Z",
+            "last_sign_in_at": "2026-07-20T18:41:05.98429Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-20T18:19:13.706236Z",
+            "updated_at": "2026-07-20T18:41:06.003929Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "3dd57dc2-afa7-499c-a173-8d7bf3a16b5e"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=1&page=13",
+      "method": "GET",
+      "per_page": 1,
+      "page": 13,
+      "offset_start": 12,
+      "offset_end_inclusive": 12,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "562ac6eb-0c8c-4704-8978-5421af816b6c",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "abrid.outside@gmail.com",
+            "email_confirmed_at": "2026-07-20T12:06:43.606156Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-07-20T12:06:14.581275Z",
+            "confirmed_at": "2026-07-20T12:06:43.606156Z",
+            "recovery_sent_at": "2026-08-05T04:54:37.694417Z",
+            "last_sign_in_at": "2026-08-05T09:15:58.187835Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "abrid.outside@gmail.com",
+              "email_verified": true,
+              "full_name": "Nur Abrid Dwi Hasnanto",
+              "phone_verified": false,
+              "role": "system_admin",
+              "sub": "562ac6eb-0c8c-4704-8978-5421af816b6c"
+            },
+            "identities": null,
+            "created_at": "2026-07-20T12:06:14.559055Z",
+            "updated_at": "2026-08-05T09:15:58.211252Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 1,
+      "user_ids": [
+        "562ac6eb-0c8c-4704-8978-5421af816b6c"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=2&page=4",
+      "method": "GET",
+      "per_page": 2,
+      "page": 4,
+      "offset_start": 6,
+      "offset_end_inclusive": 7,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "55e16eac-e665-4ca5-a953-02fb23f2fee0",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "flow001.e2e.1785203660259@ternakhub.test",
+            "email_confirmed_at": "2026-07-28T01:54:21.450462Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T01:54:21.450462Z",
+            "last_sign_in_at": "2026-07-28T01:54:21.647412Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true,
+              "full_name": "FLOW-001 E2E Test"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T01:54:21.416432Z",
+            "updated_at": "2026-07-28T01:54:21.682427Z",
+            "is_anonymous": false
+          },
+          {
+            "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "flow001qa@gmail.com",
+            "email_confirmed_at": "2026-07-28T01:19:03.302655Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T01:19:03.302655Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "foto": "U+1F464",
+              "full_name": "FLOW-001 QA User",
+              "subscription": "FREE"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T01:19:03.302655Z",
+            "updated_at": "2026-07-28T01:19:03.302655Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 2,
+      "user_ids": [
+        "55e16eac-e665-4ca5-a953-02fb23f2fee0",
+        "80687cab-c316-4037-b2b5-ec07a38960e7"
+      ]
+    },
+    {
+      "endpoint": "https://wujofkqwksyoulmfgquc.supabase.co/auth/v1/admin/users?per_page=4&page=2",
+      "method": "GET",
+      "per_page": 4,
+      "page": 2,
+      "offset_start": 4,
+      "offset_end_inclusive": 7,
+      "status": 200,
+      "response_body": {
+        "users": [
+          {
+            "id": "85a842a0-0284-41f5-9270-cf83ee70d42a",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "rls-test-1785228569648@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T08:49:30.023655Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T08:49:30.023655Z",
+            "last_sign_in_at": "2026-07-28T08:49:30.383351Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": null,
+            "created_at": "2026-07-28T08:49:30.015718Z",
+            "updated_at": "2026-07-28T08:49:30.392248Z",
+            "is_anonymous": false
+          },
+          {
+            "id": "b8f2018d-7787-4995-8dfa-dde018b568eb",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "e2e-flow001d-1785228366725@test.ternakhub.local",
+            "email_confirmed_at": "2026-07-28T08:46:15.698094Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T08:46:15.698094Z",
+            "last_sign_in_at": "2026-07-28T08:46:27.988101Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true,
+              "full_name": "E2E Flow 001D"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T08:46:15.662618Z",
+            "updated_at": "2026-07-28T08:46:27.990835Z",
+            "is_anonymous": false
+          },
+          {
+            "id": "55e16eac-e665-4ca5-a953-02fb23f2fee0",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "flow001.e2e.1785203660259@ternakhub.test",
+            "email_confirmed_at": "2026-07-28T01:54:21.450462Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T01:54:21.450462Z",
+            "last_sign_in_at": "2026-07-28T01:54:21.647412Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true,
+              "full_name": "FLOW-001 E2E Test"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T01:54:21.416432Z",
+            "updated_at": "2026-07-28T01:54:21.682427Z",
+            "is_anonymous": false
+          },
+          {
+            "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "flow001qa@gmail.com",
+            "email_confirmed_at": "2026-07-28T01:19:03.302655Z",
+            "phone": "",
+            "confirmed_at": "2026-07-28T01:19:03.302655Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "foto": "U+1F464",
+              "full_name": "FLOW-001 QA User",
+              "subscription": "FREE"
+            },
+            "identities": null,
+            "created_at": "2026-07-28T01:19:03.302655Z",
+            "updated_at": "2026-07-28T01:19:03.302655Z",
+            "is_anonymous": false
+          }
+        ],
+        "aud": "authenticated"
+      },
+      "user_count": 4,
+      "user_ids": [
+        "85a842a0-0284-41f5-9270-cf83ee70d42a",
+        "b8f2018d-7787-4995-8dfa-dde018b568eb",
+        "55e16eac-e665-4ca5-a953-02fb23f2fee0",
+        "80687cab-c316-4037-b2b5-ec07a38960e7"
+      ]
+    }
+  ],
+  "database_verification": {
+    "endpoint": "https://api.supabase.com/v1/projects/wujofkqwksyoulmfgquc/database/query",
+    "method": "POST",
+    "status": 201,
+    "sql": "SELECT u.id::text, u.email, u.email_change_token_new, u.email_change, (SELECT count(*)::int FROM auth.identities i WHERE i.user_id = u.id) AS identity_count FROM auth.users u WHERE u.id = '80687cab-c316-4037-b2b5-ec07a38960e7'",
+    "response": [
+      {
+        "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+        "email": "flow001qa@gmail.com",
+        "email_change_token_new": "",
+        "email_change": "",
+        "identity_count": 1
+      }
+    ]
+  }
+}

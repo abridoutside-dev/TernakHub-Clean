@@ -14,3 +14,9 @@ The production Auth Admin API can return HTTP 500 for a specific user page while
 **Why:** A single malformed or problematic Auth record otherwise made the Platform Health widget appear BLOCKED despite the Auth service and Management API being reachable.
 
 **How to apply:** Use small-page pagination with retries and distinguish total failure from partial results; do not report operational when a page could not be read.
+
+Production Auth users can fail Admin API reads when an email user has no matching `auth.identities` row or has `NULL` in email-change fields that normally use empty-string defaults. Repair the Auth row itself rather than masking the health warning.
+
+**Why:** A single project-owned orphan/malformed Auth record caused deterministic HTTP 500 responses for its page and direct lookup; restoring the identity and schema defaults made every page and lookup return 200.
+
+**How to apply:** When Admin API pagination fails on one ordinal, compare that user and its `auth.identities` row with neighboring email users; verify identity count, provider/sub/email data, and empty-string Auth defaults before attributing the issue to Supabase.

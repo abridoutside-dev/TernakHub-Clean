@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-08-05T09:27:21.233Z",
+  "project_ref": "wujofkqwksyoulmfgquc",
+  "target_user_id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+  "operation": "Normalize auth.users email_change_token_new and email from NULL to schema defaults empty string",
+  "endpoint": "https://api.supabase.com/v1/projects/wujofkqwksyoulmfgquc/database/query",
+  "method": "POST",
+  "response_status": 201,
+  "response": [
+    {
+      "id": "80687cab-c316-4037-b2b5-ec07a38960e7",
+      "email": "flow001qa@gmail.com",
+      "email_change_token_new": "",
+      "email_change": ""
+    }
+  ]
+}

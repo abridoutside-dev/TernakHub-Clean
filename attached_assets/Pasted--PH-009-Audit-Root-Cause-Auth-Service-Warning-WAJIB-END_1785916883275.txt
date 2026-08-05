@@ -1,0 +1,194 @@
+## PH-009 — Audit Root Cause "Auth Service Warning" (WAJIB END-TO-END)
+
+Jangan mengubah UI, jangan membuat workaround, jangan menyembunyikan error.
+
+Tujuan:
+Menghilangkan status "Warning" pada User Authentication Stats jika penyebabnya berasal dari data TernakHub/Supabase project sendiri.
+
+Saat ini diketahui:
+
+- platform-health sudah production
+- auth-health berjalan
+- auth-config-update berjalan
+- Management API berjalan
+- User count berhasil dibaca
+- tetapi satu page Admin API menghasilkan:
+
+HTTP 500
+Database error finding users
+
+Saya ingin bukti penyebab sebenarnya.
+
+====================================================
+LANGKAH 1
+====================================================
+
+Audit seluruh pagination Admin API.
+
+Log setiap page.
+
+Contoh:
+
+page 1
+page 2
+page 3
+...
+
+hingga terakhir.
+
+Catat:
+
+- page mana gagal
+- offset
+- jumlah user
+- response lengkap
+- request URL
+- request parameter
+
+====================================================
+LANGKAH 2
+====================================================
+
+Jika page tertentu gagal,
+gunakan pendekatan binary search untuk menemukan record user penyebabnya.
+
+Target akhirnya:
+
+identifikasi UUID user yang menyebabkan page tersebut gagal.
+
+====================================================
+LANGKAH 3
+====================================================
+
+Audit user tersebut.
+
+Tampilkan seluruh field:
+
+id
+
+email
+
+provider
+
+identities
+
+user_metadata
+
+app_metadata
+
+created_at
+
+updated_at
+
+confirmed_at
+
+last_sign_in_at
+
+is_anonymous
+
+deleted_at
+
+role
+
+ban_duration
+
+phone
+
+email_change
+
+semua field lain yang tersedia.
+
+====================================================
+LANGKAH 4
+====================================================
+
+Bandingkan dengan user normal.
+
+Cari perbedaan.
+
+Misalnya:
+
+identity kosong
+
+provider hilang
+
+metadata invalid
+
+NULL yang tidak semestinya
+
+foreign key
+
+record orphan
+
+provider lama
+
+anonymous lama
+
+password hash rusak
+
+atau bug Supabase.
+
+====================================================
+LANGKAH 5
+====================================================
+
+Jika penyebab berasal dari data project kita,
+
+perbaiki hingga:
+
+auth-health
+
+berstatus
+
+operational.
+
+====================================================
+LANGKAH 6
+====================================================
+
+Jika terbukti berasal dari bug Supabase,
+
+BERIKAN BUKTI.
+
+Bukan opini.
+
+Minimal:
+
+- request
+- response
+- page
+- user
+- stack
+- endpoint
+
+dan jelaskan mengapa tidak mungkin diperbaiki dari sisi aplikasi.
+
+====================================================
+RULE
+====================================================
+
+Jangan downgrade masalah.
+
+Jangan mengubah status menjadi Operational tanpa penyebab hilang.
+
+Jangan membuat ignore.
+
+Jangan skip page yang gagal.
+
+Jangan menyembunyikan error.
+
+Saya ingin root cause sebenarnya.
+
+Output akhir harus berisi:
+
+1. Penyebab pasti.
+
+2. Bukti.
+
+3. Apakah bisa diperbaiki.
+
+4. Jika bisa,
+perbaiki sampai Platform Health benar-benar Operational.
+
+5. Jika tidak bisa,
+buktikan bahwa ini adalah bug Supabase.
