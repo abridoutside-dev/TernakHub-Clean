@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "oeynMYfN0obn1qOvUQI4l"
+uri = "file://screenshots/platform-health-production-final.jpg"
+type = "image"
+title = "Platform Health production — Auth Service masih Warning"
+description = "Screenshot read-only halaman Platform Health production setelah login sebagai system_admin. Widget User Authentication Stats masih menampilkan Warning; sub-status Admin API, JWT, Email, dan Session Operational."
