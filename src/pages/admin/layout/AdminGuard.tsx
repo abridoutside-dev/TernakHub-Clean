@@ -18,6 +18,24 @@ function useAdminAccess() {
     () => import.meta.env.DEV && localStorage.getItem(DEV_ADMIN_KEY) === 'true',
   );
 
+  // ── DEBUG: runtime proof of auth.getUser() before role check ──
+  console.log('[AdminGuard] currentUser snapshot', {
+    id:            currentUser?.id,
+    email:         currentUser?.email,
+    app_metadata:  currentUser?.app_metadata,
+    user_metadata: currentUser?.user_metadata,
+  });
+  console.log('[AdminGuard] role check expressions', {
+    'devMode':                                    devMode,
+    'user_metadata.is_admin === true':            currentUser?.user_metadata?.is_admin === true,
+    'user_metadata.role === "admin"':             currentUser?.user_metadata?.role === 'admin',
+    'user_metadata.role === "system_admin"':      currentUser?.user_metadata?.role === 'system_admin',
+    // raw values so you can see exactly what arrived
+    'user_metadata.is_admin (raw)':               currentUser?.user_metadata?.is_admin,
+    'user_metadata.role (raw)':                   currentUser?.user_metadata?.role,
+  });
+  // ── END DEBUG ───────────────────────────────────────────────
+
   const isAdmin =
     devMode ||
     currentUser?.user_metadata?.is_admin === true ||
