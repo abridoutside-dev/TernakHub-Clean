@@ -83,15 +83,49 @@ interface R2Config {
   publicBaseUrl: string;
 }
 
-function getR2Config(): R2Config {
-  const accountId   = Deno.env.get('R2_ACCOUNT_ID')        ?? '';
-  const bucket      = Deno.env.get('R2_BUCKET')             ?? '';
-  const accessKeyId = Deno.env.get('R2_ACCESS_KEY_ID')      ?? '';
-  const secretKey   = Deno.env.get('R2_SECRET_ACCESS_KEY')  ?? '';
-  const explicit    = Deno.env.get('R2_PUBLIC_URL')         ?? '';
+interface R2Diagnostic {
+  accountIdPresent:  boolean;
+  accountIdLength:   number;
+  accountIdRaw:      string;       // full value — not masked
+  accountIdFirst:    string;
+  accountIdLast5:    string;
+  endpoint:          string;
+  bucket:            string;
+  accessKeyIdPresent: boolean;
+  secretKeyPresent:  boolean;
+  r2EnvKeys:         string[];
+}
+
+function getR2Config(): R2Config & { _diag: R2Diagnostic } {
+  const accountIdRaw = Deno.env.get('R2_ACCOUNT_ID');
+  const accountId    = accountIdRaw ?? '';
+  const bucket       = Deno.env.get('R2_BUCKET')            ?? '';
+  const accessKeyId  = Deno.env.get('R2_ACCESS_KEY_ID')     ?? '';
+  const secretKey    = Deno.env.get('R2_SECRET_ACCESS_KEY') ?? '';
+  const explicit     = Deno.env.get('R2_PUBLIC_URL')        ?? '';
   const publicBaseUrl = explicit
     || (accountId && bucket ? `https://${bucket}.${accountId}.r2.dev` : '');
-  return { accountId, bucket, accessKeyId, secretKey, publicBaseUrl };
+
+  const allEnv   = Deno.env.toObject();
+  const r2EnvKeys = Object.keys(allEnv).filter(k => k.startsWith('R2'));
+
+  const _diag: R2Diagnostic = {
+    accountIdPresent:  accountIdRaw !== undefined,
+    accountIdLength:   accountId.length,
+    accountIdRaw:      accountId,                         // full raw value from runtime
+    accountIdFirst:    JSON.stringify(accountId[0] ?? ''),
+    accountIdLast5:    JSON.stringify(accountId.slice(-5)),
+    endpoint:          `https://${accountId}.r2.cloudflarestorage.com`,
+    bucket,
+    accessKeyIdPresent: accessKeyId.length > 0,
+    secretKeyPresent:  secretKey.length > 0,
+    r2EnvKeys,
+  };
+
+  // mirror to Edge Function logs as well
+  console.log('[getR2Config] diagnostic:', JSON.stringify(_diag));
+
+  return { accountId, bucket, accessKeyId, secretKey, publicBaseUrl, _diag };
 }
 
 function assertR2Configured(cfg: R2Config): void {
@@ -615,6 +649,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
       error: `Secret yang hilang: ${missing.join(', ')}`,
       stack: null,
       missing,
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -635,6 +670,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
       ok: false, status: 'presign_failed',
       error: e.error, stack: e.stack,
       step: 'presign-upload',
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -655,6 +691,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
       ok: false, status: 'upload_network_error',
       error: e.error, stack: e.stack,
       step: 'put-object',
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -674,6 +711,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
       rawBody: rawBody.slice(0, 1000),
       step: 'put-object',
       testKey,
+      r2Diagnostic: cfg._diag,
       steps: { upload: { ok: false, latencyMs: uploadMs, httpStatus: putRes.status }, read: null, delete: null },
       latencyMs: Date.now() - totalStart,
     }, 200);
@@ -691,6 +729,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
       error: e.error, stack: e.stack,
       step: 'presign-download',
       testKey,
+      r2Diagnostic: cfg._diag,
       steps: { upload: { ok: true, latencyMs: uploadMs, bytes: testBytes }, read: null, delete: null },
       latencyMs: Date.now() - totalStart,
     }, 200);
@@ -708,6 +747,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
       error: e.error, stack: e.stack,
       step: 'get-object',
       testKey,
+      r2Diagnostic: cfg._diag,
       steps: { upload: { ok: true, latencyMs: uploadMs, bytes: testBytes }, read: null, delete: null },
       latencyMs: Date.now() - totalStart,
     }, 200);
@@ -753,6 +793,7 @@ const handleTestUpload: Handler = async ({ jwt }) => {
     message: `Upload ${uploadOk ? 'OK' : 'FAILED'} · Read ${readOk ? 'OK' : 'FAILED'} · Delete ${deleteOk ? 'OK' : 'FAILED'}`,
     error: readError ? readError.r2Message : null,
     stack: null,
+    r2Diagnostic: cfg._diag,
     steps: {
       upload: { ok: uploadOk, latencyMs: uploadMs, bytes: testBytes, httpStatus: putRes.status },
       read:   { ok: readOk,   latencyMs: readMs,   bytes: Number(getRes.headers.get('content-length') ?? 0), httpStatus: getRes.status, r2Error: readError },
@@ -785,6 +826,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
       error: `Secret yang hilang: ${missing.join(', ')}`,
       stack: null,
       missing,
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -798,6 +840,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
       status: 'invalid_request',
       error: 'objectKey diperlukan untuk test-download',
       stack: null,
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -817,6 +860,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
       stack: e.stack,
       step: 'presign-download',
       objectKey,
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -836,6 +880,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
       stack: e.stack,
       step: 'get-object',
       objectKey,
+      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -856,6 +901,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
       rawBody: rawBody.slice(0, 1000),
       step: 'get-object',
       objectKey,
+      r2Diagnostic: cfg._diag,
       latencyMs,
       totalLatencyMs: Date.now() - totalStart,
     }, 200);
@@ -882,6 +928,7 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
     httpStatus:     getRes.status,
     latencyMs,
     totalLatencyMs: Date.now() - totalStart,
+    r2Diagnostic:   cfg._diag,
     message:        `Test download berhasil dari ${cfg.bucket}/${objectKey}`,
   });
 };
