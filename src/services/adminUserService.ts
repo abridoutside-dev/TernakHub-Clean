@@ -1,6 +1,7 @@
 // ─── Admin User Service — ADM-003 ────────────────────────────────────────────
-// Frontend API client for /api/admin/users/* endpoints.
-// All calls attach the current Supabase session token as Bearer.
+// Frontend client for the platform-health Supabase Edge Function.
+// Admin operations must never use /api/* because Cloudflare Pages serves those
+// paths through the SPA fallback.
 
 import { supabase } from '../lib/supabase';
 
@@ -85,75 +86,76 @@ export interface UserStats {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function getToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? '';
+interface AdminUsersEnvelope<T> {
+  ok: boolean;
+  error?: string;
+  data?: T;
+  [key: string]: unknown;
 }
 
-async function apiFetch<T = unknown>(path: string, options?: RequestInit): Promise<T> {
-  const token = await getToken();
-  const r = await fetch(`/api/admin/users${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(options?.headers ?? {}),
-    },
-  });
-  const body = await r.json().catch(() => ({})) as { error?: string };
-  if (!r.ok) throw new Error(body.error ?? `Request gagal: ${r.status}`);
-  return body as T;
+async function invokeAdminUsers<T = unknown>(
+  operation: string,
+  payload: Record<string, unknown> = {},
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<AdminUsersEnvelope<T>>(
+    'platform-health',
+    { body: { action: 'admin-users', operation, ...payload } },
+  );
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? `Operasi admin user gagal: ${operation}`);
+  return (data.data ?? data) as T;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export const adminUserService = {
   getStats: (): Promise<UserStats> =>
-    apiFetch<UserStats>('/stats'),
+    invokeAdminUsers<UserStats>('stats'),
 
   listUsers: (params: UserListParams = {}): Promise<UserListResponse> => {
-    const qs = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
-    ).toString();
-    return apiFetch<UserListResponse>(`${qs ? `?${qs}` : ''}`);
+    const payload = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== ''),
+    );
+    return invokeAdminUsers<UserListResponse>('list', payload);
   },
 
   getUser: (id: string): Promise<UserDetail> =>
-    apiFetch<UserDetail>(`/${id}`),
+    invokeAdminUsers<UserDetail>('get', { id }),
 
   updateUser: (id: string, data: { full_name?: string; is_admin?: boolean }): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    invokeAdminUsers<{ ok: boolean }>('update', { id, ...data }),
 
   suspendUser: (id: string): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/suspend`, { method: 'POST' }),
+    invokeAdminUsers<{ ok: boolean }>('suspend', { id }),
 
   unsuspendUser: (id: string): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/unsuspend`, { method: 'POST' }),
+    invokeAdminUsers<{ ok: boolean }>('unsuspend', { id }),
 
   deleteUser: (id: string): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}`, { method: 'DELETE' }),
+    invokeAdminUsers<{ ok: boolean }>('delete', { id }),
 
   resetPassword: (id: string): Promise<{ ok: boolean; link?: string }> =>
-    apiFetch(`/${id}/reset-password`, { method: 'POST' }),
+    invokeAdminUsers<{ ok: boolean; link?: string }>('reset-password', { id }),
 
   verifyEmail: (id: string): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/verify-email`, { method: 'POST' }),
+    invokeAdminUsers<{ ok: boolean }>('verify-email', { id }),
 
   resendVerification: (id: string): Promise<{ ok: boolean; link?: string }> =>
-    apiFetch(`/${id}/resend-verification`, { method: 'POST' }),
+    invokeAdminUsers<{ ok: boolean; link?: string }>('resend-verification', { id }),
 
   signOut: (id: string): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/sign-out`, { method: 'POST' }),
+    invokeAdminUsers<{ ok: boolean }>('sign-out', { id }),
 
   getWorkspaces: (id: string): Promise<WorkspaceMembership[]> =>
-    apiFetch<WorkspaceMembership[]>(`/${id}/workspaces`),
+    invokeAdminUsers<{ memberships: WorkspaceMembership[] }>('get-workspaces', { id })
+      .then(result => result.memberships),
 
   addWorkspace: (id: string, data: { workspace_id: string; role: string }): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/workspaces`, { method: 'POST', body: JSON.stringify(data) }),
+    invokeAdminUsers<{ ok: boolean }>('add-workspace', { id, ...data }),
 
   updateWorkspace: (id: string, wsId: string, data: { role?: string; status?: string }): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/workspaces/${wsId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    invokeAdminUsers<{ ok: boolean }>('update-workspace', { id, workspace_member_id: wsId, ...data }),
 
   removeWorkspace: (id: string, wsId: string): Promise<{ ok: boolean }> =>
-    apiFetch(`/${id}/workspaces/${wsId}`, { method: 'DELETE' }),
+    invokeAdminUsers<{ ok: boolean }>('remove-workspace', { id, workspace_member_id: wsId }),
 };
