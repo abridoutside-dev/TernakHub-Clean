@@ -334,10 +334,21 @@ const handleSecretsList: Handler = async () => {
 
 interface AuthUser {
   id:                  string;
+  email?:              string | null;
+  user_metadata?:      Record<string, unknown> | null;
+  identities?:         AuthIdentity[] | null;
   email_confirmed_at?: string | null;
   is_anonymous?:       boolean;
   last_sign_in_at?:    string | null;
   created_at?:         string | null;
+  banned_until?:       string | null;
+  deleted_at?:          string | null;
+}
+
+interface AuthIdentity {
+  id?:            string;
+  provider?:      string;
+  identity_data?: Record<string, unknown> | null;
 }
 
 type AuthIntegrityStatus = 'operational' | 'degraded' | 'down';
@@ -346,6 +357,15 @@ interface AuthIntegrityIssue {
   id:          string;
   email:       string | null;
   issue_codes: string[];
+  details?:    Record<string, unknown>;
+}
+
+interface AuthIntegrityError {
+  message: string;
+  code:    string | null;
+  details: string | null;
+  hint:    string | null;
+  stack:   string | null;
 }
 
 interface AuthIntegrityResult {
@@ -353,121 +373,242 @@ interface AuthIntegrityResult {
   issue_count: number;
   issues:      AuthIntegrityIssue[];
   error:       string | null;
+  error_details: AuthIntegrityError | null;
   checked_at:  string;
 }
 
+interface AuthIntegrityProfile {
+  id: string;
+}
+
+interface AuthIntegrityWorkspace {
+  id:       string;
+  name?:    string | null;
+  owner_id: string | null;
+  status?:  string | null;
+}
+
 /*
- * Auth Admin API failures can be caused by malformed rows in Supabase-owned
- * auth tables. Keep this check read-only and deliberately narrow:
- *   - non-anonymous email users need an email identity;
- *   - Auth's email-change token fields use empty-string defaults, not NULL.
+ * This check deliberately uses only Supabase's service-role Admin SDK and
+ * PostgREST table reads:
+ *   - auth.users + auth.identities are returned by auth.admin.listUsers();
+ *   - user_profiles and workspaces are read with svc.from(...).
  *
- * The query returns one JSON row so it can use the existing query_raw RPC
- * without exposing auth.users secrets such as password hashes or tokens.
+ * It must not use query_raw(). Apart from avoiding a project-specific RPC
+ * dependency, this keeps the check read-only and prevents auth internals such
+ * as password hashes and tokens from being selected.
  */
 async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityResult> {
   const checkedAt = new Date().toISOString();
-  if (!serviceRole) {
+  const healthy = (issues: AuthIntegrityIssue[]): AuthIntegrityResult => ({
+    status: issues.length === 0 ? 'operational' : 'degraded',
+    issue_count: issues.length,
+    issues,
+    error: null,
+    error_details: null,
+    checked_at: checkedAt,
+  });
+
+  const errorDetails = (error: unknown, fallbackCode: string): AuthIntegrityError => {
+    const candidate = error as {
+      message?: unknown;
+      code?: unknown;
+      details?: unknown;
+      hint?: unknown;
+      stack?: unknown;
+    } | null;
+    return {
+      message: typeof candidate?.message === 'string'
+        ? candidate.message
+        : String(error),
+      code: typeof candidate?.code === 'string' ? candidate.code : fallbackCode,
+      details: typeof candidate?.details === 'string' ? candidate.details : null,
+      hint: typeof candidate?.hint === 'string' ? candidate.hint : null,
+      stack: typeof candidate?.stack === 'string' ? candidate.stack : null,
+    };
+  };
+
+  const failed = (
+    error: unknown,
+    fallbackCode: string,
+    details?: Record<string, unknown>,
+  ): AuthIntegrityResult => {
+    const normalized = errorDetails(error, fallbackCode);
+    const combinedDetails = details
+      ? [normalized.details, JSON.stringify(details)].filter(Boolean).join(' | ')
+      : normalized.details;
+    const completeError = { ...normalized, details: combinedDetails };
+    console.error('[platform-health] auth integrity check failed', completeError);
     return {
       status: 'down',
       issue_count: 0,
       issues: [],
-      error: 'SUPABASE_SERVICE_ROLE_KEY tidak tersedia',
+      error: completeError.message,
+      error_details: completeError,
       checked_at: checkedAt,
     };
-  }
+  };
 
-  const sql = `
-    SELECT COALESCE(
-      jsonb_agg(
-        jsonb_build_object(
-          'id', issue.id,
-          'email', issue.email,
-          'issue_codes', issue.issue_codes
-        )
-        ORDER BY issue.id
-      ),
-      '[]'::jsonb
-    ) AS rows
-    FROM (
-      SELECT
-        u.id::text AS id,
-        u.email,
-        array_remove(
-          ARRAY[
-            CASE
-              WHEN NOT COALESCE(u.is_anonymous, false)
-                AND u.email IS NOT NULL
-                AND NOT EXISTS (
-                  SELECT 1
-                  FROM auth.identities i
-                  WHERE i.user_id = u.id
-                    AND i.provider = 'email'
-                )
-              THEN 'missing_email_identity'
-            END,
-            CASE
-              WHEN u.email_change_token_new IS NULL
-              THEN 'email_change_token_new_null'
-            END,
-            CASE
-              WHEN u.email_change IS NULL
-              THEN 'email_change_null'
-            END
-          ]::text[],
-          NULL
-        ) AS issue_codes
-      FROM auth.users u
-      WHERE (
-        (
-          NOT COALESCE(u.is_anonymous, false)
-          AND u.email IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1
-            FROM auth.identities i
-            WHERE i.user_id = u.id
-              AND i.provider = 'email'
-          )
-        )
-        OR u.email_change_token_new IS NULL
-        OR u.email_change IS NULL
-      )
-    ) AS issue
-    WHERE cardinality(issue.issue_codes) > 0
-  `;
+  if (!serviceRole) {
+    return failed(
+      new Error('SUPABASE_SERVICE_ROLE_KEY tidak tersedia'),
+      'CONFIG_MISSING',
+    );
+  }
 
   try {
     const svc = makeServiceClient();
-    const { data, error } = await svc.rpc('query_raw', { sql }).maybeSingle();
-    if (error) throw error;
-
-    const rawRows = (data as { rows?: unknown } | null)?.rows;
-    const issues = Array.isArray(rawRows)
-      ? rawRows.filter((row): row is AuthIntegrityIssue => {
-          if (!row || typeof row !== 'object') return false;
-          const candidate = row as Partial<AuthIntegrityIssue>;
-          return typeof candidate.id === 'string'
-            && (typeof candidate.email === 'string' || candidate.email === null)
-            && Array.isArray(candidate.issue_codes)
-            && candidate.issue_codes.every((code) => typeof code === 'string');
-        })
-      : [];
-
-    return {
-      status: issues.length === 0 ? 'operational' : 'degraded',
-      issue_count: issues.length,
-      issues,
-      error: null,
-      checked_at: checkedAt,
+    const perPage = 1000;
+    const listAllAuthUsers = async (): Promise<AuthUser[]> => {
+      const users: AuthUser[] = [];
+      for (let page = 1; page <= 10000; page += 1) {
+        const { data, error } = await svc.auth.admin.listUsers({ page, perPage });
+        if (error) throw error;
+        const pageUsers = (data?.users ?? []) as AuthUser[];
+        users.push(...pageUsers);
+        if (pageUsers.length < perPage) return users;
+      }
+      throw new Error('Auth Admin API pagination exceeded the safety limit');
     };
+
+    const readProfiles = async (): Promise<AuthIntegrityProfile[]> => {
+      const { data, error } = await svc
+        .from('user_profiles')
+        .select('id');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('user_profiles returned a non-array response');
+      return data as AuthIntegrityProfile[];
+    };
+
+    const readWorkspaces = async (): Promise<AuthIntegrityWorkspace[]> => {
+      const { data, error } = await svc
+        .from('workspaces')
+        .select('id, name, owner_id, status');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('workspaces returned a non-array response');
+      return data as AuthIntegrityWorkspace[];
+    };
+
+    const [usersResult, profilesResult, workspacesResult] = await Promise.allSettled([
+      listAllAuthUsers(),
+      readProfiles(),
+      readWorkspaces(),
+    ]);
+    const sourceFailures = [
+      ['auth.users/auth.identities', usersResult],
+      ['user_profiles', profilesResult],
+      ['workspaces', workspacesResult],
+    ]
+      .filter((entry): entry is [string, PromiseRejectedResult] => entry[1].status === 'rejected')
+      .map(([source, result]) => ({
+        source,
+        error: errorDetails(result.reason, 'AUTH_INTEGRITY_SOURCE_ERROR'),
+      }));
+    if (sourceFailures.length > 0) {
+      const firstFailure = sourceFailures[0];
+      return failed(
+        new Error(firstFailure.error.message),
+        firstFailure.error.code ?? 'AUTH_INTEGRITY_SOURCE_ERROR',
+        { sources: sourceFailures },
+      );
+    }
+
+    const users = (usersResult as PromiseFulfilledResult<AuthUser[]>).value;
+    const profiles = (profilesResult as PromiseFulfilledResult<AuthIntegrityProfile[]>).value;
+    const workspaces = (workspacesResult as PromiseFulfilledResult<AuthIntegrityWorkspace[]>).value;
+    const authById = new Map(users.map((user) => [user.id, user]));
+    const workspaceIdsByOwner = new Map<string, string[]>();
+    const issues: AuthIntegrityIssue[] = [];
+    const addIssue = (
+      id: string,
+      email: string | null,
+      issueCodes: string[],
+      details: Record<string, unknown>,
+    ) => {
+      issues.push({ id, email, issue_codes: issueCodes, details });
+    };
+
+    const profileCounts = new Map<string, number>();
+    for (const profile of profiles) {
+      profileCounts.set(profile.id, (profileCounts.get(profile.id) ?? 0) + 1);
+      if (!authById.has(profile.id)) {
+        addIssue(profile.id, null, ['orphan_profile'], {
+          profile_id: profile.id,
+          reason: 'user_profiles.id does not match an auth user',
+        });
+      }
+      if ((profileCounts.get(profile.id) ?? 0) > 1) {
+        addIssue(profile.id, authById.get(profile.id)?.email ?? null, ['duplicate_profile'], {
+          profile_id: profile.id,
+          duplicate_count: profileCounts.get(profile.id),
+        });
+      }
+    }
+
+    const profileIds = new Set(profiles.map((profile) => profile.id));
+    for (const user of users) {
+      const identities = Array.isArray(user.identities) ? user.identities : [];
+      const emailIdentities = identities.filter((identity) => identity.provider === 'email');
+      const userIssues: string[] = [];
+      const userDetails: Record<string, unknown> = {
+        user_id: user.id,
+        identity_count: identities.length,
+      };
+      if (!user.is_anonymous && user.email && emailIdentities.length === 0) {
+        userIssues.push('missing_identity');
+        userDetails.identity_providers = identities.map((identity) => identity.provider ?? 'unknown');
+      }
+      if (emailIdentities.length > 1) {
+        userIssues.push('duplicate_identity');
+        userDetails.email_identity_count = emailIdentities.length;
+      }
+      if (!profileIds.has(user.id)) userIssues.push('missing_profile');
+      if (userIssues.length > 0) addIssue(user.id, user.email ?? null, userIssues, userDetails);
+
+      const ownedWorkspaceIds = workspaceIdsByOwner.get(user.id) ?? [];
+      if (!user.is_anonymous && user.user_metadata?.role !== 'system_admin' && ownedWorkspaceIds.length === 0) {
+        addIssue(user.id, user.email ?? null, ['missing_workspace'], {
+          user_id: user.id,
+          reason: 'non-admin auth user does not own a workspace',
+        });
+      }
+    }
+
+    for (const workspace of workspaces) {
+      if (workspace.owner_id) {
+        const ownerWorkspaces = workspaceIdsByOwner.get(workspace.owner_id) ?? [];
+        ownerWorkspaces.push(workspace.id);
+        workspaceIdsByOwner.set(workspace.owner_id, ownerWorkspaces);
+      }
+      const owner = workspace.owner_id ? authById.get(workspace.owner_id) : undefined;
+      if (!workspace.owner_id || !owner) {
+        addIssue(workspace.id, null, ['orphan_workspace'], {
+          workspace_id: workspace.id,
+          owner_id: workspace.owner_id,
+          workspace_name: workspace.name ?? null,
+        });
+      } else if (
+        (owner.banned_until && new Date(owner.banned_until).getTime() > Date.now())
+        || Boolean(owner.deleted_at)
+      ) {
+        addIssue(workspace.id, owner.email ?? null, ['inactive_owner'], {
+          workspace_id: workspace.id,
+          owner_id: owner.id,
+          banned_until: owner.banned_until ?? null,
+          deleted_at: owner.deleted_at ?? null,
+        });
+      }
+    }
+
+    // Workspace ownership is collected after the user pass above. Re-check
+    // missing_workspace using the complete relation map.
+    const filteredIssues = issues.filter((issue) => {
+      if (!issue.issue_codes.includes('missing_workspace')) return true;
+      return !((workspaceIdsByOwner.get(issue.id) ?? []).length > 0);
+    });
+    return healthy(filteredIssues);
   } catch (err) {
-    return {
-      status: 'down',
-      issue_count: 0,
-      issues: [],
-      error: err instanceof Error ? err.message : 'Auth integrity check gagal',
-      checked_at: checkedAt,
-    };
+    return failed(err, 'AUTH_INTEGRITY_CHECK_ERROR');
   }
 }
 

@@ -419,6 +419,7 @@ export interface AuthIntegrityIssue {
   id:          string;
   email:       string | null;
   issue_codes: string[];
+  details?:    Record<string, unknown>;
 }
 
 export interface AuthIntegrityData {
@@ -426,6 +427,13 @@ export interface AuthIntegrityData {
   issue_count: number;
   issues:      AuthIntegrityIssue[];
   error:       string | null;
+  error_details?: {
+    message: string;
+    code:    string | null;
+    details: string | null;
+    hint:    string | null;
+    stack:   string | null;
+  } | null;
   checked_at:  string;
 }
 
