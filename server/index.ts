@@ -17,7 +17,6 @@
 
 import express from 'express';
 import cors from 'cors';
-import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -96,16 +95,25 @@ app.post('/api/admin/platform-health', async (req, res) => {
   }
 
   try {
-    const callerClient = createClient(supabaseUrl, callerKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
+    // Use the Auth REST API directly to avoid triggering the Supabase Realtime
+    // WebSocket client, which throws on Node.js < 22 (no native WebSocket).
+    const userRes = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${userJwt}`,
+        apikey: callerKey,
+      },
     });
-    const { data, error } = await callerClient.auth.getUser(userJwt);
-    if (error || !data.user) {
+    if (!userRes.ok) {
+      res.status(401).json({ ok: false, error: 'Token user tidak valid atau sudah kedaluwarsa.' });
+      return;
+    }
+    const userData = await userRes.json() as { id?: string; user_metadata?: Record<string, unknown> } | null;
+    if (!userData?.id) {
       res.status(401).json({ ok: false, error: 'Token user tidak valid atau sudah kedaluwarsa.' });
       return;
     }
 
-    if (data.user.user_metadata?.role !== 'system_admin') {
+    if (userData.user_metadata?.role !== 'system_admin') {
       res.status(403).json({ ok: false, error: 'Akses ditolak: system admin only.' });
       return;
     }

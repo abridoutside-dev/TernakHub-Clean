@@ -4,3 +4,4 @@
 - [Supabase permission audits](supabase-permission-audit.md) — service_role bypasses RLS but still needs explicit read grants on application tables.
 - [Auth integrity listUsers false positive](auth-integrity-listusers-false-positive.md) — paginated listUsers returns identities:null even when rows exist; use app_metadata.providers as fallback.
 - [Platform Health internal token wiring](platform-health-internal-token.md) — PLATFORM_HEALTH_INTERNAL_TOKEN (Supabase secret) must equal SESSION_SECRET (Replit); server uses ANON_KEY for caller verification.
+- [Node.js 20 Supabase WebSocket crash](nodejs20-websocket-supabase.md) — createClient() throws on auth.getUser() in Node.js 20; use direct /auth/v1/user REST call instead.
