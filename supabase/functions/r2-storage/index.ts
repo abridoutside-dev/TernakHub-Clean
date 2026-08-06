@@ -83,22 +83,8 @@ interface R2Config {
   publicBaseUrl: string;
 }
 
-interface R2Diagnostic {
-  accountIdPresent:  boolean;
-  accountIdLength:   number;
-  accountIdRaw:      string;       // full value — not masked
-  accountIdFirst:    string;
-  accountIdLast5:    string;
-  endpoint:          string;
-  bucket:            string;
-  accessKeyIdPresent: boolean;
-  secretKeyPresent:  boolean;
-  r2EnvKeys:         string[];
-}
-
-function getR2Config(): R2Config & { _diag: R2Diagnostic } {
-  const accountIdRaw = Deno.env.get('R2_ACCOUNT_ID');
-  const accountId    = accountIdRaw ?? '';
+function getR2Config(): R2Config {
+  const accountId    = Deno.env.get('R2_ACCOUNT_ID')      ?? '';
   const bucket       = Deno.env.get('R2_BUCKET')            ?? '';
   const accessKeyId  = Deno.env.get('R2_ACCESS_KEY_ID')     ?? '';
   const secretKey    = Deno.env.get('R2_SECRET_ACCESS_KEY') ?? '';
@@ -106,26 +92,7 @@ function getR2Config(): R2Config & { _diag: R2Diagnostic } {
   const publicBaseUrl = explicit
     || (accountId && bucket ? `https://${bucket}.${accountId}.r2.dev` : '');
 
-  const allEnv   = Deno.env.toObject();
-  const r2EnvKeys = Object.keys(allEnv).filter(k => k.startsWith('R2'));
-
-  const _diag: R2Diagnostic = {
-    accountIdPresent:  accountIdRaw !== undefined,
-    accountIdLength:   accountId.length,
-    accountIdRaw:      accountId,                         // full raw value from runtime
-    accountIdFirst:    JSON.stringify(accountId[0] ?? ''),
-    accountIdLast5:    JSON.stringify(accountId.slice(-5)),
-    endpoint:          `https://${accountId}.r2.cloudflarestorage.com`,
-    bucket,
-    accessKeyIdPresent: accessKeyId.length > 0,
-    secretKeyPresent:  secretKey.length > 0,
-    r2EnvKeys,
-  };
-
-  // mirror to Edge Function logs as well
-  console.log('[getR2Config] diagnostic:', JSON.stringify(_diag));
-
-  return { accountId, bucket, accessKeyId, secretKey, publicBaseUrl, _diag };
+  return { accountId, bucket, accessKeyId, secretKey, publicBaseUrl };
 }
 
 function assertR2Configured(cfg: R2Config): void {
@@ -592,15 +559,13 @@ const handleTestConnection: Handler = async () => {
 
   try {
     const canaryKey = `__health/test-connection-${Date.now()}.txt`;
-    const uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: canaryKey, expiresSeconds: 60 });
+    await presignUrl({ method: 'PUT', cfg, objectKey: canaryKey, expiresSeconds: 60 });
     return jsonResponse({
       ok:        true,
       status:    'configured',
       bucket:    cfg.bucket,
       accountId: cfg.accountId,
       message:   'R2 credentials tersedia dan presign berhasil',
-      // Truncated for admin inspection — never log full presigned URLs
-      _presignPreview: uploadUrl.slice(0, 60) + '…',
     });
   } catch (err) {
     return jsonResponse({
@@ -619,18 +584,15 @@ async function parseR2Error(res: Response): Promise<{ r2Code: string; r2Message:
   return { r2Code, r2Message, rawBody };
 }
 
-function captureError(err: unknown): { error: string; stack: string | null } {
-  if (err instanceof Error) {
-    return { error: err.message, stack: err.stack ?? null };
-  }
-  return { error: String(err), stack: null };
+function captureError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
 }
 
 // ─── test-upload ──────────────────────────────────────────────────────────────
 
 const handleTestUpload: Handler = async ({ jwt }) => {
   const totalStart = Date.now();
-  console.log('[test-upload] start');
 
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
@@ -640,16 +602,13 @@ const handleTestUpload: Handler = async ({ jwt }) => {
   const missing = (['R2_ACCOUNT_ID', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const)
     .filter((k) => !Deno.env.get(k));
 
-  console.log('[test-upload] config check — bucket:', cfg.bucket, '| accountId:', cfg.accountId, '| missing:', missing);
 
   if (missing.length > 0) {
     return jsonResponse({
       ok: false,
       status: 'not_configured',
       error: `Secret yang hilang: ${missing.join(', ')}`,
-      stack: null,
       missing,
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -662,15 +621,12 @@ const handleTestUpload: Handler = async ({ jwt }) => {
   let uploadUrl: string;
   try {
     uploadUrl = await presignUrl({ method: 'PUT', cfg, objectKey: testKey, expiresSeconds: 300 });
-    console.log('[test-upload] presign PUT ok — key:', testKey, '| url prefix:', uploadUrl.slice(0, 80));
   } catch (err) {
     const e = captureError(err);
-    console.error('[test-upload] presign PUT failed:', e.error);
     return jsonResponse({
       ok: false, status: 'presign_failed',
-      error: e.error, stack: e.stack,
+      error: e,
       step: 'presign-upload',
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -686,32 +642,26 @@ const handleTestUpload: Handler = async ({ jwt }) => {
     });
   } catch (err) {
     const e = captureError(err);
-    console.error('[test-upload] fetch PUT threw:', e.error);
     return jsonResponse({
       ok: false, status: 'upload_network_error',
-      error: e.error, stack: e.stack,
+      error: e,
       step: 'put-object',
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
   const uploadMs = Date.now() - uploadStart;
-  console.log('[test-upload] PUT response —', putRes.status, putRes.statusText, '| latency:', uploadMs, 'ms');
 
   if (!putRes.ok) {
     const { r2Code, r2Message, rawBody } = await parseR2Error(putRes);
-    console.error('[test-upload] PUT failed — r2Code:', r2Code, '| r2Message:', r2Message);
     return jsonResponse({
       ok: false, status: 'upload_failed',
       httpStatus: putRes.status,
       error: r2Message,
-      stack: null,
       r2Code,
       r2Message,
       rawBody: rawBody.slice(0, 1000),
       step: 'put-object',
       testKey,
-      r2Diagnostic: cfg._diag,
       steps: { upload: { ok: false, latencyMs: uploadMs, httpStatus: putRes.status }, read: null, delete: null },
       latencyMs: Date.now() - totalStart,
     }, 200);
@@ -723,13 +673,11 @@ const handleTestUpload: Handler = async ({ jwt }) => {
     readUrl = await presignUrl({ method: 'GET', cfg, objectKey: testKey, expiresSeconds: 300 });
   } catch (err) {
     const e = captureError(err);
-    console.error('[test-upload] presign GET failed:', e.error);
     return jsonResponse({
       ok: false, status: 'presign_read_failed',
-      error: e.error, stack: e.stack,
+      error: e,
       step: 'presign-download',
       testKey,
-      r2Diagnostic: cfg._diag,
       steps: { upload: { ok: true, latencyMs: uploadMs, bytes: testBytes }, read: null, delete: null },
       latencyMs: Date.now() - totalStart,
     }, 200);
@@ -741,25 +689,21 @@ const handleTestUpload: Handler = async ({ jwt }) => {
     getRes = await fetch(readUrl);
   } catch (err) {
     const e = captureError(err);
-    console.error('[test-upload] fetch GET threw:', e.error);
     return jsonResponse({
       ok: false, status: 'read_network_error',
-      error: e.error, stack: e.stack,
+      error: e,
       step: 'get-object',
       testKey,
-      r2Diagnostic: cfg._diag,
       steps: { upload: { ok: true, latencyMs: uploadMs, bytes: testBytes }, read: null, delete: null },
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
   const readMs = Date.now() - readStart;
-  console.log('[test-upload] GET response —', getRes.status, '| latency:', readMs, 'ms');
 
   let readError: { r2Code: string; r2Message: string } | null = null;
   if (!getRes.ok) {
     const { r2Code, r2Message } = await parseR2Error(getRes);
     readError = { r2Code, r2Message };
-    console.warn('[test-upload] GET failed — r2Code:', r2Code, '| r2Message:', r2Message);
   }
 
   // ── step 4: DELETE object (best-effort cleanup) ──
@@ -768,15 +712,12 @@ const handleTestUpload: Handler = async ({ jwt }) => {
   let deleteError: string | null = null;
   try {
     delRes = await makeSignedRequest('DELETE', cfg, `/${cfg.bucket}/${testKey}`, '');
-    console.log('[test-upload] DELETE response —', delRes.status, '| latency:', Date.now() - deleteStart, 'ms');
     if (!delRes.ok && delRes.status !== 204) {
       const { r2Code } = await parseR2Error(delRes);
       deleteError = r2Code;
-      console.warn('[test-upload] DELETE non-ok:', delRes.status, r2Code);
     }
   } catch (err) {
-    deleteError = captureError(err).error;
-    console.warn('[test-upload] DELETE threw:', deleteError);
+    deleteError = captureError(err);
   }
   const deleteMs = Date.now() - deleteStart;
 
@@ -784,16 +725,12 @@ const handleTestUpload: Handler = async ({ jwt }) => {
   const readOk   = getRes.ok;
   const deleteOk = delRes !== null && (delRes.ok || delRes.status === 204);
 
-  console.log(`[test-upload] done — upload:${uploadOk} read:${readOk} delete:${deleteOk} total:${Date.now() - totalStart}ms`);
-
   return jsonResponse({
     ok: uploadOk && readOk,
     status: uploadOk && readOk ? 'upload_ok' : 'upload_partial',
     testKey,
     message: `Upload ${uploadOk ? 'OK' : 'FAILED'} · Read ${readOk ? 'OK' : 'FAILED'} · Delete ${deleteOk ? 'OK' : 'FAILED'}`,
     error: readError ? readError.r2Message : null,
-    stack: null,
-    r2Diagnostic: cfg._diag,
     steps: {
       upload: { ok: uploadOk, latencyMs: uploadMs, bytes: testBytes, httpStatus: putRes.status },
       read:   { ok: readOk,   latencyMs: readMs,   bytes: Number(getRes.headers.get('content-length') ?? 0), httpStatus: getRes.status, r2Error: readError },
@@ -807,7 +744,6 @@ const handleTestUpload: Handler = async ({ jwt }) => {
 
 const handleTestDownload: Handler = async ({ jwt, payload }) => {
   const totalStart = Date.now();
-  console.log('[test-download] start');
 
   const isAdmin = await isPlatformAdmin(jwt);
   if (!isAdmin) return errorResponse('Akses ditolak: diperlukan hak platform admin', 403);
@@ -817,30 +753,22 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
   const missing = (['R2_ACCOUNT_ID', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const)
     .filter((k) => !Deno.env.get(k));
 
-  console.log('[test-download] config check — bucket:', cfg.bucket, '| accountId:', cfg.accountId, '| missing:', missing);
-
   if (missing.length > 0) {
     return jsonResponse({
       ok: false,
       status: 'not_configured',
       error: `Secret yang hilang: ${missing.join(', ')}`,
-      stack: null,
       missing,
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
 
   const objectKey = String(payload.objectKey ?? '').trim();
-  console.log('[test-download] objectKey:', objectKey || '(empty)');
-
   if (!objectKey) {
     return jsonResponse({
       ok: false,
       status: 'invalid_request',
       error: 'objectKey diperlukan untuk test-download',
-      stack: null,
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -849,18 +777,14 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
   let downloadUrl: string;
   try {
     downloadUrl = await presignUrl({ method: 'GET', cfg, objectKey, expiresSeconds: 300 });
-    console.log('[test-download] presign GET ok — url prefix:', downloadUrl.slice(0, 80));
   } catch (err) {
     const e = captureError(err);
-    console.error('[test-download] presign GET failed:', e.error);
     return jsonResponse({
       ok: false,
       status: 'presign_failed',
-      error: e.error,
-      stack: e.stack,
+      error: e,
       step: 'presign-download',
       objectKey,
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
@@ -872,36 +796,29 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
     getRes = await fetch(downloadUrl);
   } catch (err) {
     const e = captureError(err);
-    console.error('[test-download] fetch GET threw:', e.error);
     return jsonResponse({
       ok: false,
       status: 'download_network_error',
-      error: e.error,
-      stack: e.stack,
+      error: e,
       step: 'get-object',
       objectKey,
-      r2Diagnostic: cfg._diag,
       latencyMs: Date.now() - totalStart,
     }, 200);
   }
   const latencyMs = Date.now() - fetchStart;
-  console.log('[test-download] GET response —', getRes.status, getRes.statusText, '| latency:', latencyMs, 'ms');
 
   if (!getRes.ok) {
     const { r2Code, r2Message, rawBody } = await parseR2Error(getRes);
-    console.error('[test-download] GET failed — r2Code:', r2Code, '| r2Message:', r2Message);
     return jsonResponse({
       ok: false,
       status: 'download_failed',
       httpStatus: getRes.status,
       error: r2Message,
-      stack: null,
       r2Code,
       r2Message,
       rawBody: rawBody.slice(0, 1000),
       step: 'get-object',
       objectKey,
-      r2Diagnostic: cfg._diag,
       latencyMs,
       totalLatencyMs: Date.now() - totalStart,
     }, 200);
@@ -912,13 +829,10 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
   const etag          = getRes.headers.get('etag')           ?? null;
   const lastModified  = getRes.headers.get('last-modified')  ?? null;
 
-  console.log(`[test-download] done — contentType:${contentType} contentLength:${contentLength} total:${Date.now() - totalStart}ms`);
-
   return jsonResponse({
     ok:             true,
     status:         'download_ok',
     error:          null,
-    stack:          null,
     objectKey,
     bucket:         cfg.bucket,
     contentType,
@@ -928,7 +842,6 @@ const handleTestDownload: Handler = async ({ jwt, payload }) => {
     httpStatus:     getRes.status,
     latencyMs,
     totalLatencyMs: Date.now() - totalStart,
-    r2Diagnostic:   cfg._diag,
     message:        `Test download berhasil dari ${cfg.bucket}/${objectKey}`,
   });
 };
@@ -984,14 +897,11 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const isErr = err instanceof Error;
     const message = isErr ? err.message : String(err);
-    const stack   = isErr ? (err.stack ?? null) : null;
-    console.error(`[r2-storage] action=${action} unhandled error:`, err);
     return jsonResponse({
       ok:     false,
       status: 'server_error',
       action,
       error:  message,
-      stack,
     }, 500);
   }
 });

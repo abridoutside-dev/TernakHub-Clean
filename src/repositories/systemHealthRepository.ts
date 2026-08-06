@@ -104,9 +104,6 @@ async function checkCloudflarePages(): Promise<ServiceCheck> {
     );
     const latency_ms = Date.now() - start;
 
-    // DEBUG — log raw edge function response to browser console
-    console.log('[CF-Pages debug] raw response from edge function:', JSON.stringify({ data, error: error?.message ?? null }));
-
     if (error) {
       return {
         name:       'Cloudflare Pages',
@@ -433,7 +430,6 @@ export interface AuthIntegrityData {
     code:    string | null;
     details: string | null;
     hint:    string | null;
-    stack:   string | null;
   } | null;
   checked_at:  string;
 }

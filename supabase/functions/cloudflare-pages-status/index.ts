@@ -90,32 +90,6 @@ function resolveStatus(deployStatus: string): 'operational' | 'degraded' | 'down
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsOk();
 
-  // ── DEBUG PROBE: ?action=debug-users ─────────────────────────────────────────
-  // Temporary endpoint — no auth gate. Uses service role key to pull every
-  // user's id, email, app_metadata, user_metadata from Supabase Auth admin API.
-  const url = new URL(req.url);
-  if (url.searchParams.get('action') === 'debug-users') {
-    const sbUrl = Deno.env.get('SUPABASE_URL')              ?? '';
-    const svcKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    if (!svcKey) {
-      return jsonResponse({ error: 'SUPABASE_SERVICE_ROLE_KEY not available' }, 500);
-    }
-    const adminClient = createClient(sbUrl, svcKey, { auth: { persistSession: false } });
-    const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
-    if (error) {
-      return jsonResponse({ error: error.message, code: (error as { code?: string }).code ?? null });
-    }
-    const users = (data?.users ?? []).map((u) => ({
-      id:            u.id,
-      email:         u.email,
-      app_metadata:  u.app_metadata,
-      user_metadata: u.user_metadata,
-      isPlatformAdmin: u.user_metadata?.role === 'system_admin',
-    }));
-    return jsonResponse({ users });
-  }
-  // ── END DEBUG PROBE ───────────────────────────────────────────────────────────
-
   // ── 1. Read secrets FIRST — before any auth check ────────────────────────────
   const apiToken    = Deno.env.get('CF_API_TOKEN')          ?? '';
   const accountId   = Deno.env.get('CF_ACCOUNT_ID')         ?? '';
@@ -128,31 +102,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 2. Auth ───────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.replace(/^Bearer\s+/i, '');
-  const hasJwt     = jwt.length > 0;
-
-  function respond(body: Record<string, unknown>, httpStatus = 200): Response {
-    const payload = {
-      ...body,
-      _debug: {
-        hasJwt,
-        missingSecrets,
-        // userId / isPlatformAdmin filled in below when available
-      },
-    };
-    console.log('[cloudflare-pages-status] RETURN:', JSON.stringify(payload));
-    return jsonResponse(payload, httpStatus);
-  }
 
   // Auth failures return HTTP 200 so supabase.functions.invoke can read the JSON
   // body (non-2xx responses are converted to opaque FunctionsHttpError).
-  if (!hasJwt) {
-    return respond({ ok: false, status: 'down', message: 'Authorization header diperlukan', project: null });
+  if (!jwt) {
+    return jsonResponse({ ok: false, status: 'down', message: 'Authorization header diperlukan', project: null });
   }
 
-  // Resolve admin status — capture full auth response for debug
-  let userId: string | null = null;
+  // Resolve admin status without exposing auth response details.
   let isAdmin = false;
-  let authDebug: Record<string, unknown> = {};
   try {
     const sbUrl = Deno.env.get('SUPABASE_URL')      ?? '';
     const sbKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -163,42 +121,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
       auth: { persistSession: false },
     });
     const { data, error } = await client.auth.getUser(jwt);
-    authDebug = {
-      hasJwt,
-      authError:  error?.message  ?? null,
-      authStatus: (error as { status?: number } | null)?.status ?? null,
-      authCode:   (error as { code?: string }   | null)?.code   ?? null,
-      user:       data?.user ?? null,
-    };
-    userId  = data?.user?.id ?? null;
+    if (error) return jsonResponse({ ok: false, status: 'down', message: 'Token tidak valid', project: null });
     isAdmin = data?.user?.user_metadata?.role === 'system_admin';
-  } catch (e) {
-    authDebug = {
-      hasJwt,
-      authError:  e instanceof Error ? e.message : String(e),
-      authStatus: null,
-      authCode:   null,
-      user:       null,
-    };
-  }
-
-  // Patch _debug with full auth result
-  function respondWithAuth(body: Record<string, unknown>, httpStatus = 200): Response {
-    const payload = {
-      ...body,
-      _debug: { ...authDebug, missingSecrets, isPlatformAdmin: isAdmin },
-    };
-    console.log('[cloudflare-pages-status] RETURN:', JSON.stringify(payload));
-    return jsonResponse(payload, httpStatus);
+  } catch {
+    return jsonResponse({ ok: false, status: 'down', message: 'Token tidak dapat diverifikasi', project: null });
   }
 
   if (!isAdmin) {
-    return respondWithAuth({ ok: false, status: 'down', message: 'Akses ditolak: platform admin only', project: null });
+    return jsonResponse({ ok: false, status: 'down', message: 'Akses ditolak: platform admin only', project: null });
   }
 
   // ── 3. Missing secrets check ──────────────────────────────────────────────────
   if (missingSecrets.length > 0) {
-    return respondWithAuth({
+    return jsonResponse({
       ok:      false,
       status:  'not_configured',
       message: `Supabase secret belum dikonfigurasi: ${missingSecrets.join(', ')}`,
@@ -221,7 +156,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (!projectRes.ok) {
       const text = await projectRes.text().catch(() => '');
-      return respondWithAuth({
+      return jsonResponse({
         ok:      false,
         status:  'down',
         message: `Cloudflare Pages API error ${projectRes.status}: ${text.slice(0, 200)}`,
@@ -240,7 +175,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const status       = resolveStatus(deployStatus);
     const last_checked = new Date().toISOString();
 
-    return respondWithAuth({
+    return jsonResponse({
       ok:      true,
       status,
       message: `Project "${proj.name}" · Branch: ${proj.production_branch} · Deploy: ${deployStatus || 'unknown'}`,
@@ -262,7 +197,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       },
     });
   } catch (err) {
-    return respondWithAuth({
+    return jsonResponse({
       ok:      false,
       status:  'down',
       message: err instanceof Error ? err.message : 'Cloudflare Pages API tidak dapat dijangkau',

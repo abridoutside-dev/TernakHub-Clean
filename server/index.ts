@@ -160,27 +160,6 @@ app.post('/api/admin/platform-health', async (req, res) => {
   }
 });
 
-// Temporary local verification hook; remove after the deployed Edge Function probe.
-if (process.env.NODE_ENV !== 'production') {
-  app.post('/api/_temporary-platform-health-integrity-check', async (_req, res) => {
-    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
-    const internalToken = process.env.SESSION_SECRET;
-    if (!supabaseUrl || !internalToken) {
-      res.status(503).json({ ok: false, error: 'Temporary verification is not configured.' });
-      return;
-    }
-    const edgeResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/platform-health`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-platform-health-internal-token': internalToken,
-      },
-      body: JSON.stringify({ action: 'auth-integrity' }),
-    });
-    res.status(edgeResponse.status).type('application/json').send(await edgeResponse.text());
-  });
-}
-
 // U-002 — Auth user + profile + default workspace with compensating rollback.
 // The service-role key is read only on request and is never sent to the client.
 app.post('/api/auth/register', async (req, res) => {

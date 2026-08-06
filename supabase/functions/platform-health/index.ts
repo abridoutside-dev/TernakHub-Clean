@@ -66,15 +66,9 @@ function makeAnonClient(jwt: string) {
 
 function makeServiceClient(
   serviceRoleOverride?: string,
-  clientName = 'platform-health-service-role',
 ) {
   const url = Deno.env.get('SUPABASE_URL') ?? '';
   const key = serviceRoleOverride ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  console.info('[platform-health] Supabase client selected', {
-    client: clientName,
-    key: key ? 'service_role' : 'missing',
-    uses_user_authorization_header: false,
-  });
   return createClient(url, key, {
     auth: {
       persistSession: false,
@@ -381,7 +375,6 @@ interface AuthIntegrityError {
   code:    string | null;
   details: string | null;
   hint:    string | null;
-  stack:   string | null;
 }
 
 interface AuthIntegrityResult {
@@ -455,7 +448,6 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
       code?: unknown;
       details?: unknown;
       hint?: unknown;
-      stack?: unknown;
     } | null;
     return {
       message: typeof candidate?.message === 'string'
@@ -464,7 +456,6 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
       code: typeof candidate?.code === 'string' ? candidate.code : fallbackCode,
       details: typeof candidate?.details === 'string' ? candidate.details : null,
       hint: typeof candidate?.hint === 'string' ? candidate.hint : null,
-      stack: typeof candidate?.stack === 'string' ? candidate.stack : null,
     };
   };
 
@@ -478,13 +469,6 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
       ? [normalized.details, JSON.stringify(details)].filter(Boolean).join(' | ')
       : normalized.details;
     const completeError = { ...normalized, details: combinedDetails };
-    console.error('[platform-health] auth integrity check failed', {
-      client: 'platform-health-auth-integrity-admin',
-      key: 'service_role',
-      uses_user_authorization_header: false,
-      failed_table: details?.table ?? null,
-      error: completeError,
-    });
     return {
       status: 'down',
       issue_count: 0,
@@ -506,10 +490,7 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
     // This is the only client used for database reads in this integrity check.
     // It is intentionally created from SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
     // and has no request/user Authorization header.
-    const svc = makeServiceClient(
-      serviceRole,
-      'platform-health-auth-integrity-admin',
-    );
+    const svc = makeServiceClient(serviceRole);
     const perPage = 1000;
     const listAllAuthUsers = async (): Promise<AuthUser[]> => {
       const users: AuthUser[] = [];
@@ -525,81 +506,30 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
 
     const readProfiles = async (): Promise<AuthIntegrityProfile[]> => {
       const table = 'user_profiles';
-      console.info('[platform-health] auth integrity table query', {
-        client: 'platform-health-auth-integrity-admin',
-        key: 'service_role',
-        table,
-        uses_user_authorization_header: false,
-      });
-      try {
-        const { data, error } = await svc.from(table).select('id');
-        if (error) throw error;
-        if (!Array.isArray(data)) throw new Error(`${table} returned a non-array response`);
-        return data as AuthIntegrityProfile[];
-      } catch (error) {
-        console.error('[platform-health] auth integrity table query failed', {
-          client: 'platform-health-auth-integrity-admin',
-          key: 'service_role',
-          table,
-          uses_user_authorization_header: false,
-          error,
-        });
-        throw error;
-      }
+      const { data, error } = await svc.from(table).select('id');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error(`${table} returned a non-array response`);
+      return data as AuthIntegrityProfile[];
     };
 
     const readWorkspaces = async (): Promise<AuthIntegrityWorkspace[]> => {
       const table = 'workspaces';
-      console.info('[platform-health] auth integrity table query', {
-        client: 'platform-health-auth-integrity-admin',
-        key: 'service_role',
-        table,
-        uses_user_authorization_header: false,
-      });
-      try {
-        const { data, error } = await svc
-          .from(table)
-          .select('id, name, owner_id, status');
-        if (error) throw error;
-        if (!Array.isArray(data)) throw new Error(`${table} returned a non-array response`);
-        return data as AuthIntegrityWorkspace[];
-      } catch (error) {
-        console.error('[platform-health] auth integrity table query failed', {
-          client: 'platform-health-auth-integrity-admin',
-          key: 'service_role',
-          table,
-          uses_user_authorization_header: false,
-          error,
-        });
-        throw error;
-      }
+      const { data, error } = await svc
+        .from(table)
+        .select('id, name, owner_id, status');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error(`${table} returned a non-array response`);
+      return data as AuthIntegrityWorkspace[];
     };
 
     const readWorkspaceMembers = async (): Promise<AuthIntegrityWorkspaceMember[]> => {
       const table = 'workspace_members';
-      console.info('[platform-health] auth integrity table query', {
-        client: 'platform-health-auth-integrity-admin',
-        key: 'service_role',
-        table,
-        uses_user_authorization_header: false,
-      });
-      try {
-        const { data, error } = await svc
-          .from(table)
-          .select('id, workspace_id, user_id, role, status');
-        if (error) throw error;
-        if (!Array.isArray(data)) throw new Error(`${table} returned a non-array response`);
-        return data as AuthIntegrityWorkspaceMember[];
-      } catch (error) {
-        console.error('[platform-health] auth integrity table query failed', {
-          client: 'platform-health-auth-integrity-admin',
-          key: 'service_role',
-          table,
-          uses_user_authorization_header: false,
-          error,
-        });
-        throw error;
-      }
+      const { data, error } = await svc
+        .from(table)
+        .select('id, workspace_id, user_id, role, status');
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error(`${table} returned a non-array response`);
+      return data as AuthIntegrityWorkspaceMember[];
     };
 
     const [
@@ -1217,7 +1147,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
-      console.error(`[platform-health] action=${action} error:`, err);
       return errorResponse(message, 500);
     }
   }
@@ -1246,7 +1175,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return await handler({ payload, userId: user.id, jwt });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
-    console.error(`[platform-health] action=${action} error:`, err);
     return errorResponse(message, 500);
   }
 });
