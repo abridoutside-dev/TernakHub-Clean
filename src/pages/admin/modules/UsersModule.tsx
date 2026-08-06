@@ -660,8 +660,14 @@ export default function UsersModule() {
     supabase.auth.getSession().then(({ data }) => {
       const meta = data.session?.user?.user_metadata ?? {};
       const app  = data.session?.user?.app_metadata ?? {};
-      // Mirror AdminGuard exactly: source of truth is user_metadata.role (set by platformInitService)
-      setIsAdminUser(meta.is_admin === true || meta.role === 'admin' || meta.role === 'system_admin');
+      // Keep this local guard aligned with AdminGuard and the Edge Function.
+      setIsAdminUser(
+        meta.is_admin === true
+        || meta.role === 'admin'
+        || meta.role === 'system_admin'
+        || app.role === 'admin'
+        || app.role === 'system_admin',
+      );
       setAuthChecked(true);
     });
   }, []);

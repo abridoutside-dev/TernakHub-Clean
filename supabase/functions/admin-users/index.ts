@@ -66,6 +66,13 @@ async function authFetch(url: string, path: string, key: string, init: RequestIn
   });
 }
 
+async function authPublicFetch(url: string, path: string, key: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${url}/auth/v1${path}`, {
+    ...init,
+    headers: { ...headers(key), ...(init.headers ?? {}) },
+  });
+}
+
 async function restFetch(url: string, path: string, key: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${url}/rest/v1${path}`, {
     ...init,
@@ -74,9 +81,37 @@ async function restFetch(url: string, path: string, key: string, init: RequestIn
 }
 
 async function responseMessage(response: Response, fallback: string): Promise<string> {
-  return response.json()
-    .then(body => typeof body?.message === 'string' ? body.message : fallback)
-    .catch(() => fallback);
+  try {
+    const raw = await response.clone().text();
+    if (!raw.trim()) return `${fallback} (HTTP ${response.status})`;
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return raw.slice(0, 500);
+    }
+
+    const candidates = [
+      body.message,
+      body.error_description,
+      body.error,
+      body.msg,
+      body.details,
+      body.hint,
+    ];
+    const message = candidates.find(value => typeof value === 'string' && value.trim());
+    return typeof message === 'string'
+      ? `${message}${body.code && typeof body.code === 'string' ? ` [${body.code}]` : ''}`
+      : `${fallback} (HTTP ${response.status})`;
+  } catch {
+    return `${fallback} (HTTP ${response.status})`;
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function requireUuid(value: string, label: string): string | null {
+  return UUID_RE.test(value) ? null : `${label} tidak valid`;
 }
 
 function isAdmin(user: { user_metadata?: Record<string, unknown> | null; app_metadata?: Record<string, unknown> | null }): boolean {
@@ -125,21 +160,39 @@ function listItem(user: AuthUser, profile: Profile | null) {
 }
 
 async function fetchAllUsers(url: string, key: string): Promise<{ users: AuthUser[]; total: number }> {
-  const first = await authFetch(url, '/users?per_page=1&page=1', key);
-  if (!first.ok) throw new Error(await responseMessage(first, `Auth API error ${first.status}`));
-  const firstBody = await first.json() as { users?: AuthUser[] } | AuthUser[];
-  const firstUsers = Array.isArray(firstBody) ? firstBody : firstBody.users ?? [];
-  const header = first.headers.get('x-total-count');
-  const total = header ? Number.parseInt(header, 10) : firstUsers.length;
-  const users = [...firstUsers];
+  const perPage = 100;
+  const users: AuthUser[] = [];
+  let page = 1;
+  let reportedTotal: number | null = null;
 
-  for (let page = 2; page <= total; page += 1) {
-    const response = await authFetch(url, `/users?per_page=1&page=${page}`, key);
-    if (!response.ok) throw new Error(await responseMessage(response, `Auth API page ${page} failed`));
+  while (true) {
+    const response = await authFetch(url, `/users?per_page=${perPage}&page=${page}`, key);
+    if (!response.ok) throw new Error(await responseMessage(response, `Auth API halaman ${page} gagal`));
     const body = await response.json() as { users?: AuthUser[] } | AuthUser[];
-    users.push(...(Array.isArray(body) ? body : body.users ?? []));
+    const pageUsers = Array.isArray(body) ? body : body.users ?? [];
+    users.push(...pageUsers);
+
+    if (reportedTotal === null) {
+      const header = response.headers.get('x-total-count');
+      const parsedHeader = header ? Number.parseInt(header, 10) : Number.NaN;
+      if (Number.isFinite(parsedHeader) && parsedHeader >= 0) {
+        reportedTotal = parsedHeader;
+      } else {
+        const link = response.headers.get('link') ?? '';
+        const lastPage = link.match(/page=(\d+)[^>]*>;\s*rel="last"/i);
+        if (lastPage) reportedTotal = Number(lastPage[1]) * perPage;
+      }
+    }
+
+    if (pageUsers.length < perPage) break;
+    if (reportedTotal !== null && users.length >= reportedTotal) break;
+    page += 1;
   }
-  return { users, total };
+
+  // The header/link is only a pagination hint. The fetched collection is the
+  // authoritative total for this function because filters and stats operate
+  // on every returned user.
+  return { users, total: users.length };
 }
 
 async function readUser(url: string, key: string, id: string): Promise<AuthUser> {
@@ -150,24 +203,34 @@ async function readUser(url: string, key: string, id: string): Promise<AuthUser>
 
 async function readProfiles(url: string, key: string): Promise<Map<string, Profile>> {
   const response = await restFetch(url, '/user_profiles?select=id,full_name,display_name,phone_number,avatar_url', key);
-  if (!response.ok) return new Map();
+  if (!response.ok) throw new Error(await responseMessage(response, 'Gagal memuat profil pengguna'));
   const profiles = await response.json() as Profile[];
   return new Map((Array.isArray(profiles) ? profiles : []).map(profile => [profile.id, profile]));
+}
+
+async function readMemberships(url: string, key: string, userId: string): Promise<unknown[]> {
+  const response = await restFetch(
+    url,
+    `/workspace_members?user_id=eq.${encodeURIComponent(userId)}&select=id,role,status,joined_at,created_at,workspace_id,workspaces(id,name,type,status,city,province)`,
+    key,
+  );
+  if (!response.ok) throw new Error(await responseMessage(response, 'Gagal memuat workspace pengguna'));
+  const memberships = await response.json();
+  if (!Array.isArray(memberships)) throw new Error('Response workspace pengguna tidak valid');
+  return memberships;
 }
 
 async function handleAdminUsers(
   payload: Record<string, unknown>,
   url: string,
   serviceRole: string,
+  anonKey: string,
 ): Promise<Response> {
   const operation = typeof payload.operation === 'string' ? payload.operation : '';
   const id = typeof payload.id === 'string' ? payload.id : '';
 
   if (operation === 'stats' || operation === 'list') {
-    const [fetched, profiles] = await Promise.all([
-      fetchAllUsers(url, serviceRole),
-      readProfiles(url, serviceRole),
-    ]);
+    const fetched = await fetchAllUsers(url, serviceRole);
     if (operation === 'stats') {
       const now = new Date();
       const verified = fetched.users.filter(user => Boolean(user.email_confirmed_at || user.phone_confirmed_at)).length;
@@ -189,6 +252,7 @@ async function handleAdminUsers(
       });
     }
 
+    const profiles = await readProfiles(url, serviceRole);
     const page = Math.max(1, Number(payload.page) || 1);
     const limit = Math.min(Math.max(1, Number(payload.limit) || 20), 100);
     const search = typeof payload.search === 'string' ? payload.search.toLowerCase().trim() : '';
@@ -241,15 +305,19 @@ async function handleAdminUsers(
   }
 
   if (!id) return errorResponse('User ID diperlukan', 400);
+  const invalidId = requireUuid(id, 'User ID');
+  if (invalidId) return errorResponse(invalidId, 400);
 
   if (operation === 'get') {
     const [user, profilesResponse, membershipsResponse] = await Promise.all([
       readUser(url, serviceRole, id),
       restFetch(url, `/user_profiles?id=eq.${id}&select=*`, serviceRole),
-      restFetch(url, `/workspace_members?user_id=eq.${id}&select=id,role,status,joined_at,created_at,workspace_id,workspaces(id,name,type,status,city,province)`, serviceRole),
+      readMemberships(url, serviceRole, id),
     ]);
-    const profiles = profilesResponse.ok ? await profilesResponse.json() as Profile[] : [];
-    const memberships = membershipsResponse.ok ? await membershipsResponse.json() : [];
+    if (!profilesResponse.ok) {
+      throw new Error(await responseMessage(profilesResponse, 'Gagal memuat profil pengguna'));
+    }
+    const profiles = await profilesResponse.json() as Profile[];
     return jsonResponse({
       ok: true,
       data: {
@@ -257,36 +325,52 @@ async function handleAdminUsers(
         phone_confirmed_at: user.phone_confirmed_at ?? null,
         user_metadata: user.user_metadata ?? {},
         app_metadata: user.app_metadata ?? {},
-        providers: (user.identities ?? []).map(identity => ({
-          provider: identity.provider ?? '',
-          created_at: identity.created_at ?? '',
-          last_sign_in_at: identity.last_sign_in_at ?? undefined,
-        })),
+         providers: providers(user).map(provider => {
+           const identity = (user.identities ?? []).find(item => item.provider === provider);
+           return {
+             provider,
+             created_at: identity?.created_at ?? '',
+             last_sign_in_at: identity?.last_sign_in_at ?? undefined,
+           };
+         }),
         factors: (user.factors ?? []).map(factor => ({
           id: factor.id,
           type: factor.factor_type ?? '',
           status: factor.status ?? '',
         })),
-        workspaces: Array.isArray(memberships) ? memberships : [],
+         workspaces: membershipsResponse,
       },
     });
   }
 
-  if (operation === 'update') {
+  if (operation === 'update' || operation === 'update-metadata') {
     const user = await readUser(url, serviceRole, id);
     const metadata = { ...(user.user_metadata ?? {}) };
+    const appMetadata = { ...(user.app_metadata ?? {}) };
+    if (payload.user_metadata && typeof payload.user_metadata === 'object' && !Array.isArray(payload.user_metadata)) {
+      Object.assign(metadata, payload.user_metadata);
+    }
+    if (payload.app_metadata && typeof payload.app_metadata === 'object' && !Array.isArray(payload.app_metadata)) {
+      Object.assign(appMetadata, payload.app_metadata);
+    }
     if (typeof payload.full_name === 'string') metadata.full_name = payload.full_name;
     if (typeof payload.is_admin === 'boolean') metadata.is_admin = payload.is_admin;
+    if (Object.keys(metadata).length === 0 && Object.keys(appMetadata).length === 0) {
+      return errorResponse('Metadata yang akan diperbarui wajib diisi', 400);
+    }
     const response = await authFetch(url, `/users/${id}`, serviceRole, {
       method: 'PUT',
-      body: JSON.stringify({ user_metadata: metadata }),
+      body: JSON.stringify({ user_metadata: metadata, app_metadata: appMetadata }),
     });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Gagal memperbarui user'), response.status);
     if (typeof payload.full_name === 'string') {
-      await restFetch(url, `/user_profiles?id=eq.${id}`, serviceRole, {
+      const profileResponse = await restFetch(url, `/user_profiles?id=eq.${id}`, serviceRole, {
         method: 'PATCH',
         body: JSON.stringify({ full_name: payload.full_name }),
       });
+      if (!profileResponse.ok) {
+        throw new Error(await responseMessage(profileResponse, 'Metadata Auth berhasil, tetapi profil pengguna gagal diperbarui'));
+      }
     }
     return jsonResponse({ ok: true, data: { ok: true } });
   }
@@ -304,7 +388,7 @@ async function handleAdminUsers(
       method: action.method,
       ...(action.body ? { body: JSON.stringify(action.body) } : {}),
     });
-    if (!response.ok && !(operation === 'sign-out' && response.status === 204) && !(operation === 'delete' && response.status === 404)) {
+    if (!response.ok && !(operation === 'sign-out' && response.status === 204)) {
       return errorResponse(await responseMessage(response, 'Operasi user gagal'), response.status);
     }
     return jsonResponse({ ok: true, data: { ok: true } });
@@ -313,7 +397,12 @@ async function handleAdminUsers(
   if (operation === 'reset-password' || operation === 'resend-verification') {
     const user = await readUser(url, serviceRole, id);
     if (!user.email) return errorResponse('User tidak memiliki email', 400);
-    const response = await authFetch(url, '/generate_link', serviceRole, {
+    const response = operation === 'resend-verification'
+      ? await authPublicFetch(url, '/resend', anonKey, {
+        method: 'POST',
+        body: JSON.stringify({ type: 'signup', email: user.email }),
+      })
+      : await authFetch(url, '/generate_link', serviceRole, {
       method: 'POST',
       body: JSON.stringify({ type: operation === 'reset-password' ? 'recovery' : 'signup', email: user.email }),
     });
@@ -323,15 +412,15 @@ async function handleAdminUsers(
   }
 
   if (operation === 'get-workspaces') {
-    const response = await restFetch(url, `/workspace_members?user_id=eq.${id}&select=id,role,status,joined_at,created_at,workspace_id,workspaces(id,name,type,status,city,province)`, serviceRole);
-    if (!response.ok) return errorResponse(await responseMessage(response, 'Gagal memuat workspace'), response.status);
-    return jsonResponse({ ok: true, data: { memberships: await response.json() } });
+    return jsonResponse({ ok: true, data: { memberships: await readMemberships(url, serviceRole, id) } });
   }
 
   if (operation === 'add-workspace') {
     if (typeof payload.workspace_id !== 'string' || typeof payload.role !== 'string') {
       return errorResponse('workspace_id dan role wajib diisi', 400);
     }
+    const invalidWorkspaceId = requireUuid(payload.workspace_id, 'Workspace ID');
+    if (invalidWorkspaceId) return errorResponse(invalidWorkspaceId, 400);
     const response = await restFetch(url, '/workspace_members', serviceRole, {
       method: 'POST',
       body: JSON.stringify({
@@ -343,12 +432,16 @@ async function handleAdminUsers(
       }),
     });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Gagal menambah membership'), response.status);
+    const created = await response.json();
+    if (!Array.isArray(created) || created.length === 0) return errorResponse('Membership tidak berhasil dibuat', 409);
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
   if (operation === 'update-workspace' || operation === 'remove-workspace') {
     const memberId = typeof payload.workspace_member_id === 'string' ? payload.workspace_member_id : '';
     if (!memberId) return errorResponse('Workspace membership ID diperlukan', 400);
+    const invalidMemberId = requireUuid(memberId, 'Workspace membership ID');
+    if (invalidMemberId) return errorResponse(invalidMemberId, 400);
     const body: Record<string, unknown> = {};
     if (operation === 'update-workspace') {
       if (typeof payload.role === 'string') body.role = payload.role;
@@ -360,6 +453,8 @@ async function handleAdminUsers(
       ...(operation === 'update-workspace' ? { body: JSON.stringify(body) } : {}),
     });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Operasi membership gagal'), response.status);
+    const changed = await response.json();
+    if (!Array.isArray(changed) || changed.length === 0) return errorResponse('Workspace membership tidak ditemukan', 404);
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
@@ -392,7 +487,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   if (!isAdmin(user)) return errorResponse('Akses ditolak: admin only', 403);
 
   try {
-    return await handleAdminUsers(payload, url, serviceRole);
+    return await handleAdminUsers(payload, url, serviceRole, anonKey);
   } catch (cause) {
     return errorResponse(cause instanceof Error ? cause.message : 'Operasi admin user gagal', 500);
   }

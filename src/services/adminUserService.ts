@@ -93,6 +93,39 @@ interface AdminUsersEnvelope<T> {
   [key: string]: unknown;
 }
 
+function isResponse(value: unknown): value is Response {
+  return typeof Response !== 'undefined' && value instanceof Response;
+}
+
+async function readErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error && typeof error === 'object') {
+    const candidate = error as { message?: unknown; context?: unknown };
+    const context = candidate.context;
+    if (isResponse(context)) {
+      try {
+        const raw = await context.clone().text();
+        if (raw.trim()) {
+          const body = JSON.parse(raw) as Record<string, unknown>;
+          const message = [body.error, body.message, body.error_description, body.msg, body.details, body.hint]
+            .find(value => typeof value === 'string' && value.trim());
+          if (typeof message === 'string') {
+            return `${message}${typeof body.code === 'string' ? ` [${body.code}]` : ''}`;
+          }
+        }
+      } catch {
+        // Fall through to the structured error below.
+      }
+      if (context.status) return `${fallback} (HTTP ${context.status})`;
+    }
+    if (typeof candidate.message === 'string' && candidate.message.trim()) {
+      if (!/edge function returned non-2xx|failed to send a request/i.test(candidate.message)) {
+        return candidate.message;
+      }
+    }
+  }
+  return fallback;
+}
+
 async function invokeAdminUsers<T = unknown>(
   operation: string,
   payload: Record<string, unknown> = {},
@@ -101,7 +134,7 @@ async function invokeAdminUsers<T = unknown>(
     'admin-users',
     { body: { action: 'admin-users', operation, ...payload } },
   );
-  if (error) throw error;
+  if (error) throw new Error(await readErrorMessage(error, 'Permintaan ke modul Admin Pengguna gagal. Periksa koneksi dan coba lagi.'));
   if (!data?.ok) throw new Error(data?.error ?? `Operasi admin user gagal: ${operation}`);
   return (data.data ?? data) as T;
 }
@@ -124,6 +157,12 @@ export const adminUserService = {
 
   updateUser: (id: string, data: { full_name?: string; is_admin?: boolean }): Promise<{ ok: boolean }> =>
     invokeAdminUsers<{ ok: boolean }>('update', { id, ...data }),
+
+  updateMetadata: (
+    id: string,
+    data: { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> },
+  ): Promise<{ ok: boolean }> =>
+    invokeAdminUsers<{ ok: boolean }>('update-metadata', { id, ...data }),
 
   suspendUser: (id: string): Promise<{ ok: boolean }> =>
     invokeAdminUsers<{ ok: boolean }>('suspend', { id }),
