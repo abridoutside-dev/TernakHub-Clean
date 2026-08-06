@@ -7,3 +7,10 @@ uri = "file://screenshots/platform-health-production-final.jpg"
 type = "image"
 title = "Platform Health production — Auth Service masih Warning"
 description = "Screenshot read-only halaman Platform Health production setelah login sebagai system_admin. Widget User Authentication Stats masih menampilkan Warning; sub-status Admin API, JWT, Email, dan Session Operational."
+
+[[outputs]]
+id = "pjiAF_8xQSA-uXlC965fV"
+uri = "file://screenshots/platform-health-preview-after-edge-deploy.jpg"
+type = "image"
+title = "Platform Health route after Edge Function deploy"
+description = "Bukti screenshot preview setelah deploy platform-health. Preview berhenti di halaman login karena tidak ada sesi system_admin; bukan screenshot production Platform Health."

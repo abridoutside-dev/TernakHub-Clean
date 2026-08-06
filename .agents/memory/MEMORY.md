@@ -1,1 +1,2 @@
 - [Supabase Auth production quirks](auth-production-quirks.md) — reserved secret names and partial Admin API pagination need explicit handling.
+- [Supabase function deploy workflow](supabase-function-deploy.md) — imported config uses `id`; older CLI needs temporary `project_id` workdir for function-only deploys.
