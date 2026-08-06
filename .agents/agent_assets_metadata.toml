@@ -14,3 +14,10 @@ uri = "file://screenshots/platform-health-preview-after-edge-deploy.jpg"
 type = "image"
 title = "Platform Health route after Edge Function deploy"
 description = "Bukti screenshot preview setelah deploy platform-health. Preview berhenti di halaman login karena tidak ada sesi system_admin; bukan screenshot production Platform Health."
+
+[[outputs]]
+id = "5kgjfwufmCMDQlpBEMVRm"
+uri = "file://screenshots/admin-users-real-user.png"
+type = "image"
+title = "Bukti UI Admin Users dari Supabase Auth"
+description = "Screenshot /admin/users setelah endpoint backend mengembalikan user Supabase nyata. Akun audit sementara sudah dihapus setelah verifikasi."

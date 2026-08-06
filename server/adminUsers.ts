@@ -57,6 +57,25 @@ interface AuthUser {
   factors?: Array<{ id: string; factor_type: string; status: string }>;
 }
 
+function providersForUser(u: AuthUser): string[] {
+  const identityProviders = (u.identities ?? []).map(i => i.provider).filter(Boolean);
+  if (identityProviders.length > 0) return identityProviders;
+  const metadataProviders = u.app_metadata?.providers;
+  return Array.isArray(metadataProviders)
+    ? metadataProviders.filter((provider): provider is string => typeof provider === 'string')
+    : [];
+}
+
+function isAdminUser(u: AuthUser): boolean {
+  return (
+    u.user_metadata?.is_admin === true ||
+    u.user_metadata?.role === 'admin' ||
+    u.user_metadata?.role === 'system_admin' ||
+    u.app_metadata?.role === 'admin' ||
+    u.app_metadata?.role === 'system_admin'
+  );
+}
+
 // ─── Middleware: verify admin ─────────────────────────────────────────────────
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -135,8 +154,8 @@ export async function getUserStats(_req: Request, res: Response): Promise<void> 
     const verified = users.filter(u => !!u.email_confirmed_at || !!u.phone_confirmed_at).length;
     const unverified = users.filter(u => !u.email_confirmed_at && !u.phone_confirmed_at).length;
     const anonymous = users.filter(u => {
-      const ids = u.identities ?? [];
-      return ids.length === 0 || ids.every(i => i.provider === 'anonymous');
+      const providers = providersForUser(u);
+      return providers.length === 0 || providers.every(provider => provider === 'anonymous');
     }).length;
     const active = users.filter(u => {
       if (u.banned_until && new Date(u.banned_until) > now) return false;
@@ -227,8 +246,8 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
       email_confirmed_at: u.email_confirmed_at ?? null,
       banned_until: u.banned_until ?? null,
       status: deriveStatus(u),
-      is_admin: u.user_metadata?.is_admin === true || u.app_metadata?.role === 'admin' || u.app_metadata?.role === 'system_admin',
-      providers: (u.identities ?? []).map(i => i.provider),
+      is_admin: isAdminUser(u),
+      providers: providersForUser(u),
       mfa_enabled: (u.factors ?? []).some(f => f.status === 'verified'),
       profile: profileMap.get(u.id) ?? null,
     }));
