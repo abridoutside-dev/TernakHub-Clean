@@ -76,9 +76,13 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     }
     const user = await r.json();
     const meta = user?.user_metadata ?? {};
+    // Mirror AdminGuard: source of truth is user_metadata.role (set by platformInitService).
+    // app_metadata.role is kept as fallback for service-role or future migrations.
     const appMeta = user?.app_metadata ?? {};
     const isAdmin =
       meta.is_admin === true ||
+      meta.role === 'admin' ||
+      meta.role === 'system_admin' ||
       appMeta.role === 'admin' ||
       appMeta.role === 'system_admin' ||
       user?.role === 'service_role';
