@@ -1,5 +1,5 @@
 // ─── Admin User Management — ADM-003 (Full Implementation) ───────────────────
-// Real data from the Supabase platform-health Edge Function.
+// Real data from the dedicated Supabase admin-users Edge Function.
 // Features: list + search + filter + sort + pagination, detail drawer,
 // stats, all admin actions, workspace management, UX polish.
 

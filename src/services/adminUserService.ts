@@ -1,5 +1,5 @@
 // ─── Admin User Service — ADM-003 ────────────────────────────────────────────
-// Frontend client for the platform-health Supabase Edge Function.
+// Frontend client for the dedicated admin-users Supabase Edge Function.
 // Admin operations must never use /api/* because Cloudflare Pages serves those
 // paths through the SPA fallback.
 
@@ -98,7 +98,7 @@ async function invokeAdminUsers<T = unknown>(
   payload: Record<string, unknown> = {},
 ): Promise<T> {
   const { data, error } = await supabase.functions.invoke<AdminUsersEnvelope<T>>(
-    'platform-health',
+    'admin-users',
     { body: { action: 'admin-users', operation, ...payload } },
   );
   if (error) throw error;
