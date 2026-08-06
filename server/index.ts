@@ -62,6 +62,12 @@ app.use(express.json({ limit: '1mb' }));
 // system administrator. It is never forwarded to the Edge Function. The Edge
 // Function receives an internal service token derived from SESSION_SECRET
 // instead, so auth_integrity never depends on an expiring user JWT.
+//
+// Caller identity verification uses the anon key (SUPABASE_ANON_KEY /
+// VITE_SUPABASE_ANON_KEY). auth.getUser(jwt) verifies the user's JWT via the
+// Supabase Auth service — it does not require the service role key, since the
+// JWT itself carries the authentication claim. Using the anon key here avoids
+// a hard dependency on SUPABASE_SERVICE_ROLE_KEY for this read-only check.
 app.post('/api/admin/platform-health', async (req, res) => {
   const action = typeof req.body?.action === 'string' ? req.body.action : '';
   if (action !== 'auth-health' && action !== 'auth-integrity') {
@@ -72,7 +78,10 @@ app.post('/api/admin/platform-health', async (req, res) => {
   const authHeader = req.get('authorization') ?? '';
   const userJwt = authHeader.match(/^Bearer\s+(.+)$/i)?.[1] ?? '';
   const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Caller identity verification only — anon key is sufficient for auth.getUser().
+  const callerKey =
+    process.env.SUPABASE_ANON_KEY ??
+    process.env.VITE_SUPABASE_ANON_KEY;
   const internalToken = process.env.SESSION_SECRET;
 
   if (!userJwt) {
@@ -80,14 +89,14 @@ app.post('/api/admin/platform-health', async (req, res) => {
     return;
   }
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !callerKey) {
     console.error('[U-005] Supabase caller verification is not configured.');
     res.status(503).json({ ok: false, error: 'Verifikasi admin belum dikonfigurasi.' });
     return;
   }
 
   try {
-    const callerClient = createClient(supabaseUrl, serviceRoleKey, {
+    const callerClient = createClient(supabaseUrl, callerKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data, error } = await callerClient.auth.getUser(userJwt);

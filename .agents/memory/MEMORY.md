@@ -2,3 +2,5 @@
 - [Supabase function deploy workflow](supabase-function-deploy.md) — imported config uses `id`; older CLI needs temporary `project_id` workdir for function-only deploys.
 - [Portable npm lockfiles](portable-npm-lockfiles.md) — deployment lockfiles must not contain Replit-internal tarball URLs.
 - [Supabase permission audits](supabase-permission-audit.md) — service_role bypasses RLS but still needs explicit read grants on application tables.
+- [Auth integrity listUsers false positive](auth-integrity-listusers-false-positive.md) — paginated listUsers returns identities:null even when rows exist; use app_metadata.providers as fallback.
+- [Platform Health internal token wiring](platform-health-internal-token.md) — PLATFORM_HEALTH_INTERNAL_TOKEN (Supabase secret) must equal SESSION_SECRET (Replit); server uses ANON_KEY for caller verification.

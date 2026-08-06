@@ -605,13 +605,27 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
     const profileIds = new Set(profiles.map((profile) => profile.id));
     for (const user of users) {
       const identities = Array.isArray(user.identities) ? user.identities : [];
+      // app_metadata.providers is maintained by GoTrue in sync with the actual
+      // identity state and is always accurate. The paginated listUsers endpoint
+      // (/auth/v1/admin/users?page=N&per_page=M) often returns identities: null
+      // even when auth.identities rows exist, causing false positives if we rely
+      // solely on the identities array. Using app_metadata.providers as a fallback
+      // prevents false-positive missing_identity flags.
+      const appMetaProviders: string[] = Array.isArray(
+        (user as { app_metadata?: { providers?: unknown } }).app_metadata?.providers,
+      )
+        ? ((user as { app_metadata: { providers: unknown[] } }).app_metadata.providers as string[])
+        : [];
       const emailIdentities = identities.filter((identity) => identity.provider === 'email');
+      // An email identity exists if the identities array (when returned) includes
+      // an email entry, OR app_metadata.providers (always accurate) includes 'email'.
+      const hasEmailIdentity = emailIdentities.length > 0 || appMetaProviders.includes('email');
       const userIssues: string[] = [];
       const userDetails: Record<string, unknown> = {
         user_id: user.id,
         identity_count: identities.length,
       };
-      if (!user.is_anonymous && user.email && emailIdentities.length === 0) {
+      if (!user.is_anonymous && user.email && !hasEmailIdentity) {
         userIssues.push('missing_identity');
         userDetails.identity_providers = identities.map((identity) => identity.provider ?? 'unknown');
       }
