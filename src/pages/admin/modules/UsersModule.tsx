@@ -437,9 +437,9 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
               {user.banned_until && <InfoRow label="Suspended Hingga" value={<span style={{ color: '#dc2626' }}>{fmtDateTime(user.banned_until)}</span>} />}
               <InfoRow label="Provider Login" value={
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {(user.providers as Array<{ provider: string } | string>).length === 0
+                  {((user.providers as Array<{ provider: string } | string>) ?? []).length === 0
                     ? <span style={{ color: '#94a3b8' }}>—</span>
-                    : (user.providers as Array<{ provider: string } | string>).map((p, i) => {
+                    : ((user.providers as Array<{ provider: string } | string>) ?? []).map((p, i) => {
                         const name = typeof p === 'string' ? p : p.provider;
                         return <Badge key={i} color="#0369a1" bg="#e0f2fe">{name}</Badge>;
                       })
@@ -587,7 +587,7 @@ function WorkspaceList({ memberships, onShowAdd, editingId, editRole, onStartEdi
   const [pendingRole, setPendingRole] = useState(editRole);
   useEffect(() => { setPendingRole(editRole); }, [editRole]);
 
-  if (memberships.length === 0) {
+  if (!memberships?.length) {
     return (
       <div style={{ background: '#f8fafc', borderRadius: 10, padding: '16px', textAlign: 'center', marginBottom: 8 }}>
         <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10 }}>Belum ada workspace</div>
@@ -598,7 +598,7 @@ function WorkspaceList({ memberships, onShowAdd, editingId, editRole, onStartEdi
 
   return (
     <div style={{ marginBottom: 8 }}>
-      {memberships.map(m => {
+      {(memberships ?? []).map(m => {
         const ws = m.workspaces;
         const isEditing = editingId === m.id;
         return (
@@ -706,9 +706,9 @@ export default function UsersModule() {
         emailFilter: filterEmail !== 'all' ? filterEmail : undefined,
         sort: sortBy, order,
       });
-      setUsers(res.users);
-      setTotal(res.total);
-      setPages(res.pages);
+      setUsers(res.users ?? []);
+      setTotal(res.total ?? 0);
+      setPages(res.pages ?? 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat users');
     } finally {
@@ -974,7 +974,7 @@ export default function UsersModule() {
                               ? <Badge color="#059669" bg="#d1fae5">✉️</Badge>
                               : <Badge color="#f59e0b" bg="#fef3c7">✉️?</Badge>}
                             {user.mfa_enabled && <Badge color="#6d28d9" bg="#f5f3ff">🔐</Badge>}
-                            {user.providers.slice(0, 2).map((p, i) => (
+                            {(user.providers ?? []).slice(0, 2).map((p, i) => (
                               <Badge key={i} color="#0369a1" bg="#e0f2fe">{p}</Badge>
                             ))}
                           </div>
