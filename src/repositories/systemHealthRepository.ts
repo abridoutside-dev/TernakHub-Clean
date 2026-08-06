@@ -434,31 +434,6 @@ export interface AuthIntegrityData {
   checked_at:  string;
 }
 
-// The session token is sent only to the same-origin Express bridge so it can
-// verify the caller's system_admin role. It is never forwarded to the Edge
-// Function; the bridge uses internal service authorization there.
-export async function fetchAdminPlatformAction<T>(action: string): Promise<T> {
-  let { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    const refreshed = await supabase.auth.refreshSession();
-    session = refreshed.data.session;
-  }
-  if (!session?.access_token) throw new Error('Sesi admin tidak tersedia.');
-
-  const response = await fetch('/api/admin/platform-health', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ action }),
-  });
-  const data = await response.json().catch(() => null) as (T & { ok?: boolean; error?: string }) | null;
-  if (!response.ok || !data?.ok) {
-    throw new Error(data?.error ?? `platform-health ${action} gagal`);
-  }
-  return data as T;
-}
 
 export interface AuthHealthData {
   users:                      AuthHealthUsers | null;
@@ -485,11 +460,14 @@ interface AuthHealthResponse {
 }
 
 export async function fetchAuthHealth(): Promise<AuthHealthData> {
-  const data = await withTimeout(
-    fetchAdminPlatformAction<AuthHealthResponse>('auth-health'),
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke<AuthHealthResponse>('platform-health', {
+      body: { action: 'auth-health' },
+    }),
     15000,
   );
 
+  if (error) throw new Error(error.message ?? 'platform-health auth-health gagal');
   if (!data?.ok || !data.auth_health) {
     throw new Error((data as unknown as { error?: string })?.error ?? 'auth-health tidak mengembalikan data');
   }

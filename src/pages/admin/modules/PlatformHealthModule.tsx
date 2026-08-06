@@ -13,7 +13,6 @@ import { supabase } from '../../../lib/supabase';
 import {
   fetchSystemServicesHealth,
   fetchAuthHealth,
-  fetchAdminPlatformAction,
   type SystemServicesHealth,
   type ServiceStatus,
   type CfPagesStatusData,
@@ -280,9 +279,6 @@ interface PlatformActionEnvelope<T> {
 }
 
 async function invokePlatformAction<T>(action: string): Promise<T> {
-  if (action === 'auth-health' || action === 'auth-integrity') {
-    return fetchAdminPlatformAction<T>(action);
-  }
   const { data, error } = await supabase.functions.invoke<PlatformActionEnvelope<T>>('platform-health', {
     body: { action },
   });

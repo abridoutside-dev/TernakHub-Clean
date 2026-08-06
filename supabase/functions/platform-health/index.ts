@@ -1106,30 +1106,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ ok: true, timestamp: new Date().toISOString() });
   }
 
-  // auth_integrity and the auth-health aggregate use a server-to-server
-  // authorization path. The user JWT is deliberately not accepted for these
-  // actions, even when it belongs to a system administrator.
-  const internalToken = Deno.env.get('PLATFORM_HEALTH_INTERNAL_TOKEN') ?? '';
+  // auth-health and auth-integrity support two authorization paths:
+  // 1. Internal service token (x-platform-health-internal-token) — kept for backward
+  //    compatibility. Only entered when the header is actually present.
+  // 2. User JWT with system_admin role — direct browser → Edge Function path
+  //    (active architecture: Browser → Cloudflare Pages → Supabase Edge Function).
+  const internalToken         = Deno.env.get('PLATFORM_HEALTH_INTERNAL_TOKEN') ?? '';
   const suppliedInternalToken = req.headers.get('x-platform-health-internal-token') ?? '';
-  const internalAction = action === 'auth-integrity' || action === 'auth-health';
-  if (internalAction) {
-    if (!internalToken) {
-      return jsonResponse({
-        ok: true,
-        ...(action === 'auth-integrity'
-          ? { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') }
-          : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') } }),
-      });
-    }
-    if (!suppliedInternalToken) {
-      return jsonResponse({
-        ok: true,
-        ...(action === 'auth-integrity'
-          ? { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') }
-          : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') } }),
-      });
-    }
-    if (suppliedInternalToken.length !== internalToken.length) {
+  const internalAction        = action === 'auth-integrity' || action === 'auth-health';
+
+  if (internalAction && suppliedInternalToken) {
+    // Internal token path — validate constant-time.
+    if (!internalToken || suppliedInternalToken.length !== internalToken.length) {
       return jsonResponse({
         ok: true,
         ...(action === 'auth-integrity'
@@ -1149,23 +1137,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
           : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_INVALID') } }),
       });
     }
-
     const handler = handlers[action];
     if (!handler) return errorResponse(`Action tidak dikenal: "${action}"`);
     try {
-      return await handler({
-        payload,
-        userId: 'internal-service',
-        jwt: '',
-        internalAuthorization: true,
-      });
+      return await handler({ payload, userId: 'internal-service', jwt: '', internalAuthorization: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
       return errorResponse(message, 500);
     }
   }
 
-  // ── Auth (required for all other actions) ──────────────────────────────────
+  // ── JWT auth — required for all actions, including auth-health / auth-integrity
+  //    when called directly from the browser (no internal token supplied). ─────
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!jwt) return errorResponse('Authorization header diperlukan', 401);
@@ -1186,7 +1169,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── Dispatch ───────────────────────────────────────────────────────────────
   try {
-    return await handler({ payload, userId: user.id, jwt });
+    // Pass internalAuthorization: true for system_admin — enables checkAuthIntegrity
+    // and other privileged sub-checks inside handlers like handleAuthHealth.
+    return await handler({ payload, userId: user.id, jwt, internalAuthorization: isAdmin });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
     return errorResponse(message, 500);
