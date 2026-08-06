@@ -4,7 +4,8 @@
 // from the browser (service role queries, Supabase Management API).
 //
 // Dispatcher pattern — one function, multiple actions (same style as r2-storage).
-// Caller must be authenticated as system_admin.
+// Browser-facing actions require a system_admin user JWT. auth_integrity is
+// additionally restricted to the server-to-server internal authorization path.
 //
 // ─── Required Supabase Edge Function Secrets ─────────────────────────────────
 //   SUPABASE_URL             — auto-injected by Supabase runtime
@@ -34,7 +35,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-platform-health-internal-token',
 };
 
 function corsOk(): Response {
@@ -127,6 +128,7 @@ interface ActionContext {
   payload: Record<string, unknown>;
   userId:  string;
   jwt:     string;
+  internalAuthorization?: boolean;
 }
 
 type Handler = (ctx: ActionContext) => Promise<Response>;
@@ -383,12 +385,27 @@ interface AuthIntegrityError {
 }
 
 interface AuthIntegrityResult {
-  status:      AuthIntegrityStatus;
+  status:      AuthIntegrityStatus | 'warning';
+  code?:       'SYSTEM_ADMIN_TOKEN_MISSING' | 'SYSTEM_ADMIN_TOKEN_INVALID';
   issue_count: number;
   issues:      AuthIntegrityIssue[];
   error:       string | null;
   error_details: AuthIntegrityError | null;
   checked_at:  string;
+}
+
+function warningAuthIntegrity(
+  code: 'SYSTEM_ADMIN_TOKEN_MISSING' | 'SYSTEM_ADMIN_TOKEN_INVALID',
+): AuthIntegrityResult {
+  return {
+    status: 'warning',
+    code,
+    issue_count: 0,
+    issues: [],
+    error: null,
+    error_details: null,
+    checked_at: new Date().toISOString(),
+  };
 }
 
 interface AuthIntegrityProfile {
@@ -762,7 +779,13 @@ async function checkAuthIntegrity(serviceRole: string): Promise<AuthIntegrityRes
   }
 }
 
-const handleAuthIntegrity: Handler = async () => {
+const handleAuthIntegrity: Handler = async ({ internalAuthorization }) => {
+  if (!internalAuthorization) {
+    return jsonResponse({
+      ok: true,
+      auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING'),
+    });
+  }
   const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   return jsonResponse({
     ok: true,
@@ -887,12 +910,14 @@ const handleAuthUsers: Handler = async () => {
 // + login stats (Management API logs, graceful degradation if unavailable).
 // Caller must be platform_admin.
 
-const handleAuthHealth: Handler = async () => {
+const handleAuthHealth: Handler = async ({ internalAuthorization }) => {
   const url         = Deno.env.get('SUPABASE_URL')              ?? '';
   const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   const now         = new Date();
   const cutoff24h   = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const authIntegrity = await checkAuthIntegrity(serviceRole);
+  const authIntegrity = internalAuthorization
+    ? await checkAuthIntegrity(serviceRole)
+    : warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING');
 
   // ── 1. Fetch users via Admin API ─────────────────────────────────────────
   type AuthUserFull = AuthUser & { created_at?: string | null };
@@ -1135,6 +1160,66 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── ping — no auth required; confirms the function is reachable ────────────
   if (action === 'ping') {
     return jsonResponse({ ok: true, timestamp: new Date().toISOString() });
+  }
+
+  // auth_integrity and the auth-health aggregate use a server-to-server
+  // authorization path. The user JWT is deliberately not accepted for these
+  // actions, even when it belongs to a system administrator.
+  const internalToken = Deno.env.get('PLATFORM_HEALTH_INTERNAL_TOKEN') ?? '';
+  const suppliedInternalToken = req.headers.get('x-platform-health-internal-token') ?? '';
+  const internalAction = action === 'auth-integrity' || action === 'auth-health';
+  if (internalAction) {
+    if (!internalToken) {
+      return jsonResponse({
+        ok: true,
+        ...(action === 'auth-integrity'
+          ? { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') }
+          : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') } }),
+      });
+    }
+    if (!suppliedInternalToken) {
+      return jsonResponse({
+        ok: true,
+        ...(action === 'auth-integrity'
+          ? { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') }
+          : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_MISSING') } }),
+      });
+    }
+    if (suppliedInternalToken.length !== internalToken.length) {
+      return jsonResponse({
+        ok: true,
+        ...(action === 'auth-integrity'
+          ? { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_INVALID') }
+          : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_INVALID') } }),
+      });
+    }
+    let mismatch = 0;
+    for (let index = 0; index < internalToken.length; index += 1) {
+      mismatch |= suppliedInternalToken.charCodeAt(index) ^ internalToken.charCodeAt(index);
+    }
+    if (mismatch !== 0) {
+      return jsonResponse({
+        ok: true,
+        ...(action === 'auth-integrity'
+          ? { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_INVALID') }
+          : { auth_health: { auth_integrity: warningAuthIntegrity('SYSTEM_ADMIN_TOKEN_INVALID') } }),
+      });
+    }
+
+    const handler = handlers[action];
+    if (!handler) return errorResponse(`Action tidak dikenal: "${action}"`);
+    try {
+      return await handler({
+        payload,
+        userId: 'internal-service',
+        jwt: '',
+        internalAuthorization: true,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
+      console.error(`[platform-health] action=${action} error:`, err);
+      return errorResponse(message, 500);
+    }
   }
 
   // ── Auth (required for all other actions) ──────────────────────────────────

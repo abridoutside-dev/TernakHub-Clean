@@ -1,2 +1,5 @@
 [project]
 id = "wujofkqwksyoulmfgquc"
+
+[functions.platform-health]
+verify_jwt = false

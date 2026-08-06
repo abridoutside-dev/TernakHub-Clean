@@ -13,6 +13,7 @@ import { supabase } from '../../../lib/supabase';
 import {
   fetchSystemServicesHealth,
   fetchAuthHealth,
+  fetchAdminPlatformAction,
   type SystemServicesHealth,
   type ServiceStatus,
   type CfPagesStatusData,
@@ -279,6 +280,9 @@ interface PlatformActionEnvelope<T> {
 }
 
 async function invokePlatformAction<T>(action: string): Promise<T> {
+  if (action === 'auth-health' || action === 'auth-integrity') {
+    return fetchAdminPlatformAction<T>(action);
+  }
   const { data, error } = await supabase.functions.invoke<PlatformActionEnvelope<T>>('platform-health', {
     body: { action },
   });
@@ -2605,6 +2609,7 @@ function AuthIntegrityChip({ status }: { status: AuthIntegrityStatus }) {
     operational: { label: 'Operational', color: '#15803d', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.2)', dot: '#16a34a' },
     degraded:    { label: 'Issues Found', color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
     down:        { label: 'Check Failed', color: '#b91c1c', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', dot: '#ef4444' },
+    warning:     { label: 'Warning', color: '#b45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', dot: '#f59e0b' },
   };
   const c = config[status];
   return (

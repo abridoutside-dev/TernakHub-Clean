@@ -17,6 +17,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -54,6 +55,110 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+
+// U-005 — server-to-server platform-health bridge.
+//
+// The browser session is used only here to establish that the caller is a
+// system administrator. It is never forwarded to the Edge Function. The Edge
+// Function receives an internal service token derived from SESSION_SECRET
+// instead, so auth_integrity never depends on an expiring user JWT.
+app.post('/api/admin/platform-health', async (req, res) => {
+  const action = typeof req.body?.action === 'string' ? req.body.action : '';
+  if (action !== 'auth-health' && action !== 'auth-integrity') {
+    res.status(400).json({ ok: false, error: 'Action admin tidak didukung.' });
+    return;
+  }
+
+  const authHeader = req.get('authorization') ?? '';
+  const userJwt = authHeader.match(/^Bearer\s+(.+)$/i)?.[1] ?? '';
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const internalToken = process.env.SESSION_SECRET;
+
+  if (!userJwt) {
+    res.status(401).json({ ok: false, error: 'Authorization header diperlukan.' });
+    return;
+  }
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('[U-005] Supabase caller verification is not configured.');
+    res.status(503).json({ ok: false, error: 'Verifikasi admin belum dikonfigurasi.' });
+    return;
+  }
+
+  try {
+    const callerClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await callerClient.auth.getUser(userJwt);
+    if (error || !data.user) {
+      res.status(401).json({ ok: false, error: 'Token user tidak valid atau sudah kedaluwarsa.' });
+      return;
+    }
+
+    if (data.user.user_metadata?.role !== 'system_admin') {
+      res.status(403).json({ ok: false, error: 'Akses ditolak: system admin only.' });
+      return;
+    }
+
+    if (!internalToken) {
+      res.status(200).json({
+        ok: true,
+        ...(action === 'auth-integrity'
+          ? {
+              auth_integrity: {
+                status: 'warning',
+                code: 'SYSTEM_ADMIN_TOKEN_MISSING',
+                issue_count: 0,
+                issues: [],
+                error: null,
+                error_details: null,
+                checked_at: new Date().toISOString(),
+              },
+            }
+          : {
+              auth_health: {
+                auth_integrity: {
+                  status: 'warning',
+                  code: 'SYSTEM_ADMIN_TOKEN_MISSING',
+                  issue_count: 0,
+                  issues: [],
+                  error: null,
+                  error_details: null,
+                  checked_at: new Date().toISOString(),
+                },
+              },
+            }),
+      });
+      return;
+    }
+
+    const edgeFunctionUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/platform-health`;
+    const edgeResponse = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-platform-health-internal-token': internalToken,
+      },
+      body: JSON.stringify({ action }),
+    });
+    const responseText = await edgeResponse.text();
+    let responseBody: unknown;
+    try {
+      responseBody = JSON.parse(responseText);
+    } catch {
+      responseBody = { ok: false, error: responseText.slice(0, 300) };
+    }
+
+    res.status(edgeResponse.ok ? 200 : 502).json(responseBody);
+  } catch (error) {
+    console.error('[U-005] platform-health internal bridge failed.', {
+      action,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res.status(502).json({ ok: false, error: 'Platform health service tidak dapat dijangkau.' });
+  }
+});
 
 // U-002 — Auth user + profile + default workspace with compensating rollback.
 // The service-role key is read only on request and is never sent to the client.
