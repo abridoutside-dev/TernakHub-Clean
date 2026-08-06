@@ -835,7 +835,7 @@ export default function UsersModule() {
                 <span style={{ fontSize: 11.5, fontWeight: 500, color: '#64748b' }}>{card.label}</span>
                 <span style={{ width: 32, height: 32, borderRadius: 8, background: `${card.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{card.icon}</span>
               </div>
-              {statsLoading ? <SkeletonBox height={28} /> : <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{card.value.toLocaleString()}</div>}
+              {statsLoading ? <SkeletonBox height={28} /> : <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{(card.value ?? 0).toLocaleString()}</div>}
             </div>
           ))}
         </div>
@@ -895,7 +895,7 @@ export default function UsersModule() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Daftar Pengguna</span>
               <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: '#eff6ff', color: '#3b82f6' }}>
-                {loading ? '…' : `${total.toLocaleString()} total`}
+                {loading ? '…' : `${(total ?? 0).toLocaleString()} total`}
               </span>
             </div>
             <span style={{ fontSize: 11.5, color: '#94a3b8' }}>
@@ -1006,7 +1006,7 @@ export default function UsersModule() {
           {/* Pagination */}
           <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#64748b' }}>
-              {loading ? '…' : `${total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} dari ${total.toLocaleString()}`}
+              {loading ? '…' : `${(total ?? 0) === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total ?? 0)} dari ${(total ?? 0).toLocaleString()}`}
             </span>
             {pages > 1 && (
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
