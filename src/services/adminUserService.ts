@@ -57,6 +57,47 @@ export interface WorkspaceMembership {
   } | null;
 }
 
+export interface WorkspaceDependency {
+  id: string;
+  name: string;
+  workspace_type: string;
+  workspace_status?: string | null;
+}
+
+export interface WorkspaceMemberDependency extends WorkspaceDependency {
+  workspace_id: string;
+  membership_id: string;
+  role: string;
+  status: string;
+  custom_role_id?: string | null;
+}
+
+export interface WorkspaceRoleDependency extends WorkspaceDependency {
+  workspace_id: string;
+  name: string;
+  description?: string | null;
+  role_kind: 'assigned' | 'created';
+  workspace_member_id?: string | null;
+}
+
+export interface WorkspaceInvitationDependency extends WorkspaceDependency {
+  workspace_id: string;
+  email: string;
+  role: string;
+  status: string;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface UserDependencies {
+  ownerWorkspaces: WorkspaceDependency[];
+  memberWorkspaces: WorkspaceMemberDependency[];
+  roles: WorkspaceRoleDependency[];
+  invitations: WorkspaceInvitationDependency[];
+  canDelete: boolean;
+  reason: string | null;
+}
+
 export interface UserListParams {
   page?: number;
   limit?: number;
@@ -195,6 +236,32 @@ export const adminUserService = {
 
   deleteUser: (id: string): Promise<{ ok: boolean }> =>
     invokeAdminUsers<{ ok: boolean }>('delete', { id }),
+
+  getDependencies: (id: string): Promise<UserDependencies> =>
+    invokeAdminUsers<UserDependencies>('get-dependencies', { id }),
+
+  transferOwnership: (id: string, workspaceId: string, newOwnerId: string): Promise<{ ok: boolean }> =>
+    invokeAdminUsers<{ ok: boolean }>('transfer-ownership', {
+      id,
+      workspace_id: workspaceId,
+      new_owner_id: newOwnerId,
+    }),
+
+  deleteWorkspace: (id: string, workspaceId: string): Promise<{ ok: boolean }> =>
+    invokeAdminUsers<{ ok: boolean }>('delete-workspace', { id, workspace_id: workspaceId }),
+
+  removeMember: (id: string, membershipId: string): Promise<{ ok: boolean }> =>
+    invokeAdminUsers<{ ok: boolean }>('remove-workspace', { id, workspace_member_id: membershipId }),
+
+  removeRole: (id: string, role: WorkspaceRoleDependency): Promise<{ ok: boolean }> =>
+    invokeAdminUsers<{ ok: boolean }>('remove-role', {
+      id,
+      role_id: role.role_kind === 'created' ? role.id : undefined,
+      workspace_member_id: role.workspace_member_id ?? undefined,
+    }),
+
+  removeInvitation: (id: string, invitationId: string): Promise<{ ok: boolean }> =>
+    invokeAdminUsers<{ ok: boolean }>('remove-invitation', { id, invitation_id: invitationId }),
 
   resetPassword: (id: string): Promise<{ ok: boolean; link?: string }> =>
     invokeAdminUsers<{ ok: boolean; link?: string }>('reset-password', { id }),

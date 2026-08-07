@@ -13,6 +13,8 @@ import {
   type WorkspaceMembership,
   type UserStats,
   type UserStatus,
+  type UserDependencies,
+  type WorkspaceRoleDependency,
 } from '../../../services/adminUserService';
 
 const PAGE_SIZE = 20;
@@ -165,6 +167,143 @@ function ConfirmDialog({ title, message, confirmLabel = 'Konfirmasi', danger = f
   );
 }
 
+function DependencyModal({
+  dependencies,
+  loading,
+  actionLoading,
+  error,
+  onClose,
+  onReload,
+  onTransferOwnership,
+  onDeleteWorkspace,
+  onRemoveMember,
+  onRemoveRole,
+  onRemoveInvitation,
+}: {
+  dependencies: UserDependencies | null;
+  loading: boolean;
+  actionLoading: string | null;
+  error: string;
+  onClose: () => void;
+  onReload: () => Promise<void>;
+  onTransferOwnership: (workspaceId: string, newOwnerId: string) => Promise<void>;
+  onDeleteWorkspace: (workspaceId: string) => Promise<void>;
+  onRemoveMember: (membershipId: string) => Promise<void>;
+  onRemoveRole: (role: WorkspaceRoleDependency) => Promise<void>;
+  onRemoveInvitation: (invitationId: string) => Promise<void>;
+}) {
+  const [newOwnerId, setNewOwnerId] = useState('');
+  const [transferWorkspaceId, setTransferWorkspaceId] = useState<string | null>(null);
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.58)', zIndex: 700, backdropFilter: 'blur(2px)' }} />
+      <div role="dialog" aria-modal="true" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 701, background: '#fff', borderRadius: 14, width: 620, maxWidth: 'calc(100vw - 28px)', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.24)' }}>
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>Dependency User & Workspace</div>
+            <div style={{ marginTop: 4, fontSize: 12.5, color: '#64748b' }}>User belum dapat dihapus sebelum seluruh relasi Workspace diselesaikan.</div>
+          </div>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#f1f5f9', cursor: 'pointer', color: '#64748b' }}>✕</button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '4px 20px 20px' }}>
+          {loading && <div style={{ padding: '28px 0', color: '#64748b', textAlign: 'center', fontSize: 13 }}>Memuat dependency…</div>}
+          {error && <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 12.5 }}>{error}</div>}
+          {!loading && dependencies && (
+            <>
+              <div style={{ margin: '14px 0', padding: '10px 12px', borderRadius: 8, background: dependencies.canDelete ? '#f0fdf4' : '#fff7ed', border: `1px solid ${dependencies.canDelete ? '#bbf7d0' : '#fed7aa'}`, color: dependencies.canDelete ? '#166534' : '#9a3412', fontSize: 12.5 }}>
+                {dependencies.canDelete ? '✓ Semua dependency sudah bersih. User dapat dihapus.' : 'User belum dapat dihapus. Selesaikan semua dependency berikut.'}
+              </div>
+
+              {dependencies.ownerWorkspaces.length > 0 && (
+                <DependencySection title="Owner Workspace" count={dependencies.ownerWorkspaces.length}>
+                  {dependencies.ownerWorkspaces.map(workspace => (
+                    <DependencyRow key={workspace.id} title={workspace.name} detail={workspace.workspace_type || 'Workspace'}>
+                      {transferWorkspaceId === workspace.id ? (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <input value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)} placeholder="UUID pemilik baru" style={{ width: 190, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 11.5 }} />
+                          <button disabled={actionLoading !== null || !newOwnerId.trim()} onClick={() => onTransferOwnership(workspace.id, newOwnerId.trim()).then(() => { setTransferWorkspaceId(null); setNewOwnerId(''); })} style={smallButton('#2563eb', '#eff6ff', actionLoading !== null || !newOwnerId.trim())}>Simpan</button>
+                          <button disabled={actionLoading !== null} onClick={() => setTransferWorkspaceId(null)} style={smallButton('#64748b', '#f8fafc', actionLoading !== null)}>Batal</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button disabled={actionLoading !== null} onClick={() => setTransferWorkspaceId(workspace.id)} style={smallButton('#2563eb', '#eff6ff', actionLoading !== null)}>Transfer Ownership</button>
+                          <button disabled={actionLoading !== null} onClick={() => onDeleteWorkspace(workspace.id)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Hapus Workspace</button>
+                        </div>
+                      )}
+                    </DependencyRow>
+                  ))}
+                </DependencySection>
+              )}
+
+              {dependencies.memberWorkspaces.length > 0 && (
+                <DependencySection title="Member Workspace" count={dependencies.memberWorkspaces.length}>
+                  {dependencies.memberWorkspaces.map(member => (
+                    <DependencyRow key={member.membership_id} title={member.name} detail={`${member.workspace_type || 'Workspace'} · ${member.role}`}>
+                      <button disabled={actionLoading !== null} onClick={() => onRemoveMember(member.membership_id)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Remove Member</button>
+                    </DependencyRow>
+                  ))}
+                </DependencySection>
+              )}
+
+              {dependencies.roles.length > 0 && (
+                <DependencySection title="Workspace Role" count={dependencies.roles.length}>
+                  {dependencies.roles.map(role => (
+                    <DependencyRow key={`${role.role_kind}-${role.id}-${role.workspace_id}`} title={role.name} detail={`${role.workspace_type || 'Workspace'} · ${role.role_kind === 'assigned' ? 'Assigned' : 'Created by user'}`}>
+                      <button disabled={actionLoading !== null} onClick={() => onRemoveRole(role)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Remove Role</button>
+                    </DependencyRow>
+                  ))}
+                </DependencySection>
+              )}
+
+              {dependencies.invitations.length > 0 && (
+                <DependencySection title="Workspace Invitation" count={dependencies.invitations.length}>
+                  {dependencies.invitations.map(invitation => (
+                    <DependencyRow key={invitation.id} title={invitation.name} detail={`${invitation.email} · ${invitation.role} · ${invitation.status}`}>
+                      <button disabled={actionLoading !== null} onClick={() => onRemoveInvitation(invitation.id)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Hapus Undangan</button>
+                    </DependencyRow>
+                  ))}
+                </DependencySection>
+              )}
+              {dependencies.canDelete && <div style={{ marginTop: 18, padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, color: '#166534', fontSize: 12 }}>Dependency bersih. Tutup dialog ini lalu konfirmasi Delete User.</div>}
+            </>
+          )}
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={() => onReload()} disabled={loading || actionLoading !== null} style={smallButton('#475569', '#f8fafc', loading || actionLoading !== null)}>↻ Reload Dependency</button>
+          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DependencySection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <section style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>{title} <span style={{ color: '#94a3b8' }}>({count})</span></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
+    </section>
+  );
+}
+
+function DependencyRow({ title, detail, children }: { title: string; detail: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 11px', border: '1px solid #f1f5f9', borderRadius: 8, background: '#f8fafc' }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+        <div style={{ marginTop: 2, fontSize: 11, color: '#64748b' }}>{detail}</div>
+      </div>
+      <div style={{ flexShrink: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+function smallButton(color: string, background: string, disabled: boolean): React.CSSProperties {
+  return { padding: '6px 9px', borderRadius: 6, border: `1px solid ${color}30`, background, color, fontSize: 11, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, whiteSpace: 'nowrap' };
+}
+
 // ─── Edit User Modal ──────────────────────────────────────────────────────────
 
 function EditUserModal({
@@ -312,6 +451,10 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
   const [error, setError]     = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ key: string; title: string; message: string; danger?: boolean } | null>(null);
+  const [dependencies, setDependencies] = useState<UserDependencies | null>(null);
+  const [dependencyLoading, setDependencyLoading] = useState(false);
+  const [dependencyError, setDependencyError] = useState('');
+  const [showDependencies, setShowDependencies] = useState(false);
   const [showEdit, setShowEdit]     = useState(false);
   const [showAddWs, setShowAddWs]   = useState(false);
   const [wsEditId, setWsEditId]     = useState<string | null>(null);
@@ -335,6 +478,59 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
   }, [userId]);
 
   useEffect(() => { loadUser(); }, [loadUser]);
+
+  const loadDependencies = useCallback(async () => {
+    setDependencyLoading(true);
+    setDependencyError('');
+    try {
+      const result = await adminUserService.getDependencies(userId);
+      setDependencies(result);
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Gagal memuat dependency user';
+      setDependencyError(message);
+      throw e;
+    } finally {
+      setDependencyLoading(false);
+    }
+  }, [userId]);
+
+  const prepareDelete = async () => {
+    try {
+      const result = await loadDependencies();
+      if (result.canDelete) {
+        setConfirm({
+          key: 'delete',
+          title: 'Hapus Permanen',
+          message: `PERHATIAN: Aksi ini tidak dapat dibatalkan. Hapus permanen akun ${user?.profile?.full_name ?? user?.email}?`,
+          danger: true,
+        });
+      } else {
+        setShowDependencies(true);
+      }
+    } catch {
+      setShowDependencies(true);
+    }
+  };
+
+  const runDependencyAction = async (
+    key: string,
+    fn: () => Promise<{ ok: boolean }>,
+    successMsg: string,
+  ) => {
+    setActionLoading(key);
+    try {
+      const result = await fn();
+      if (!result.ok) throw new Error('Aksi dependency tidak berhasil diproses.');
+      onAction(successMsg, 'success');
+      await loadDependencies();
+      await loadUser();
+    } catch (e) {
+      onAction(e instanceof Error ? e.message : 'Aksi dependency gagal', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const runAction = async (key: string, fn: () => Promise<{ ok: boolean; link?: string }>, successMsg: string): Promise<boolean> => {
     setActionLoading(key);
@@ -551,7 +747,9 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
                   <button
                     key={action.key}
                     disabled={!!actionLoading}
-                    onClick={() => setConfirm({ key: action.key, title: action.title, message: action.message, danger: action.danger })}
+                    onClick={() => action.key === 'delete'
+                      ? prepareDelete()
+                      : setConfirm({ key: action.key, title: action.title, message: action.message, danger: action.danger })}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: `1px solid ${action.color}30`, background: action.bg, color: action.color, fontSize: 12.5, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, whiteSpace: 'nowrap' }}>
                     {actionLoading === action.key ? '⏳' : action.icon} {action.label}
                   </button>
@@ -582,6 +780,42 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
               runAction(confirm.key, action.fn, `${action.label} berhasil`);
             }
           }}
+        />
+      )}
+
+      {showDependencies && (
+        <DependencyModal
+          dependencies={dependencies}
+          loading={dependencyLoading}
+          actionLoading={actionLoading}
+          error={dependencyError}
+          onClose={() => setShowDependencies(false)}
+          onReload={async () => { await loadDependencies(); }}
+          onTransferOwnership={(workspaceId, newOwnerId) => runDependencyAction(
+            `transfer:${workspaceId}`,
+            () => adminUserService.transferOwnership(userId, workspaceId, newOwnerId),
+            'Kepemilikan Workspace berhasil dipindahkan',
+          )}
+          onDeleteWorkspace={workspaceId => runDependencyAction(
+            `delete-workspace:${workspaceId}`,
+            () => adminUserService.deleteWorkspace(userId, workspaceId),
+            'Workspace berhasil dihapus',
+          )}
+          onRemoveMember={membershipId => runDependencyAction(
+            `member:${membershipId}`,
+            () => adminUserService.removeMember(userId, membershipId),
+            'Membership berhasil dihapus',
+          )}
+          onRemoveRole={role => runDependencyAction(
+            `role:${role.id}`,
+            () => adminUserService.removeRole(userId, role),
+            'Role Workspace berhasil dihapus',
+          )}
+          onRemoveInvitation={invitationId => runDependencyAction(
+            `invitation:${invitationId}`,
+            () => adminUserService.removeInvitation(userId, invitationId),
+            'Undangan Workspace berhasil dihapus',
+          )}
         />
       )}
 

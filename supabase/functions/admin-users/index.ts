@@ -23,6 +23,10 @@ function errorResponse(message: string, status = 400): Response {
 }
 
 const OWNER_WORKSPACE_MESSAGE = 'User masih menjadi Owner Workspace. Pindahkan kepemilikan atau hapus workspace terlebih dahulu.';
+const MEMBER_WORKSPACE_MESSAGE = 'User masih menjadi anggota Workspace. Hapus membership terlebih dahulu.';
+const ROLE_MESSAGE = 'User masih memiliki peran atau hak akses Workspace. Hapus peran terlebih dahulu.';
+const INVITATION_MESSAGE = 'User masih memiliki undangan Workspace. Hapus undangan terlebih dahulu.';
+const OWNER_WORKSPACE_GUIDANCE = 'Transfer kepemilikan atau hapus workspace terlebih dahulu';
 
 function sanitizeErrorMessage(message: string, fallback: string): string {
   const normalized = message.replace(/\s+/g, ' ').trim();
@@ -75,6 +79,49 @@ interface Profile {
   display_name?: string | null;
   phone_number?: string | null;
   avatar_url?: string | null;
+}
+
+interface WorkspaceDependency {
+  id: string;
+  name: string;
+  workspace_type: string;
+  workspace_status?: string | null;
+}
+
+interface WorkspaceMemberDependency extends WorkspaceDependency {
+  workspace_id: string;
+  membership_id: string;
+  role: string;
+  status: string;
+  custom_role_id?: string | null;
+}
+
+interface WorkspaceRoleDependency extends WorkspaceDependency {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description?: string | null;
+  role_kind: 'assigned' | 'created';
+  workspace_member_id?: string | null;
+}
+
+interface WorkspaceInvitationDependency extends WorkspaceDependency {
+  id: string;
+  workspace_id: string;
+  email: string;
+  role: string;
+  status: string;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+interface UserDependencies {
+  ownerWorkspaces: WorkspaceDependency[];
+  memberWorkspaces: WorkspaceMemberDependency[];
+  roles: WorkspaceRoleDependency[];
+  invitations: WorkspaceInvitationDependency[];
+  canDelete: boolean;
+  reason: string | null;
 }
 
 function headers(key: string): Record<string, string> {
@@ -261,6 +308,144 @@ async function readOwnedWorkspaces(url: string, key: string, userId: string): Pr
   return workspaces as Array<{ id?: string; name?: string }>;
 }
 
+function workspaceDependency(row: Record<string, unknown>): WorkspaceDependency | null {
+  const workspace = row.workspaces;
+  if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) return null;
+  const value = workspace as Record<string, unknown>;
+  if (typeof value.id !== 'string' || typeof value.name !== 'string') return null;
+  return {
+    id: value.id,
+    name: value.name,
+    workspace_type: typeof value.type === 'string' ? value.type : '',
+    workspace_status: typeof value.status === 'string' ? value.status : null,
+  };
+}
+
+function dependencyReason(dependencies: Omit<UserDependencies, 'canDelete' | 'reason'>): string | null {
+  if (dependencies.ownerWorkspaces.length > 0) return 'USER_IS_OWNER';
+  if (dependencies.memberWorkspaces.length > 0) return 'USER_IS_MEMBER';
+  if (dependencies.roles.length > 0) return 'USER_HAS_WORKSPACE_ROLE';
+  if (dependencies.invitations.length > 0) return 'USER_HAS_WORKSPACE_INVITATION';
+  return null;
+}
+
+async function readDependencies(url: string, key: string, userId: string): Promise<UserDependencies> {
+  const userFilter = encodeURIComponent(userId);
+  const [ownersResponse, membersResponse, assignedRolesResponse, createdRolesResponse, invitationsResponse] = await Promise.all([
+    restFetch(url, `/workspaces?owner_id=eq.${userFilter}&select=id,name,type,status`, key),
+    // Owner memberships are represented by ownerWorkspaces. Keeping them out of
+    // this collection makes the dependency sections actionable and prevents a
+    // workspace from appearing twice in the admin dialog.
+    restFetch(
+      url,
+      `/workspace_members?user_id=eq.${userFilter}&role=neq.Owner&select=id,workspace_id,role,status,custom_role_id,workspaces(id,name,type,status)`,
+      key,
+    ),
+    restFetch(
+      url,
+      `/workspace_members?user_id=eq.${userFilter}&custom_role_id=not.is.null&select=id,workspace_id,custom_role_id,workspaces(id,name,type,status),workspace_custom_roles(id,name,description)`,
+      key,
+    ),
+    restFetch(
+      url,
+      `/workspace_custom_roles?created_by=eq.${userFilter}&select=id,workspace_id,name,description,workspaces(id,name,type,status)`,
+      key,
+    ),
+    restFetch(
+      url,
+      `/workspace_invitations?invited_by=eq.${userFilter}&select=id,workspace_id,email,role,status,expires_at,created_at,workspaces(id,name,type,status)`,
+      key,
+    ),
+  ]);
+
+  const responses = [
+    [ownersResponse, 'Gagal memeriksa kepemilikan workspace'],
+    [membersResponse, 'Gagal memeriksa membership workspace'],
+    [assignedRolesResponse, 'Gagal memeriksa peran workspace'],
+    [createdRolesResponse, 'Gagal memeriksa peran workspace'],
+    [invitationsResponse, 'Gagal memeriksa undangan workspace'],
+  ] as const;
+  for (const [response, fallback] of responses) {
+    if (!response.ok) throw new Error(await responseMessage(response, fallback));
+  }
+
+  const owners = await ownersResponse.json() as Array<Record<string, unknown>>;
+  const members = await membersResponse.json() as Array<Record<string, unknown>>;
+  const assignedRoles = await assignedRolesResponse.json() as Array<Record<string, unknown>>;
+  const createdRoles = await createdRolesResponse.json() as Array<Record<string, unknown>>;
+  const invitations = await invitationsResponse.json() as Array<Record<string, unknown>>;
+
+  const ownerWorkspaces: WorkspaceDependency[] = (Array.isArray(owners) ? owners : []).flatMap(row => {
+    if (typeof row.id !== 'string' || typeof row.name !== 'string') return [];
+    return [{
+      id: row.id,
+      name: row.name,
+      workspace_type: typeof row.type === 'string' ? row.type : '',
+      workspace_status: typeof row.status === 'string' ? row.status : null,
+    }];
+  });
+  const memberWorkspaces: WorkspaceMemberDependency[] = (Array.isArray(members) ? members : []).flatMap(row => {
+    const workspace = workspaceDependency(row);
+    if (!workspace || typeof row.id !== 'string' || typeof row.workspace_id !== 'string') return [];
+    return [{
+      ...workspace,
+      workspace_id: row.workspace_id,
+      membership_id: row.id,
+      role: typeof row.role === 'string' ? row.role : '',
+      status: typeof row.status === 'string' ? row.status : '',
+      custom_role_id: typeof row.custom_role_id === 'string' ? row.custom_role_id : null,
+    }];
+  });
+  const roles: WorkspaceRoleDependency[] = [
+    ...(Array.isArray(assignedRoles) ? assignedRoles : []).flatMap(row => {
+      const workspace = workspaceDependency(row);
+      const role = row.workspace_custom_roles;
+      if (!workspace || typeof row.id !== 'string' || typeof row.workspace_id !== 'string' || !role || typeof role !== 'object' || Array.isArray(role)) return [];
+      const roleValue = role as Record<string, unknown>;
+      if (typeof roleValue.id !== 'string' || typeof roleValue.name !== 'string') return [];
+      return [{
+        ...workspace,
+        id: roleValue.id,
+        workspace_id: row.workspace_id,
+        name: roleValue.name,
+        description: typeof roleValue.description === 'string' ? roleValue.description : null,
+        role_kind: 'assigned' as const,
+        workspace_member_id: row.id,
+      }];
+    }),
+    ...(Array.isArray(createdRoles) ? createdRoles : []).flatMap(row => {
+      const workspace = workspaceDependency(row);
+      if (!workspace || typeof row.id !== 'string' || typeof row.workspace_id !== 'string' || typeof row.name !== 'string') return [];
+      return [{
+        ...workspace,
+        id: row.id,
+        workspace_id: row.workspace_id,
+        name: row.name,
+        description: typeof row.description === 'string' ? row.description : null,
+        role_kind: 'created' as const,
+      }];
+    }),
+  ];
+  const invitationDependencies: WorkspaceInvitationDependency[] = (Array.isArray(invitations) ? invitations : []).flatMap(row => {
+    const workspace = workspaceDependency(row);
+    if (!workspace || typeof row.id !== 'string' || typeof row.workspace_id !== 'string' || typeof row.email !== 'string' || typeof row.role !== 'string' || typeof row.status !== 'string' || typeof row.created_at !== 'string') return [];
+    return [{
+      ...workspace,
+      id: row.id,
+      workspace_id: row.workspace_id,
+      email: row.email,
+      role: row.role,
+      status: row.status,
+      expires_at: typeof row.expires_at === 'string' ? row.expires_at : null,
+      created_at: row.created_at,
+    }];
+  });
+
+  const result = { ownerWorkspaces, memberWorkspaces, roles, invitations: invitationDependencies };
+  const reason = dependencyReason(result);
+  return { ...result, canDelete: reason === null, reason };
+}
+
 async function handleAdminUsers(
   payload: Record<string, unknown>,
   url: string,
@@ -417,19 +602,16 @@ async function handleAdminUsers(
   }
 
   if (operation === 'delete') {
-    const ownedWorkspaces = await readOwnedWorkspaces(url, serviceRole, id);
-    if (ownedWorkspaces.length > 0) {
-      const workspaceNames = ownedWorkspaces
-        .map(workspace => workspace.name)
-        .filter((name): name is string => Boolean(name?.trim()))
-        .slice(0, 3);
-      const suffix = workspaceNames.length > 0
-        ? ` (${workspaceNames.join(', ')}${ownedWorkspaces.length > workspaceNames.length ? ', dan lainnya' : ''})`
-        : '';
-      return errorResponse(
-        `${OWNER_WORKSPACE_MESSAGE.replace(/\.$/, '')}${suffix}. ${OWNER_WORKSPACE_GUIDANCE}`,
-        409,
-      );
+    const dependencies = await readDependencies(url, serviceRole, id);
+    if (!dependencies.canDelete) {
+      const reasonMessage = dependencies.reason === 'USER_IS_OWNER'
+        ? OWNER_WORKSPACE_MESSAGE
+        : dependencies.reason === 'USER_IS_MEMBER'
+          ? MEMBER_WORKSPACE_MESSAGE
+          : dependencies.reason === 'USER_HAS_WORKSPACE_ROLE'
+            ? ROLE_MESSAGE
+            : INVITATION_MESSAGE;
+      return errorResponse(reasonMessage, 409);
     }
   }
 
@@ -513,6 +695,122 @@ async function handleAdminUsers(
 
   if (operation === 'get-workspaces') {
     return jsonResponse({ ok: true, data: { memberships: await readMemberships(url, serviceRole, id) } });
+  }
+
+  if (operation === 'get-dependencies') {
+    return jsonResponse({ ok: true, data: await readDependencies(url, serviceRole, id) });
+  }
+
+  if (operation === 'transfer-ownership') {
+    const workspaceId = typeof payload.workspace_id === 'string' ? payload.workspace_id : '';
+    const newOwnerId = typeof payload.new_owner_id === 'string' ? payload.new_owner_id : '';
+    if (!workspaceId || !newOwnerId) return errorResponse('Workspace dan pemilik baru wajib diisi', 400);
+    const invalidWorkspaceId = requireUuid(workspaceId, 'Workspace ID');
+    const invalidNewOwnerId = requireUuid(newOwnerId, 'User pemilik baru');
+    if (invalidWorkspaceId || invalidNewOwnerId) return errorResponse(invalidWorkspaceId ?? invalidNewOwnerId ?? 'Data transfer tidak valid', 400);
+    if (newOwnerId === id) return errorResponse('Pemilik baru harus berbeda dari user yang akan dihapus', 400);
+
+    const [workspaceResponse, newOwner, currentMemberResponse, newOwnerMemberResponse] = await Promise.all([
+      restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}&select=id,name`, serviceRole),
+      readUser(url, serviceRole, newOwnerId),
+      restFetch(url, `/workspace_members?workspace_id=eq.${workspaceId}&user_id=eq.${id}&select=id,role,status`, serviceRole),
+      restFetch(url, `/workspace_members?workspace_id=eq.${workspaceId}&user_id=eq.${newOwnerId}&select=id,role,status`, serviceRole),
+    ]);
+    if (!workspaceResponse.ok) return errorResponse(await responseMessage(workspaceResponse, 'Workspace tidak ditemukan'), 404);
+    const ownedRows = await workspaceResponse.json();
+    if (!Array.isArray(ownedRows) || ownedRows.length === 0) return errorResponse('User bukan pemilik Workspace tersebut', 409);
+    if (!currentMemberResponse.ok || !newOwnerMemberResponse.ok) {
+      return errorResponse('Membership Workspace tidak dapat diverifikasi', 409);
+    }
+    const currentMembers = await currentMemberResponse.json();
+    const newOwnerMembers = await newOwnerMemberResponse.json();
+    if (!Array.isArray(currentMembers) || currentMembers.length === 0) return errorResponse('Membership pemilik saat ini tidak ditemukan', 409);
+
+    if (!Array.isArray(newOwnerMembers) || newOwnerMembers.length === 0) {
+      const insertMember = await restFetch(url, '/workspace_members', serviceRole, {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          user_id: newOwnerId,
+          role: 'Owner',
+          status: 'Aktif',
+          joined_at: new Date().toISOString(),
+        }),
+      });
+      if (!insertMember.ok) return errorResponse(await responseMessage(insertMember, 'Pemilik baru tidak dapat ditambahkan ke Workspace'), insertMember.status);
+    } else {
+      const promoteMember = await restFetch(
+        url,
+        `/workspace_members?id=eq.${encodeURIComponent(newOwnerMembers[0].id)}&workspace_id=eq.${workspaceId}&user_id=eq.${newOwnerId}`,
+        serviceRole,
+        { method: 'PATCH', body: JSON.stringify({ role: 'Owner', status: 'Aktif' }) },
+      );
+      if (!promoteMember.ok) return errorResponse(await responseMessage(promoteMember, 'Peran pemilik baru tidak dapat diperbarui'), promoteMember.status);
+    }
+
+    const updateWorkspace = await restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}`, serviceRole, {
+      method: 'PATCH',
+      body: JSON.stringify({ owner_id: newOwnerId }),
+    });
+    if (!updateWorkspace.ok) return errorResponse(await responseMessage(updateWorkspace, 'Kepemilikan Workspace gagal dipindahkan'), updateWorkspace.status);
+    const demoteCurrent = await restFetch(
+      url,
+      `/workspace_members?id=eq.${encodeURIComponent(currentMembers[0].id)}&workspace_id=eq.${workspaceId}&user_id=eq.${id}`,
+      serviceRole,
+      { method: 'PATCH', body: JSON.stringify({ role: 'Admin' }) },
+    );
+    if (!demoteCurrent.ok) return errorResponse(await responseMessage(demoteCurrent, 'Kepemilikan berpindah, tetapi peran pemilik lama gagal diperbarui'), demoteCurrent.status);
+    return jsonResponse({ ok: true, data: { ok: true, new_owner_id: newOwner.id } });
+  }
+
+  if (operation === 'delete-workspace') {
+    const workspaceId = typeof payload.workspace_id === 'string' ? payload.workspace_id : '';
+    if (!workspaceId) return errorResponse('Workspace ID wajib diisi', 400);
+    const invalidWorkspaceId = requireUuid(workspaceId, 'Workspace ID');
+    if (invalidWorkspaceId) return errorResponse(invalidWorkspaceId, 400);
+    const response = await restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}`, serviceRole, { method: 'DELETE' });
+    if (!response.ok) return errorResponse(await responseMessage(response, 'Workspace tidak dapat dihapus'), response.status);
+    const deleted = await response.json();
+    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Workspace tidak ditemukan atau bukan milik user ini', 404);
+    return jsonResponse({ ok: true, data: { ok: true } });
+  }
+
+  if (operation === 'remove-role') {
+    const memberId = typeof payload.workspace_member_id === 'string' ? payload.workspace_member_id : '';
+    const roleId = typeof payload.role_id === 'string' ? payload.role_id : '';
+    if (memberId) {
+      const invalidMemberId = requireUuid(memberId, 'Workspace membership ID');
+      if (invalidMemberId) return errorResponse(invalidMemberId, 400);
+      const response = await restFetch(url, `/workspace_members?id=${memberId}&user_id=${id}&custom_role_id=not.is.null`, serviceRole, {
+        method: 'PATCH',
+        body: JSON.stringify({ custom_role_id: null }),
+      });
+      if (!response.ok) return errorResponse(await responseMessage(response, 'Peran user gagal dihapus'), response.status);
+      const changed = await response.json();
+      if (!Array.isArray(changed) || changed.length === 0) return errorResponse('Peran user tidak ditemukan', 404);
+      return jsonResponse({ ok: true, data: { ok: true } });
+    }
+    if (!roleId) return errorResponse('Role ID atau membership ID wajib diisi', 400);
+    const invalidRoleId = requireUuid(roleId, 'Role ID');
+    if (invalidRoleId) return errorResponse(invalidRoleId, 400);
+    const response = await restFetch(url, `/workspace_custom_roles?id=${roleId}&created_by=${id}`, serviceRole, { method: 'DELETE' });
+    if (!response.ok) return errorResponse(await responseMessage(response, 'Peran Workspace gagal dihapus'), response.status);
+    const deleted = await response.json();
+    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Peran Workspace tidak ditemukan', 404);
+    return jsonResponse({ ok: true, data: { ok: true } });
+  }
+
+  if (operation === 'remove-invitation') {
+    const invitationId = typeof payload.invitation_id === 'string' ? payload.invitation_id : '';
+    if (!invitationId) return errorResponse('Invitation ID wajib diisi', 400);
+    const invalidInvitationId = requireUuid(invitationId, 'Invitation ID');
+    if (invalidInvitationId) return errorResponse(invalidInvitationId, 400);
+    const response = await restFetch(url, `/workspace_invitations?id=${invitationId}&invited_by=${id}`, serviceRole, { method: 'DELETE' });
+    if (!response.ok) return errorResponse(await responseMessage(response, 'Undangan Workspace gagal dihapus'), response.status);
+    const deleted = await response.json();
+    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Undangan Workspace tidak ditemukan', 404);
+    return jsonResponse({ ok: true, data: { ok: true } });
   }
 
   if (operation === 'add-workspace') {
