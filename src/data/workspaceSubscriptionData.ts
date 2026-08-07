@@ -4,10 +4,8 @@
 // and history. Subscription belongs to a Workspace, NOT a User Account.
 //
 // RULES:
-//  - requestPlanChange() is the SOLE write path for subscription changes.
 //  - hasFeature() is the SOLE feature gate — never inline plan comparisons.
-//  - Manual payment only. No gateway, invoice, billing, tax, or coupon logic.
-//  - Price policy: Free is permanent. Price adjustments are gradual.
+//  - Subscription lifecycle writes go through WorkspaceService.
 
 import { SUBSCRIPTION_FEATURE_POLICY } from './subscriptionFeaturePolicy';
 import type { WorkspacePlan } from '../types/workspace';
@@ -751,7 +749,7 @@ export const PLAN_UPGRADE_UNLOCKS: Record<WorkspacePlan, string[]> = {
 };
 
 // ─── Benefit Comparison Table ─────────────────────────────────────────────────
-// Curated human-readable rows for the plan comparison UI in ProfileSubscription.
+// Curated human-readable rows for subscription feature messaging.
 // All 33 feature modules are represented here. Kept in sync with
 // SUBSCRIPTION_FEATURE_POLICY via the dev-mode drift detection above.
 

@@ -4,7 +4,6 @@ import ProfileAccount from '../pages/ProfileAccount';
 import ProfileWorkspace from '../pages/ProfileWorkspace';
 import ProfileWorkspaceDetail from '../pages/ProfileWorkspaceDetail';
 import ProfileBusinessInsight from '../pages/ProfileBusinessInsight';
-import ProfileSubscription from '../pages/ProfileSubscription';
 import ProfileSecurity from '../pages/ProfileSecurity';
 import ProfileNotification from '../pages/ProfileNotification';
 import ProfileAbout from '../pages/ProfileAbout';
@@ -30,7 +29,6 @@ export {
   ProfileWorkspace,
   ProfileWorkspaceDetail,
   ProfileBusinessInsight,
-  ProfileSubscription,
   ProfileSecurity,
   ProfileNotification,
   ProfileAbout,

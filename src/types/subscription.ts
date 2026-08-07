@@ -31,37 +31,6 @@ export type SubscriptionChangeAction =
   | 'Downgrade'     // moved to a lower tier
   | 'Perpanjangan'; // renewed the same plan
 
-export type SubscriptionPaymentRequestStatus =
-  | 'Waiting for Payment'
-  | 'Payment Proof Submitted'
-  | 'Verified'
-  | 'Rejected'
-  | 'Cancelled';
-
-export interface SubscriptionPaymentConfig {
-  bankName: string;
-  accountHolder: string;
-  accountNumber: string;
-  qrisUrl: string | null;
-  instructions: string;
-  active: boolean;
-  updatedAt: string;
-}
-
-export interface SubscriptionPaymentRequest {
-  id: string;
-  workspace_uuid: string;
-  from_plan: WorkspacePlan;
-  to_plan: WorkspacePlan;
-  amount: number | null;
-  paymentConfigSnapshot: SubscriptionPaymentConfig;
-  status: SubscriptionPaymentRequestStatus;
-  proofFileName: string | null;
-  proofNote: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // ─── Feature Gate ─────────────────────────────────────────────────────────────
 //
 // CANONICAL feature key registry for TernakHub.
@@ -336,33 +305,6 @@ export type FeatureKey =
   | 'custom_integration'            // custom third-party integrations;
 
 // ─── Data Models ──────────────────────────────────────────────────────────────
-
-/**
- * Extended subscription record stored per workspace.
- * Stored separately from WorkspaceRecord to keep the core record lean.
- */
-export interface WorkspaceSubscriptionRecord {
-  workspace_uuid: string;
-  plan:           WorkspacePlan;
-  status:         WorkspaceSubscriptionStatus;
-  activated_at:   string | null;   // ISO 8601 date — when this plan started
-  expired_at:     string | null;   // null for Free (no expiry)
-  renewal_at:     string | null;   // null for Free (no renewal)
-}
-
-/**
- * Immutable history entry for each plan change on a workspace.
- * History is append-only — never delete or mutate entries.
- */
-export interface SubscriptionHistoryEntry {
-  id:             string;
-  workspace_uuid: string;
-  action:         SubscriptionChangeAction;
-  from_plan:      WorkspacePlan | null;  // null on first Aktivasi
-  to_plan:        WorkspacePlan;
-  date:           string;                // ISO date yyyy-mm-dd
-  note:           string | null;
-}
 
 // ─── UI Config ────────────────────────────────────────────────────────────────
 

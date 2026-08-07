@@ -108,9 +108,9 @@ function AiInsightCard() {
               <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--color-text)', textAlign: 'center', lineHeight: 1.5 }}>
                 Buka analisis mutasi ternak dengan Upgrade ke Pro.
               </p>
-              <button type="button" onClick={() => navigate('/profile/subscription')} style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--color-primary)', border: 'none', borderRadius: 20, padding: '5px 16px', cursor: 'pointer' }}>
-                Upgrade ke Pro →
-              </button>
+               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-primary)' }}>
+                 Hubungi administrator untuk upgrade →
+               </span>
             </div>
           </div>
         )}

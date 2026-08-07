@@ -159,7 +159,6 @@ const ProfileAccount = lazy(() => import('./routeBundles/profile').then(m => ({ 
 const ProfileWorkspace = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileWorkspace })));
 const ProfileWorkspaceDetail = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileWorkspaceDetail })));
 const ProfileBusinessInsight = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileBusinessInsight })));
-const ProfileSubscription = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileSubscription })));
 const ProfileSecurity = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileSecurity })));
 const ProfileNotification = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileNotification })));
 const ProfileAbout = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileAbout })));
@@ -617,7 +616,6 @@ export default function App() {
       } />
       <Route path="/profile/workspace/:id/members" element={<Navigate to="/workspace/settings/members" replace />} />
       <Route path="/profile/business-insight"               element={<ProfileBusinessInsight />} />
-      <Route path="/profile/subscription"                   element={<ProfileSubscription />} />
       <Route path="/profile/security"                       element={<ProfileSecurity />} />
       <Route path="/profile/notification"                   element={<ProfileNotification />} />
       <Route path="/profile/about"                          element={<ProfileAbout />} />

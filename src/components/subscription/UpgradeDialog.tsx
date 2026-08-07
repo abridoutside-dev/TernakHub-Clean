@@ -3,9 +3,8 @@
 // Bottom sheet shown when a user taps an upgrade button on a locked feature.
 // Displays: Current Plan → Target Plan, unlocked features, price, action.
 //
-// ❌ No payment processing — navigates to /profile/subscription for intent only.
+// Subscription changes are managed by platform administrators.
 
-import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import {
   PLAN_CONFIG,
@@ -29,7 +28,6 @@ interface UpgradeDialogProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function UpgradeDialog({ feature, featureLabel, onClose }: UpgradeDialogProps) {
-  const navigate         = useNavigate();
   const { plan: current } = useSubscription();
 
   const targetPlan: WorkspacePlan = getMinimumPlan(feature);
@@ -39,7 +37,6 @@ export default function UpgradeDialog({ feature, featureLabel, onClose }: Upgrad
 
   function handleUpgrade() {
     onClose();
-    navigate('/profile/subscription');
   }
 
   return (
@@ -180,7 +177,7 @@ export default function UpgradeDialog({ feature, featureLabel, onClose }: Upgrad
             borderRadius: 8, padding: '8px 12px', marginBottom: 16,
             fontSize: 12, color: '#7b5e2a',
           }}>
-            ⚠️ Proses pembayaran belum tersedia. Upgrade Workspace mengarahkan ke halaman Subscription.
+             Hubungi administrator platform untuk mengubah paket Workspace ini.
           </div>
 
           {/* Actions */}
@@ -205,7 +202,7 @@ export default function UpgradeDialog({ feature, featureLabel, onClose }: Upgrad
                 fontSize: 14, fontWeight: 700, cursor: 'pointer',
               }}
             >
-              Upgrade ke {targetCfg.label} →
+               Hubungi administrator →
             </button>
           </div>
 

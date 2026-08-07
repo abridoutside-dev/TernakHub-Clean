@@ -156,13 +156,6 @@ export const PROFILE_MENU: ProfileMenuItem[] = [
     route:    '/profile/business-insight',
   },
   {
-    id:       'subscription',
-    icon:     '💳',
-    label:    'Subscription',
-    subtitle: 'Paket & status langganan',
-    route:    '/profile/subscription',
-  },
-  {
     id:       'security',
     icon:     '🔒',
     label:    'Security',
