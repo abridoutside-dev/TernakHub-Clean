@@ -75,6 +75,53 @@ export interface WorkspaceRecord {
   archived_at: string | null;       // null when status !== 'Archived'
 }
 
+// ─── Workspace lifecycle dependencies ─────────────────────────────────────────
+
+/**
+ * A read-only summary of records that still reference a workspace.
+ *
+ * This deliberately lives beside the WorkspaceRecord contract so pages do not
+ * invent their own dependency shapes.  The repository owns the DB mapping and
+ * the service owns the lifecycle rules.
+ */
+export type WorkspaceDependencyKey =
+  | 'members'
+  | 'invitations'
+  | 'relationships'
+  | 'ownershipTransfers'
+  | 'subscription'
+  | 'livestock'
+  | 'batches'
+  | 'health'
+  | 'reproduction'
+  | 'feed'
+  | 'marketplace'
+  | 'transactions'
+  | 'services'
+  | 'notifications'
+  | 'trust'
+  | 'media'
+  | 'audit';
+
+export interface WorkspaceDependencyItem {
+  key: WorkspaceDependencyKey;
+  label: string;
+  count: number;
+  description: string;
+  /** A non-zero count prevents hard deletion. */
+  blocksDelete: boolean;
+  /** A non-zero count prevents archive while the dependency is active. */
+  blocksArchive: boolean;
+}
+
+export interface WorkspaceDependencies {
+  workspace_uuid: string;
+  items: WorkspaceDependencyItem[];
+  hasDeleteBlockers: boolean;
+  hasArchiveBlockers: boolean;
+  checked_at: string;
+}
+
 // ─── Input / DTO Types ────────────────────────────────────────────────────────
 
 /**

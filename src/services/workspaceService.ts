@@ -25,6 +25,7 @@ import type {
   WorkspaceType,
   WorkspaceStatus,
   WorkspacePlan,
+  WorkspaceDependencies,
 } from '../types/workspace';
 import {
   WORKSPACE_TYPES,
@@ -43,6 +44,7 @@ import {
   repoGetWorkspacesByOwner,
   repoGetWorkspaceByUuid,
   repoGetWorkspaceBySlug,
+  repoGetWorkspaceDependencies,
   repoPatchWorkspace,
   repoDeleteWorkspace as repoHardDelete,
   WorkspaceRepoError,
@@ -90,6 +92,12 @@ export async function getWorkspaceBySlug(
   slug: string,
 ): Promise<WorkspaceRecord | null> {
   return repoGetWorkspaceBySlug(slug);
+}
+
+export async function getWorkspaceDependencies(
+  uuid: string,
+): Promise<WorkspaceDependencies> {
+  return repoGetWorkspaceDependencies(uuid);
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -367,6 +375,23 @@ export async function updateWorkspace(
   if (!validation.valid) return { ok: false, errors: validation.errors };
 
   try {
+    if (patch.workspace_status === 'Archived') {
+      const dependencies = await repoGetWorkspaceDependencies(uuid);
+      if (dependencies.hasArchiveBlockers) {
+        const blockers = dependencies.items
+          .filter((item) => item.blocksArchive && item.count > 0)
+          .map((item) => `${item.label} (${item.count})`)
+          .join(', ');
+        return {
+          ok: false,
+          errors: [{
+            field: 'general',
+            message: `Workspace tidak dapat diarsipkan karena masih memiliki dependency aktif: ${blockers}.`,
+          }],
+        };
+      }
+    }
+
     const updated = await repoPatchWorkspace(uuid, patch);
     if (!updated) {
       return {
@@ -396,6 +421,21 @@ export async function deleteWorkspace(
   uuid: string,
 ): Promise<ServiceResult<{ deleted: boolean }>> {
   try {
+    const dependencies = await repoGetWorkspaceDependencies(uuid);
+    if (dependencies.hasDeleteBlockers) {
+      const blockers = dependencies.items
+        .filter((item) => item.blocksDelete && item.count > 0)
+        .map((item) => `${item.label} (${item.count})`)
+        .join(', ');
+      return {
+        ok: false,
+        errors: [{
+          field: 'general',
+          message: `Workspace belum dapat dihapus. Selesaikan dependency berikut terlebih dahulu: ${blockers}.`,
+        }],
+      };
+    }
+
     const deleted = await repoHardDelete(uuid);
     return { ok: true, data: { deleted } };
   } catch (err) {

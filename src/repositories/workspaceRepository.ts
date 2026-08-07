@@ -33,6 +33,9 @@ import type {
   WorkspaceStatus,
   WorkspaceType,
   WorkspacePlan,
+  WorkspaceDependencies,
+  WorkspaceDependencyItem,
+  WorkspaceDependencyKey,
 } from '../types/workspace';
 
 // ─── Error type ───────────────────────────────────────────────────────────────
@@ -50,6 +53,82 @@ export class WorkspaceRepoError extends Error {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PG_UNIQUE_VIOLATION = '23505';
+
+type DependencyQuery = {
+  key: WorkspaceDependencyKey;
+  label: string;
+  description: string;
+  table: string;
+  columns: string[];
+  blocksDelete: boolean;
+  blocksArchive: boolean;
+};
+
+/**
+ * Direct workspace references from the DB schema.  Keeping this list in the
+ * repository makes dependency checks explicit and prevents lifecycle code from
+ * silently relying on database cascades.
+ *
+ * Some tables reference a workspace twice (buyer/seller, source/destination);
+ * each column is counted independently and is summed under one user-facing
+ * dependency item.
+ */
+const DEPENDENCY_QUERIES: DependencyQuery[] = [
+  { key: 'members', label: 'Anggota workspace', description: 'Anggota yang masih terdaftar di workspace.', table: 'workspace_members', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'invitations', label: 'Undangan workspace', description: 'Undangan yang masih tersimpan untuk workspace.', table: 'workspace_invitations', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'relationships', label: 'Relasi workspace', description: 'Relasi dengan workspace lain.', table: 'workspace_relationships', columns: ['workspace_id_a', 'workspace_id_b'], blocksDelete: true, blocksArchive: false },
+  { key: 'ownershipTransfers', label: 'Transfer kepemilikan', description: 'Riwayat atau proses transfer kepemilikan.', table: 'ownership_transfers', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'subscription', label: 'Subscription workspace', description: 'Subscription yang terpasang pada workspace.', table: 'workspace_subscriptions', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'livestock', label: 'Data ternak', description: 'Ternak dan riwayat pemilikannya.', table: 'livestock', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'livestock', label: 'Riwayat kepemilikan ternak', description: 'Riwayat kepemilikan yang menunjuk workspace ini.', table: 'livestock_ownership_history', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'livestock', label: 'Transfer ternak', description: 'Transfer ternak yang terkait workspace.', table: 'livestock_transfers', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'livestock', label: 'Permintaan mutasi', description: 'Permintaan mutasi dari atau menuju workspace.', table: 'mutation_requests', columns: ['workspace_id', 'destination_workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'batches', label: 'Batch ternak', description: 'Batch yang dimiliki workspace.', table: 'batches', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Data kesehatan', description: 'Pemeriksaan, treatment, jadwal kontrol, dan stok obat.', table: 'health_checkups', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Treatment kesehatan', description: 'Riwayat treatment kesehatan workspace.', table: 'health_treatments', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Jadwal kontrol kesehatan', description: 'Jadwal kontrol kesehatan workspace.', table: 'health_control_schedules', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Stok obat', description: 'Stok obat dan pergerakan stok workspace.', table: 'stok_obat', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Transaksi stok obat', description: 'Penerimaan, pengeluaran, dan penyesuaian stok obat.', table: 'stok_obat_masuk', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Pengeluaran stok obat', description: 'Pengeluaran obat workspace.', table: 'stok_obat_keluar', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'health', label: 'Penyesuaian stok obat', description: 'Penyesuaian stok obat workspace.', table: 'stok_obat_adjustments', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Program reproduksi', description: 'Program dan catatan reproduksi workspace.', table: 'reproduksi_programs', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Pelaksanaan reproduksi', description: 'Pelaksanaan program reproduksi workspace.', table: 'pelaksanaan_reproduksi', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Pemeriksaan reproduksi', description: 'Pemeriksaan kebuntingan dan kelahiran workspace.', table: 'pemeriksaan_kebuntingan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Catatan kebuntingan', description: 'Catatan kebuntingan workspace.', table: 'kebuntingan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Catatan kelahiran', description: 'Catatan kelahiran workspace.', table: 'kelahiran', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Registrasi anak', description: 'Registrasi anak workspace.', table: 'registrasi_anak', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'reproduction', label: 'Data sapih', description: 'Data penyapihan workspace.', table: 'sapih', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'feed', label: 'Data pakan', description: 'Formula, inventaris, jadwal, dan pencatatan pakan.', table: 'feed_formulas', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'feed', label: 'Produksi formula pakan', description: 'Produksi formula pakan workspace.', table: 'feed_formula_productions', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'feed', label: 'Stok inventaris pakan', description: 'Inventaris pakan workspace.', table: 'stok_inventaris', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'feed', label: 'Transaksi inventaris pakan', description: 'Transaksi stok inventaris pakan workspace.', table: 'stok_inventaris_transactions', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'feed', label: 'Jadwal pemberian pakan', description: 'Jadwal pemberian pakan workspace.', table: 'jadwal_pemberian_pakan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'feed', label: 'Pencatatan pemberian pakan', description: 'Pencatatan pemberian pakan workspace.', table: 'pemberian_pakan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'marketplace', label: 'Listing marketplace', description: 'Listing yang dibuat oleh workspace.', table: 'marketplace_listings', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'marketplace', label: 'Chat marketplace', description: 'Chat marketplace sebagai pembeli atau penjual.', table: 'marketplace_chat_rooms', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'marketplace', label: 'Negosiasi marketplace', description: 'Negosiasi marketplace sebagai pembeli atau penjual.', table: 'marketplace_negotiations', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'marketplace', label: 'Transaksi marketplace', description: 'Transaksi marketplace sebagai pembeli atau penjual.', table: 'marketplace_transactions', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'marketplace', label: 'Moderasi marketplace', description: 'Laporan moderasi yang dibuat workspace.', table: 'marketplace_moderations', columns: ['reported_by_workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'transactions', label: 'Transaction room', description: 'Transaction room sebagai pembeli atau penjual.', table: 'transaction_rooms', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'transactions', label: 'Peserta transaction room', description: 'Keikutsertaan workspace dalam transaction room.', table: 'transaction_participants', columns: ['workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'transactions', label: 'Lampiran transaksi', description: 'Lampiran yang diunggah oleh workspace.', table: 'transaction_attachments', columns: ['uploaded_by_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'transactions', label: 'Quotation layanan', description: 'Quotation layanan yang dibuat workspace.', table: 'service_quotations', columns: ['provider_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'services', label: 'Layanan workspace', description: 'Layanan transportasi, dokter, atau klinik.', table: 'layanan_transport', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'services', label: 'Layanan dokter hewan', description: 'Profil layanan dokter hewan workspace.', table: 'layanan_dokter_hewan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'services', label: 'Layanan klinik hewan', description: 'Profil layanan klinik hewan workspace.', table: 'layanan_klinik_hewan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'services', label: 'Transaksi transportasi', description: 'Transaksi transportasi yang memakai workspace.', table: 'transport_transactions', columns: ['transport_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'transactions', label: 'Pesan transaksi', description: 'Pesan yang dikirim oleh workspace.', table: 'transaction_conversation_messages', columns: ['sender_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'transactions', label: 'Bukti transaksi', description: 'Bukti transaksi yang diajukan workspace.', table: 'transaction_evidence', columns: ['submitted_by_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'transactions', label: 'Audit transaksi', description: 'Audit transaksi dengan workspace sebagai actor.', table: 'transaction_audit_trail', columns: ['actor_workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'notifications', label: 'Publikasi workspace', description: 'Publikasi yang dibuat workspace.', table: 'news_publications', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'notifications', label: 'Notifikasi workspace', description: 'Notifikasi yang menunjuk workspace.', table: 'notifications', columns: ['recipient_workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'notifications', label: 'Alert dan reminder', description: 'Alert dan reminder workspace.', table: 'alert_reminders', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'trust', label: 'Verifikasi trust', description: 'Verifikasi trust workspace.', table: 'trust_verifications', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'media', label: 'Media workspace', description: 'Media yang dimiliki workspace.', table: 'media', columns: ['owner_workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'audit', label: 'Audit workspace', description: 'Audit platform untuk workspace.', table: 'global_audit_trail', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'audit', label: 'Search index workspace', description: 'Index pencarian workspace.', table: 'search_index', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'audit', label: 'Activity log workspace', description: 'Log aktivitas workspace.', table: 'activity_log', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+];
 
 // ─── Enum translators ─────────────────────────────────────────────────────────
 
@@ -324,6 +403,71 @@ export async function repoGetWorkspaceBySlug(
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
   return data ? fromDbRow(data as DbRow) : null;
+}
+
+/**
+ * Reads all known downstream references for a workspace.
+ *
+ * This is intentionally a read-only preflight.  It does not delete child
+ * records and it does not depend on database cascade behaviour.
+ */
+export async function repoGetWorkspaceDependencies(
+  uuid: string,
+): Promise<WorkspaceDependencies> {
+  await requireAuthSession();
+
+  const results = await Promise.all(
+    DEPENDENCY_QUERIES.map(async (dependency) => {
+      const counts = await Promise.all(
+        dependency.columns.map(async (column) => {
+          const { count, error } = await supabase
+            .from(dependency.table)
+            .select('id', { count: 'exact', head: true })
+            .eq(column, uuid);
+
+          if (error) {
+            throw new WorkspaceRepoError(
+              `Failed to read ${dependency.table} dependency: ${error.message}`,
+              error.code,
+            );
+          }
+          return count ?? 0;
+        }),
+      );
+
+      return {
+        key: dependency.key,
+        label: dependency.label,
+        description: dependency.description,
+        count: counts.reduce((total, count) => total + count, 0),
+        blocksDelete: dependency.blocksDelete,
+        blocksArchive: dependency.blocksArchive,
+      } satisfies WorkspaceDependencyItem;
+    }),
+  );
+
+  // Several physical tables belong to the same user-facing category. Merge
+  // them so the UI reports meaningful totals without exposing DB internals.
+  const merged = new Map<WorkspaceDependencyKey, WorkspaceDependencyItem>();
+  for (const item of results) {
+    const existing = merged.get(item.key);
+    if (existing) {
+      existing.count += item.count;
+      existing.blocksDelete ||= item.blocksDelete;
+      existing.blocksArchive ||= item.blocksArchive;
+    } else {
+      merged.set(item.key, { ...item });
+    }
+  }
+
+  const items = Array.from(merged.values()).filter((item) => item.count > 0);
+  return {
+    workspace_uuid: uuid,
+    items,
+    hasDeleteBlockers: items.some((item) => item.blocksDelete && item.count > 0),
+    hasArchiveBlockers: items.some((item) => item.blocksArchive && item.count > 0),
+    checked_at: new Date().toISOString(),
+  };
 }
 
 // ─── Write operations ─────────────────────────────────────────────────────────
