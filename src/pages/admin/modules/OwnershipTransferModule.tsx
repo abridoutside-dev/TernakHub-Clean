@@ -2,6 +2,7 @@
 // UI → WorkspaceService → OwnershipTransferRepository → Edge Function.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import AdminLayout from '../layout/AdminLayout';
 import {
@@ -58,7 +59,7 @@ function StatusBadge({ status }: { status: OwnershipTransferStatus }) {
 function Button({
   children, onClick, disabled = false, danger = false, secondary = false,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
@@ -99,7 +100,7 @@ function DetailDrawer({
   onPreflight: () => void;
   onAction: (action: OwnershipTransferAction) => void;
 }) {
-  const canAct = ['Requested', 'PendingVerification'].includes(record.status);
+  const canAct = ['Requested', 'PendingVerification', 'Approved'].includes(record.status);
   const canCancel = ['Draft', 'Requested', 'PendingVerification'].includes(record.status);
   return (
     <>

@@ -103,9 +103,15 @@ function userRef(userId: string, users: Map<string, User>, profiles: Map<string,
 }
 
 async function readUsers(admin: ReturnType<typeof createClient>): Promise<User[]> {
-  const result = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (result.error) throw new Error('Daftar user tidak dapat dimuat.');
-  return result.data.users as User[];
+  const users: User[] = [];
+  const perPage = 1000;
+  for (let page = 1; ; page += 1) {
+    const result = await admin.auth.admin.listUsers({ page, perPage });
+    if (result.error) throw new Error('Daftar user tidak dapat dimuat.');
+    const pageUsers = result.data.users as User[];
+    users.push(...pageUsers);
+    if (pageUsers.length < perPage) return users;
+  }
 }
 
 async function readBase(url: string, serviceKey: string) {
@@ -305,54 +311,47 @@ async function create(request: Request): Promise<Response> {
   const workspaceId = body.workspace_id;
   const toUserId = body.to_user_id;
   if (!isUuid(workspaceId) || !isUuid(toUserId)) return fail('Workspace dan user penerima tidak valid.');
-  const workspaceResult = await restFetch(url, `/workspaces?id=eq.${encodeURIComponent(workspaceId)}&select=*`, serviceKey);
-  if (!workspaceResult.ok) return fail(await bodyMessage(workspaceResult, 'Workspace tidak dapat dimuat.'), 'DATABASE', 500);
-  const workspaces = await workspaceResult.json() as Workspace[];
-  const workspace = workspaces[0];
-  if (!workspace) return fail('Workspace tidak ditemukan.', 'NOT_FOUND', 404);
-  if (workspace.owner_id === toUserId) return fail('User penerima sudah menjadi owner workspace.', 'VALIDATION', 409);
-  const users = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const target = await users.auth.admin.getUserById(toUserId);
-  if (target.error || !target.data.user) return fail('User penerima tidak ditemukan.', 'NOT_FOUND', 404);
-  const active = await restFetch(url, `/ownership_transfers?workspace_id=eq.${encodeURIComponent(workspaceId)}&status=in.(Draft,Requested,PendingVerification,Approved)&select=id`, serviceKey);
-  if (!active.ok) return fail('Pre-check transfer tidak dapat dilakukan.', 'DATABASE', 500);
-  if ((await active.json() as unknown[]).length) return fail('Workspace masih memiliki transfer aktif lainnya.', 'DEPENDENCY', 409);
-  const insert = await restFetch(url, '/ownership_transfers', serviceKey, {
+  const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/, '');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+  const anon = createClient(url, anonKey, { auth: { persistSession: false } });
+  const authResult = await anon.auth.getUser(token);
+  if (authResult.error || !authResult.data.user || !isAdmin(authResult.data.user as User)) {
+    return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
+  }
+
+  // Creation is one database transaction: record, initial history, and audit
+  // are written by the SECURITY DEFINER RPC, never as separate writes.
+  const insert = await restFetch(url, '/rpc/ownership_transfer_create', serviceKey, {
     method: 'POST',
     body: JSON.stringify({
-      workspace_id: workspaceId,
-      from_user_id: workspace.owner_id,
-      to_user_id: toUserId,
-      status: 'Requested',
-      reason: typeof body.reason === 'string' ? body.reason.trim() || null : null,
-      notes: typeof body.notes === 'string' ? body.notes.trim() || null : null,
-      requested_at: new Date().toISOString(),
+      p_workspace_id: workspaceId,
+      p_to_user_id: toUserId,
+      p_actor_id: authResult.data.user.id,
+      p_reason: typeof body.reason === 'string' ? body.reason : null,
+      p_notes: typeof body.notes === 'string' ? body.notes : null,
     }),
   });
-  if (!insert.ok) return fail(await bodyMessage(insert, 'Permintaan transfer tidak dapat dibuat.'), 'DATABASE', insert.status);
+  if (!insert.ok) {
+    const message = await bodyMessage(insert, 'Permintaan transfer tidak dapat dibuat.');
+    const code = message.includes('transfer aktif') ? 'DEPENDENCY'
+      : message.includes('tidak ditemukan') ? 'NOT_FOUND' : 'DATABASE';
+    return fail(message, code, code === 'DEPENDENCY' ? 409 : code === 'NOT_FOUND' ? 404 : insert.status);
+  }
+
   const rows = await insert.json() as TransferRow[];
   const inserted = rows[0];
-  await restFetch(url, '/ownership_transfer_history', serviceKey, {
-    method: 'POST',
-    body: JSON.stringify({
-      ownership_transfer_id: inserted.id,
-      from_status: 'Draft',
-      to_status: 'Requested',
-      changed_by: workspace.owner_id,
-    }),
-  });
-  await restFetch(url, '/global_audit_trail', serviceKey, {
-    method: 'POST',
-    body: JSON.stringify({
-      workspace_id: workspaceId,
-      user_id: workspace.owner_id,
-      action: 'ownership_transfer_create',
-      entity_type: 'ownership_transfer',
-      entity_id: inserted.id,
-      new_data: inserted,
-    }),
-  });
-  return response({ ok: true, data: inserted });
+  if (!inserted) return fail('Permintaan transfer tidak mengembalikan data.', 'DATABASE', 500);
+
+  const base = await readBase(url, serviceKey);
+  const mapped = mapTransfer(
+    inserted,
+    new Map(base.workspaces.map((workspace) => [workspace.id, workspace])),
+    base.users,
+    base.profiles,
+    base.members,
+  );
+  if (!mapped) return fail('Transfer berhasil dibuat tetapi detail tidak dapat dimuat.', 'DATABASE', 500);
+  return response({ ok: true, data: mapped });
 }
 
 Deno.serve(async (request) => {
@@ -360,15 +359,6 @@ Deno.serve(async (request) => {
     if (request.method === 'POST') {
       const body = await request.clone().json() as Record<string, unknown>;
       if (body.operation === 'create') {
-        // Run the same auth gate before the create-specific handler.
-        const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/, '');
-        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-        const url = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
-        const anon = createClient(url, anonKey, { auth: { persistSession: false } });
-        const authResult = await anon.auth.getUser(token);
-        if (authResult.error || !authResult.data.user || !isAdmin(authResult.data.user as User)) {
-          return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
-        }
         return await create(request);
       }
     }
