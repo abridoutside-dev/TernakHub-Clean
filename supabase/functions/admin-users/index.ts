@@ -236,9 +236,9 @@ function listItem(user: AuthUser, profile: Profile | null) {
 
 async function fetchAllUsers(url: string, key: string): Promise<{ users: AuthUser[]; total: number }> {
   const perPage = 100;
+  const maxPages = 1000;
   const users: AuthUser[] = [];
   let page = 1;
-  let reportedTotal: number | null = null;
 
   while (true) {
     const response = await authFetch(url, `/users?per_page=${perPage}&page=${page}`, key);
@@ -247,20 +247,8 @@ async function fetchAllUsers(url: string, key: string): Promise<{ users: AuthUse
     const pageUsers = Array.isArray(body) ? body : body.users ?? [];
     users.push(...pageUsers);
 
-    if (reportedTotal === null) {
-      const header = response.headers.get('x-total-count');
-      const parsedHeader = header ? Number.parseInt(header, 10) : Number.NaN;
-      if (Number.isFinite(parsedHeader) && parsedHeader >= 0) {
-        reportedTotal = parsedHeader;
-      } else {
-        const link = response.headers.get('link') ?? '';
-        const lastPage = link.match(/page=(\d+)[^>]*>;\s*rel="last"/i);
-        if (lastPage) reportedTotal = Number(lastPage[1]) * perPage;
-      }
-    }
-
     if (pageUsers.length < perPage) break;
-    if (reportedTotal !== null && users.length >= reportedTotal) break;
+    if (page >= maxPages) throw new Error('Data pengguna melebihi batas maksimum yang dapat dimuat');
     page += 1;
   }
 

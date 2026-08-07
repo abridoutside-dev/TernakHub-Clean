@@ -4,6 +4,7 @@
 // stats, all admin actions, workspace management, UX polish.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -77,15 +78,15 @@ function SkeletonBox({ width = '100%', height = 20 }: { width?: string | number;
   return <div style={{ width, height, borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'adm-shimmer 1.4s infinite' }} />;
 }
 
-function Badge({ children, color = '#3b82f6', bg = '#eff6ff' }: { children: React.ReactNode; color?: string; bg?: string }) {
+function Badge({ children, color = '#3b82f6', bg = '#eff6ff' }: { children: ReactNode; color?: string; bg?: string }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, background: bg, color, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>{children}</span>;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 18 }}>{children}</div>;
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '7px 0', borderBottom: '1px solid #f1f5f9' }}>
       <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
@@ -190,11 +191,11 @@ function DependencyModal({
   onClose: () => void;
   onReload: () => Promise<void>;
   onDeleteUser: () => Promise<void>;
-  onTransferOwnership: (workspaceId: string, newOwnerId: string) => Promise<void>;
-  onDeleteWorkspace: (workspaceId: string) => Promise<void>;
-  onRemoveMember: (membershipId: string) => Promise<void>;
-  onRemoveRole: (role: WorkspaceRoleDependency) => Promise<void>;
-  onRemoveInvitation: (invitationId: string) => Promise<void>;
+  onTransferOwnership: (workspaceId: string, newOwnerId: string) => Promise<boolean>;
+  onDeleteWorkspace: (workspaceId: string) => Promise<boolean>;
+  onRemoveMember: (membershipId: string) => Promise<boolean>;
+  onRemoveRole: (role: WorkspaceRoleDependency) => Promise<boolean>;
+  onRemoveInvitation: (invitationId: string) => Promise<boolean>;
 }) {
   const [newOwnerId, setNewOwnerId] = useState('');
   const [transferWorkspaceId, setTransferWorkspaceId] = useState<string | null>(null);
@@ -350,7 +351,7 @@ function DependencyModal({
   );
 }
 
-function DependencySection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+function DependencySection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
     <section style={{ marginTop: 18 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>{title} <span style={{ color: '#94a3b8' }}>({count})</span></div>
@@ -363,7 +364,7 @@ function DependencyEmpty() {
   return <div style={{ padding: '9px 11px', border: '1px dashed #cbd5e1', borderRadius: 8, color: '#94a3b8', background: '#fff', fontSize: 11.5 }}>Tidak ada dependency.</div>;
 }
 
-function DependencyRow({ title, detail, children }: { title: string; detail: string; children: React.ReactNode }) {
+function DependencyRow({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 11px', border: '1px solid #f1f5f9', borderRadius: 8, background: '#f8fafc' }}>
       <div style={{ minWidth: 0 }}>
@@ -375,7 +376,7 @@ function DependencyRow({ title, detail, children }: { title: string; detail: str
   );
 }
 
-function smallButton(color: string, background: string, disabled: boolean): React.CSSProperties {
+function smallButton(color: string, background: string, disabled: boolean): CSSProperties {
   return { padding: '6px 9px', borderRadius: 6, border: `1px solid ${color}30`, background, color, fontSize: 11, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, whiteSpace: 'nowrap' };
 }
 
@@ -470,7 +471,7 @@ function EditUserModal({
 
 // ─── Add Workspace Modal ──────────────────────────────────────────────────────
 
-function AddWorkspaceModal({ userId, onSave, onClose }: { userId: string; onSave: (workspaceId: string, role: string) => Promise<void>; onClose: () => void }) {
+function AddWorkspaceModal({ onSave, onClose }: { onSave: (workspaceId: string, role: string) => Promise<void>; onClose: () => void }) {
   const [wsId, setWsId] = useState('');
   const [role, setRole] = useState<string>('Viewer');
   const [saving, setSaving] = useState(false);
@@ -580,10 +581,6 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
     }
   }, [userId]);
 
-  useEffect(() => {
-    if (!loading) void loadDependencies().catch(() => undefined);
-  }, [loading, loadDependencies]);
-
   const prepareDelete = async () => {
     try {
       const result = await loadDependencies();
@@ -606,18 +603,43 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
     key: string,
     fn: () => Promise<{ ok: boolean }>,
     successMsg: string,
-  ) => {
+  ): Promise<boolean> => {
     setActionLoading(key);
     try {
       const result = await fn();
       if (!result.ok) throw new Error('Aksi dependency tidak berhasil diproses.');
+      if (!mountedRef.current) return false;
       onAction(successMsg, 'success');
       await loadDependencies();
       await loadUser();
+      return true;
     } catch (e) {
-      onAction(e instanceof Error ? e.message : 'Aksi dependency gagal', 'error');
+      if (mountedRef.current) onAction(e instanceof Error ? e.message : 'Aksi dependency gagal', 'error');
+      return false;
     } finally {
-      setActionLoading(null);
+      if (mountedRef.current) setActionLoading(null);
+    }
+  };
+
+  const runWorkspaceAction = async (
+    key: string,
+    fn: () => Promise<{ ok: boolean }>,
+    successMsg: string,
+  ): Promise<boolean> => {
+    setActionLoading(key);
+    try {
+      const result = await fn();
+      if (!result.ok) throw new Error('Operasi workspace tidak berhasil diproses.');
+      if (!mountedRef.current) return false;
+      onAction(successMsg, 'success');
+      await loadUser();
+      onRefreshList();
+      return true;
+    } catch (e) {
+      if (mountedRef.current) onAction(e instanceof Error ? e.message : 'Operasi workspace gagal', 'error');
+      return false;
+    } finally {
+      if (mountedRef.current) setActionLoading(null);
     }
   };
 
@@ -626,6 +648,7 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
     setConfirm(null);
     try {
       const res = await fn();
+      if (!mountedRef.current) return false;
       if (res.ok) {
         onAction(successMsg, 'success', res.link);
         await loadUser();
@@ -635,10 +658,10 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
       onAction('Aksi tidak berhasil diproses.', 'error');
       return false;
     } catch (e) {
-      onAction(e instanceof Error ? e.message : 'Aksi gagal', 'error');
+      if (mountedRef.current) onAction(e instanceof Error ? e.message : 'Aksi gagal', 'error');
       return false;
     } finally {
-      setActionLoading(null);
+      if (mountedRef.current) setActionLoading(null);
     }
   };
 
@@ -795,34 +818,26 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
               {/* Workspace */}
               <SectionLabel>Workspace</SectionLabel>
               <WorkspaceList
-                userId={userId}
                 memberships={user.workspaces}
-                onAction={onAction}
                 onShowAdd={() => setShowAddWs(true)}
-                onReload={loadUser}
+                actionLoading={actionLoading}
                 editingId={wsEditId}
                 editRole={wsEditRole}
                 onStartEdit={(id, role) => { setWsEditId(id); setWsEditRole(role); }}
                 onCancelEdit={() => setWsEditId(null)}
                 onSaveEdit={async (memberId, role) => {
-                  try {
-                    await adminUserService.updateWorkspace(userId, memberId, { role });
-                    onAction('Peran diperbarui', 'success');
-                    setWsEditId(null);
-                    await loadUser();
-                  } catch (e) {
-                    onAction(e instanceof Error ? e.message : 'Gagal', 'error');
-                  }
+                  const succeeded = await runWorkspaceAction(
+                    `workspace-edit:${memberId}`,
+                    () => adminUserService.updateWorkspace(userId, memberId, { role }),
+                    'Peran diperbarui',
+                  );
+                  if (succeeded) setWsEditId(null);
                 }}
-                onRemove={async (memberId) => {
-                  try {
-                    await adminUserService.removeWorkspace(userId, memberId);
-                    onAction('Membership dihapus', 'success');
-                    await loadUser();
-                  } catch (e) {
-                    onAction(e instanceof Error ? e.message : 'Gagal', 'error');
-                  }
-                }}
+                onRemove={memberId => runWorkspaceAction(
+                  `workspace-remove:${memberId}`,
+                  () => adminUserService.removeWorkspace(userId, memberId),
+                  'Membership dihapus',
+                ).then(() => undefined)}
               />
 
               {/* Aksi Admin */}
@@ -953,7 +968,6 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
       {/* Add Workspace Modal */}
       {showAddWs && (
         <AddWorkspaceModal
-          userId={userId}
           onClose={() => setShowAddWs(false)}
           onSave={async (wsId, role) => {
             await adminUserService.addWorkspace(userId, { workspace_id: wsId, role });
@@ -970,11 +984,9 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
 // ─── Workspace List (used inside detail drawer) ───────────────────────────────
 
 interface WorkspaceListProps {
-  userId: string;
   memberships: WorkspaceMembership[];
-  onAction: (msg: string, type: 'success' | 'error') => void;
   onShowAdd: () => void;
-  onReload: () => void;
+  actionLoading: string | null;
   editingId: string | null;
   editRole: string;
   onStartEdit: (id: string, role: string) => void;
@@ -983,7 +995,7 @@ interface WorkspaceListProps {
   onRemove: (memberId: string) => Promise<void>;
 }
 
-function WorkspaceList({ memberships, onShowAdd, editingId, editRole, onStartEdit, onCancelEdit, onSaveEdit, onRemove }: WorkspaceListProps) {
+function WorkspaceList({ memberships, onShowAdd, actionLoading, editingId, editRole, onStartEdit, onCancelEdit, onSaveEdit, onRemove }: WorkspaceListProps) {
   const [pendingRole, setPendingRole] = useState(editRole);
   useEffect(() => { setPendingRole(editRole); }, [editRole]);
 
@@ -1014,8 +1026,8 @@ function WorkspaceList({ memberships, onShowAdd, editingId, editRole, onStartEdi
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                <button onClick={() => onStartEdit(m.id, m.role)} title="Ubah peran" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 11.5, cursor: 'pointer' }}>✏️</button>
-                <button onClick={() => onRemove(m.id)} title="Hapus membership" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: 11.5, cursor: 'pointer' }}>🗑️</button>
+                <button disabled={actionLoading !== null} onClick={() => onStartEdit(m.id, m.role)} title="Ubah peran" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 11.5, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.55 : 1 }}>✏️</button>
+                <button disabled={actionLoading !== null} onClick={() => onRemove(m.id)} title="Hapus membership" style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: 11.5, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.55 : 1 }}>🗑️</button>
               </div>
             </div>
             {isEditing && (
@@ -1024,8 +1036,8 @@ function WorkspaceList({ memberships, onShowAdd, editingId, editRole, onStartEdi
                   style={{ flex: 1, padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 13, background: '#fff' }}>
                   {['Owner','Admin','Staff','Viewer','Guest'].map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <button onClick={() => onSaveEdit(m.id, pendingRole)} style={{ padding: '6px 12px', borderRadius: 7, border: 'none', background: '#3b82f6', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Simpan</button>
-                <button onClick={onCancelEdit} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12.5, cursor: 'pointer' }}>Batal</button>
+                <button disabled={actionLoading !== null} onClick={() => onSaveEdit(m.id, pendingRole)} style={{ padding: '6px 12px', borderRadius: 7, border: 'none', background: '#3b82f6', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.55 : 1 }}>Simpan</button>
+                <button disabled={actionLoading !== null} onClick={onCancelEdit} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12.5, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.55 : 1 }}>Batal</button>
               </div>
             )}
           </div>
@@ -1455,6 +1467,7 @@ export default function UsersModule() {
       {/* Detail Drawer */}
       {selectedId && (
         <UserDetailDrawer
+          key={selectedId}
           userId={selectedId}
           onClose={() => setSelectedId(null)}
           onAction={toast}
