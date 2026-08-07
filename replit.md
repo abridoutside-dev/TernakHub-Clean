@@ -36,6 +36,11 @@ Admin user operations are dispatched through the dedicated `admin-users`
 Supabase Edge Function. The browser does not use a legacy `/api` or Node backend
 route for User operations.
 
+Ownership Transfer operations follow the same boundary through
+`WorkspaceService` → `WorkspaceOwnershipRepository` → `ownership-transfers`
+Supabase Edge Function. The module supports list/detail/create, dependency
+pre-check, approve/reject/cancel, history, and audit-log viewing.
+
 ## Build & deploy
 ```bash
 npm run build          # tsc + vite build → dist/

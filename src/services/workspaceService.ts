@@ -111,6 +111,21 @@ import {
   WorkspaceRolesRepoError,
 } from '../repositories/workspaceRolesRepository';
 import { supabase } from '../lib/supabase';
+import type {
+  CreateOwnershipTransferInput,
+  OwnershipTransferAction,
+  OwnershipTransferListResponse,
+  OwnershipTransferPreflight,
+  OwnershipTransferRecord,
+} from '../types/ownershipTransfer';
+import {
+  repoCreateOwnershipTransfer,
+  repoGetOwnershipTransfer,
+  repoGetOwnershipTransferPreflight,
+  repoListOwnershipTransfers,
+  repoTransitionOwnershipTransfer,
+  WorkspaceOwnershipRepoError,
+} from '../repositories/workspaceOwnershipRepository';
 
 // ─── Re-export slug utilities (consumers import from the service, not the repo)
 
@@ -510,6 +525,72 @@ export async function removeWorkspaceRelationship(
     return { ok: true, data: await repoDeleteWorkspaceRelationship(id, preflight) };
   } catch (error) {
     return relationshipError(error, 'Gagal menghapus relationship.');
+  }
+}
+
+// ─── Ownership Transfer ───────────────────────────────────────────────────────
+// UI → WorkspaceService → WorkspaceOwnershipRepository → Edge Function.
+
+export type OwnershipTransferResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { message: string; code?: string } };
+
+function ownershipTransferError(
+  error: unknown,
+  fallback: string,
+): OwnershipTransferResult<never> {
+  return {
+    ok: false,
+    error: {
+      message: error instanceof WorkspaceOwnershipRepoError
+        ? error.message
+        : error instanceof Error ? error.message : fallback,
+      code: error instanceof WorkspaceOwnershipRepoError ? error.code : undefined,
+    },
+  };
+}
+
+export async function getOwnershipTransfers(): Promise<OwnershipTransferListResponse> {
+  return repoListOwnershipTransfers();
+}
+
+export async function getOwnershipTransfer(
+  transferId: string,
+): Promise<OwnershipTransferRecord | null> {
+  return repoGetOwnershipTransfer(transferId);
+}
+
+export async function createOwnershipTransfer(
+  input: CreateOwnershipTransferInput,
+): Promise<OwnershipTransferResult<OwnershipTransferRecord>> {
+  if (!input.workspace_id || !input.to_user_id) {
+    return { ok: false, error: { message: 'Workspace dan user penerima wajib dipilih.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoCreateOwnershipTransfer(input) };
+  } catch (error) {
+    return ownershipTransferError(error, 'Gagal membuat permintaan transfer kepemilikan.');
+  }
+}
+
+export async function getOwnershipTransferPreflight(
+  transferId: string,
+): Promise<OwnershipTransferPreflight | null> {
+  return repoGetOwnershipTransferPreflight(transferId);
+}
+
+export async function transitionOwnershipTransfer(
+  transferId: string,
+  action: OwnershipTransferAction,
+  reason?: string,
+): Promise<OwnershipTransferResult<OwnershipTransferRecord>> {
+  if (!transferId) {
+    return { ok: false, error: { message: 'Transfer ID wajib diisi.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoTransitionOwnershipTransfer(transferId, action, reason) };
+  } catch (error) {
+    return ownershipTransferError(error, 'Status transfer kepemilikan tidak dapat diperbarui.');
   }
 }
 

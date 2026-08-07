@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.workspace-roles]
 verify_jwt = false
+
+[functions.ownership-transfers]
+verify_jwt = false

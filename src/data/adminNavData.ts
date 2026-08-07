@@ -245,8 +245,8 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Ownership Transfer',
         icon: '🔄',
         path: '/admin/ownership-transfer',
-        syncStatus: 'dummy',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
         children: [
           { key: 'own-all',     label: 'Semua Permintaan', path: '/admin/ownership-transfer',         icon: '📋' },
           { key: 'own-pending', label: 'Dalam Proses',     path: '/admin/ownership-transfer/pending', icon: '⏳' },
