@@ -167,16 +167,50 @@ function ConfirmDialog({ title, message, confirmLabel = 'Konfirmasi', danger = f
 
 // ─── Edit User Modal ──────────────────────────────────────────────────────────
 
-function EditUserModal({ user, onSave, onClose }: { user: UserDetail; onSave: (data: { full_name: string; is_admin: boolean }) => Promise<void>; onClose: () => void }) {
+function EditUserModal({
+  user,
+  onSave,
+  onClose,
+}: {
+  user: UserDetail;
+  onSave: (data: {
+    full_name: string;
+    is_admin: boolean;
+    user_metadata: Record<string, unknown>;
+    app_metadata: Record<string, unknown>;
+  }) => Promise<void>;
+  onClose: () => void;
+}) {
   const [name, setName] = useState(user.profile?.full_name ?? user.profile?.display_name ?? '');
   const [isAdmin, setIsAdmin] = useState(user.is_admin);
+  const [userMetadata, setUserMetadata] = useState(JSON.stringify(user.user_metadata ?? {}, null, 2));
+  const [appMetadata, setAppMetadata] = useState(JSON.stringify(user.app_metadata ?? {}, null, 2));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
   const handleSave = async () => {
     setSaving(true); setErr('');
     try {
-      await onSave({ full_name: name.trim(), is_admin: isAdmin });
+      let parsedUserMetadata: unknown;
+      let parsedAppMetadata: unknown;
+      try {
+        parsedUserMetadata = JSON.parse(userMetadata);
+        parsedAppMetadata = JSON.parse(appMetadata);
+      } catch {
+        throw new Error('Metadata harus berupa JSON yang valid.');
+      }
+      if (!parsedUserMetadata || typeof parsedUserMetadata !== 'object' || Array.isArray(parsedUserMetadata)) {
+        throw new Error('User metadata harus berupa object JSON.');
+      }
+      if (!parsedAppMetadata || typeof parsedAppMetadata !== 'object' || Array.isArray(parsedAppMetadata)) {
+        throw new Error('App metadata harus berupa object JSON.');
+      }
+      await onSave({
+        full_name: name.trim(),
+        is_admin: isAdmin,
+        user_metadata: parsedUserMetadata as Record<string, unknown>,
+        app_metadata: parsedAppMetadata as Record<string, unknown>,
+      });
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Gagal menyimpan');
     } finally {
@@ -198,6 +232,16 @@ function EditUserModal({ user, onSave, onClose }: { user: UserDetail; onSave: (d
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, cursor: 'pointer' }}>
           <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} style={{ width: 16, height: 16 }} />
           <span style={{ fontSize: 13, color: '#0f172a' }}>Berikan akses Admin</span>
+        </label>
+        <label style={{ display: 'block', marginBottom: 14 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: '#64748b', marginBottom: 5 }}>User Metadata (JSON)</div>
+          <textarea value={userMetadata} onChange={e => setUserMetadata(e.target.value)} rows={7}
+            style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11.5, fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none', resize: 'vertical' }} />
+        </label>
+        <label style={{ display: 'block', marginBottom: 20 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: '#64748b', marginBottom: 5 }}>App Metadata (JSON)</div>
+          <textarea value={appMetadata} onChange={e => setAppMetadata(e.target.value)} rows={5}
+            style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 11.5, fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none', resize: 'vertical' }} />
         </label>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={saving} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
@@ -541,7 +585,14 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
           user={user}
           onClose={() => setShowEdit(false)}
           onSave={async (data) => {
-            await adminUserService.updateUser(userId, data);
+            await adminUserService.updateMetadata(userId, {
+              user_metadata: {
+                ...data.user_metadata,
+                full_name: data.full_name,
+                is_admin: data.is_admin,
+              },
+              app_metadata: data.app_metadata,
+            });
             onAction('User berhasil diperbarui', 'success');
             setShowEdit(false);
             await loadUser();

@@ -7,3 +7,4 @@
 - [Node.js 20 Supabase WebSocket crash](nodejs20-websocket-supabase.md) — createClient() throws on auth.getUser() in Node.js 20; use direct /auth/v1/user REST call instead.
 - [Admin user Edge Function path](admin-user-edge-function-path.md) — Cloudflare Pages admin user operations use the dedicated admin-users function, never platform-health or /api routes.
 - [Supabase CLI config compatibility](supabase-cli-config-compatibility.md) — the older workspace CLI needs a temporary legacy config when deploying an individual Edge Function.
+- [Admin user error and pagination handling](admin-user-error-pagination.md) — parse Edge Function response bodies in the browser; Auth pagination headers are hints, not authoritative totals.
