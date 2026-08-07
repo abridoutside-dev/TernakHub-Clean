@@ -100,6 +100,20 @@ function stringValue(value: unknown): string | null {
 function nullableNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
+function optionalDate(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    throw new Error('Tanggal subscription tidak valid.');
+  }
+  return new Date(value).toISOString();
+}
+function billingCycle(value: unknown): 'monthly' | 'yearly' | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (value !== 'monthly' && value !== 'yearly') throw new Error('Billing cycle tidak valid.');
+  return value;
+}
 function packagePayload(body: Record<string, unknown>) {
   const planKey = stringValue(body.plan_key)?.toLowerCase();
   const name = stringValue(body.name);
@@ -391,6 +405,10 @@ async function main(request: Request): Promise<Response> {
   if (operation === 'delete-package') {
     const packageId = body.package_id;
     if (!isUuid(packageId)) return fail('Package ID tidak valid.');
+    const checkedAt = typeof body.preflight_checked_at === 'string' ? Date.parse(body.preflight_checked_at) : NaN;
+    if (!Number.isFinite(checkedAt) || Date.now() - checkedAt > 5 * 60 * 1000 || checkedAt > Date.now()) {
+      return fail('Pre-check paket kedaluwarsa. Jalankan pre-check kembali.', 'PREFLIGHT_REQUIRED', 409);
+    }
     const count = base.subscriptions.filter((item) => item.plan_id === packageId).length;
     if (count > 0) return fail('Paket masih digunakan oleh subscription workspace.', 'DEPENDENCY', 409);
     const result = await restFetch(url, `/subscription_plans?id=eq.${encodeURIComponent(packageId)}`, serviceKey, { method: 'DELETE' });
@@ -403,14 +421,18 @@ async function main(request: Request): Promise<Response> {
     const packageId = body.package_id;
     if (!isUuid(workspaceId) || !isUuid(packageId)) return fail('Workspace atau package ID tidak valid.');
     if (!base.workspaceMap.has(workspaceId) || !base.packageMap.has(packageId)) return fail('Workspace atau paket tidak ditemukan.', 'NOT_FOUND', 404);
+    const packageToAssign = base.packageMap.get(packageId);
+    if (!packageToAssign?.is_active) return fail('Paket tidak aktif dan tidak dapat di-assign.', 'PACKAGE_INACTIVE', 409);
     if (base.subscriptions.some((item) => item.workspace_id === workspaceId)) return fail('Workspace sudah memiliki subscription.', 'DUPLICATE', 409);
+    const expiresAt = optionalDate(body.expires_at);
+    const cycle = billingCycle(body.billing_cycle);
     const row = {
       workspace_id: workspaceId,
       plan_id: packageId,
       status: 'Aktif',
       started_at: new Date().toISOString(),
-      expires_at: body.expires_at ?? null,
-      billing_cycle: body.billing_cycle ?? null,
+      expires_at: expiresAt ?? null,
+      billing_cycle: cycle ?? null,
       auto_renew: false,
     };
     const result = await restFetch(url, '/workspace_subscriptions', serviceKey, { method: 'POST', body: JSON.stringify(row) });
@@ -451,24 +473,41 @@ async function main(request: Request): Promise<Response> {
   if (operation === 'change-package') {
     const packageId = body.package_id;
     if (!isUuid(packageId) || !base.packageMap.has(packageId)) return fail('Package ID tidak valid.');
-    const currentPlan = base.packageMap.get(existing.plan_id);
     const nextPlan = base.packageMap.get(packageId);
+    if (!nextPlan?.is_active) return fail('Paket tujuan tidak aktif.', 'PACKAGE_INACTIVE', 409);
+    const currentPlan = base.packageMap.get(existing.plan_id);
     const order: Record<string, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 };
     const action = (order[nextPlan?.plan_key ?? ''] ?? 0) >= (order[currentPlan?.plan_key ?? ''] ?? 0)
       ? 'Upgrade' : 'Downgrade';
     const updated = await updateSubscription(url, serviceKey, actor.id, existing, {
       plan_id: packageId,
-      billing_cycle: body.billing_cycle ?? existing.billing_cycle,
-      expires_at: body.expires_at ?? existing.expires_at,
+      billing_cycle: billingCycle(body.billing_cycle) ?? existing.billing_cycle,
+      expires_at: optionalDate(body.expires_at) ?? existing.expires_at,
     }, action, 'Package changed by admin');
     return response({ ok: true, data: mapSubscription(updated, base.workspaceMap, base.packageMap) });
   }
-  if (operation === 'expire' || operation === 'cancel') {
-    const nextStatus: Status = operation === 'expire' ? 'Kadaluarsa' : 'Dibatalkan';
+  if (operation === 'activate' || operation === 'deactivate' || operation === 'expire' || operation === 'cancel') {
+    const nextStatus: Status = operation === 'activate'
+      ? 'Aktif'
+      : operation === 'deactivate'
+        ? 'Ditangguhkan'
+        : operation === 'expire' ? 'Kadaluarsa' : 'Dibatalkan';
+    if (operation === 'activate' && existing.status !== 'Ditangguhkan' && existing.status !== 'Trial') {
+      return fail('Hanya subscription ditangguhkan atau trial yang dapat diaktifkan.', 'INVALID_TRANSITION', 409);
+    }
+    if (operation === 'deactivate' && existing.status !== 'Aktif' && existing.status !== 'Trial') {
+      return fail('Hanya subscription aktif atau trial yang dapat dinonaktifkan.', 'INVALID_TRANSITION', 409);
+    }
+    if (operation === 'expire' && existing.status !== 'Aktif' && existing.status !== 'Trial') {
+      return fail('Hanya subscription aktif atau trial yang dapat di-expire.', 'INVALID_TRANSITION', 409);
+    }
+    if (operation === 'cancel' && existing.status === 'Dibatalkan') {
+      return fail('Subscription sudah dibatalkan.', 'INVALID_TRANSITION', 409);
+    }
     const updated = await updateSubscription(url, serviceKey, actor.id, existing, {
       status: nextStatus,
-      expires_at: operation === 'expire' ? new Date().toISOString() : existing.expires_at,
-    }, operation === 'expire' ? 'Expire' : 'Cancel', `Subscription ${operation}d by admin`);
+      expires_at: operation === 'expire' ? new Date().toISOString() : operation === 'activate' ? null : existing.expires_at,
+    }, operation === 'expire' ? 'Expire' : operation === 'cancel' ? 'Cancel' : operation === 'activate' ? 'Aktivasi' : 'Deaktivasi', `Subscription ${operation}d by admin`);
     return response({ ok: true, data: mapSubscription(updated, base.workspaceMap, base.packageMap) });
   }
   return fail('Operasi subscription tidak dikenal.');

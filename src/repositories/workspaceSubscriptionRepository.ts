@@ -24,6 +24,20 @@ export class SubscriptionRepoError extends Error {
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error?: string; code?: string };
 
+async function errorMessage(error: { message?: string; context?: unknown }): Promise<string> {
+  const context = error.context;
+  if (context instanceof Response) {
+    try {
+      const body = await context.clone().json() as { error?: unknown; message?: unknown };
+      if (typeof body.error === 'string' && body.error.trim()) return body.error;
+      if (typeof body.message === 'string' && body.message.trim()) return body.message;
+    } catch {
+      // Fall through to the SDK message when the response is not JSON.
+    }
+  }
+  return error.message || 'Operasi subscription gagal.';
+}
+
 async function invoke<T>(
   operation: string,
   payload: Record<string, unknown> = {},
@@ -33,7 +47,7 @@ async function invoke<T>(
     { body: { action: 'workspace-subscriptions', operation, ...payload } },
   );
   if (error) {
-    throw new SubscriptionRepoError(error.message || 'Operasi subscription gagal.');
+    throw new SubscriptionRepoError(await errorMessage(error));
   }
   if (!data?.ok) {
     throw new SubscriptionRepoError(
@@ -113,7 +127,7 @@ export function repoChangeSubscription(input: {
 
 export function repoTransitionSubscription(
   id: string,
-  operation: 'expire' | 'cancel',
+  operation: 'activate' | 'deactivate' | 'expire' | 'cancel',
 ): Promise<SubscriptionRecordAdmin> {
   return invoke(operation, { subscription_id: id });
 }

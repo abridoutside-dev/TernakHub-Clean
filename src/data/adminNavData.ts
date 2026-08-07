@@ -259,8 +259,8 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Subscription',
         icon: '⭐',
         path: '/admin/subscription',
-        syncStatus: 'dummy',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
         children: [
           { key: 'sub-plans',    label: 'Paket',         path: '/admin/subscription',          icon: '📋' },
           { key: 'sub-billing',  label: 'Tagihan',       path: '/admin/subscription/billing',  icon: '💳' },

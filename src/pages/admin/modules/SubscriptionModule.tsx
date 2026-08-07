@@ -5,8 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import {
   assignSubscriptionPackage,
+  activateSubscription,
   cancelSubscription,
   changeSubscriptionPackage,
+  deactivateSubscription,
   createSubscriptionPackage,
   deleteSubscriptionPackage,
   expireSubscription,
@@ -152,10 +154,71 @@ function PackageDetail({
     </div>
   </aside></div>;
 }
+
+function ChangePackageDialog({
+  item, packages, onClose, onSaved,
+}: {
+  item: SubscriptionRecordAdmin;
+  packages: SubscriptionPackage[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [packageId, setPackageId] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | ''>(item.billing_cycle ?? '');
+  const [expiresAt, setExpiresAt] = useState(item.expires_at?.slice(0, 10) ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const choices = packages.filter((pkg) => pkg.is_active && pkg.id !== item.plan_id);
+
+  const submit = async () => {
+    if (!packageId) {
+      setError('Pilih paket tujuan terlebih dahulu.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const result = await changeSubscriptionPackage({
+      subscription_id: item.id,
+      package_id: packageId,
+      billing_cycle: billingCycle || undefined,
+      expires_at: expiresAt ? `${expiresAt}T23:59:59.000Z` : null,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    onSaved();
+  };
+
+  return <div style={overlay}><div style={{ ...dialog, width: 480 }}>
+    <div style={dialogHeader}><div><strong>Change Package</strong><div style={{ color: muted, fontSize: 12 }}>{item.workspace_name} · {item.plan_name}</div></div><button type="button" onClick={onClose} style={close}>×</button></div>
+    <div style={{ display: 'grid', gap: 14, padding: 20 }}>
+      <label style={labelStyle}>Paket tujuan
+        <select value={packageId} onChange={(event) => setPackageId(event.target.value)} style={inputStyle}>
+          <option value="">Pilih paket aktif</option>
+          {choices.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} ({pkg.plan_key})</option>)}
+        </select>
+      </label>
+      <label style={labelStyle}>Billing cycle
+        <select value={billingCycle} onChange={(event) => setBillingCycle(event.target.value as typeof billingCycle)} style={inputStyle}>
+          <option value="">Tidak diubah</option><option value="monthly">Bulanan</option><option value="yearly">Tahunan</option>
+        </select>
+      </label>
+      <label style={labelStyle}>Berakhir pada
+        <input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} style={inputStyle} />
+      </label>
+      {error && <div style={errorBox}>{error}</div>}
+    </div>
+    <div style={footer}><Button secondary onClick={onClose}>Batal</Button><Button onClick={() => void submit()} disabled={busy || !choices.length}>{busy ? 'Menyimpan…' : 'Simpan perubahan'}</Button></div>
+  </div></div>;
+}
+
 function SubscriptionsTable({
   items, packages, workspaces, onRefresh,
 }: { items: SubscriptionRecordAdmin[]; packages: SubscriptionPackage[]; workspaces: SubscriptionAdminData['workspaces']; onRefresh: () => void }) {
   const [selected, setSelected] = useState<SubscriptionRecordAdmin | null>(null);
+  const [changeTarget, setChangeTarget] = useState<SubscriptionRecordAdmin | null>(null);
   const [workspaceId, setWorkspaceId] = useState('');
   const [packageId, setPackageId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -167,14 +230,18 @@ function SubscriptionsTable({
     setBusy(false); if (!result.ok) window.alert(result.error.message); else { setWorkspaceId(''); setPackageId(''); onRefresh(); }
   };
   const change = async (item: SubscriptionRecordAdmin) => {
-    const next = window.prompt('Masukkan package ID baru:', item.plan_id);
-    if (!next || next === item.plan_id) return;
-    setBusy(true); const result = await changeSubscriptionPackage({ subscription_id: item.id, package_id: next });
-    setBusy(false); if (!result.ok) window.alert(result.error.message); else onRefresh();
+    setChangeTarget(item);
   };
-  const transition = async (item: SubscriptionRecordAdmin, op: 'expire' | 'cancel') => {
+  const transition = async (item: SubscriptionRecordAdmin, op: 'activate' | 'deactivate' | 'expire' | 'cancel') => {
     if (!window.confirm(`Lanjutkan ${op} subscription ini?`)) return;
-    setBusy(true); const result = op === 'expire' ? await expireSubscription(item.id) : await cancelSubscription(item.id);
+    setBusy(true);
+    const result = op === 'expire'
+      ? await expireSubscription(item.id)
+      : op === 'cancel'
+        ? await cancelSubscription(item.id)
+        : op === 'activate'
+          ? await activateSubscription(item.id)
+          : await deactivateSubscription(item.id);
     setBusy(false); if (!result.ok) window.alert(result.error.message); else onRefresh();
   };
   return <div>
@@ -184,10 +251,11 @@ function SubscriptionsTable({
       <Button onClick={() => void assign()} disabled={busy || !workspaceId || !packageId}>Assign</Button>
     </div>
     <div style={tableWrap}><table style={table}><thead><tr>{['Workspace', 'Paket', 'Status', 'Mulai', 'Berakhir', 'Aksi'].map((head) => <th key={head} style={th}>{head}</th>)}</tr></thead><tbody>
-      {filtered.map((item) => <tr key={item.id}><td style={td}><strong>{item.workspace_name}</strong><div style={{ color: muted, fontSize: 11 }}>{item.workspace_type}</div></td><td style={td}>{item.plan_name}<div style={{ color: muted, fontSize: 11 }}>{item.plan_key}</div></td><td style={td}><Status value={item.status} /></td><td style={td}>{dateOf(item.started_at)}</td><td style={td}>{dateOf(item.expires_at)}</td><td style={td}><div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><Button secondary onClick={() => setSelected(item)}>Detail</Button><Button secondary onClick={() => void change(item)}>Change</Button>{item.status === 'Aktif' && <Button secondary onClick={() => void transition(item, 'expire')}>Expire</Button>}<Button danger onClick={() => void transition(item, 'cancel')}>Cancel</Button></div></td></tr>)}
+      {filtered.map((item) => <tr key={item.id}><td style={td}><strong>{item.workspace_name}</strong><div style={{ color: muted, fontSize: 11 }}>{item.workspace_type}</div></td><td style={td}>{item.plan_name}<div style={{ color: muted, fontSize: 11 }}>{item.plan_key}</div></td><td style={td}><Status value={item.status} /></td><td style={td}>{dateOf(item.started_at)}</td><td style={td}>{dateOf(item.expires_at)}</td><td style={td}><div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><Button secondary onClick={() => setSelected(item)} disabled={busy}>Detail</Button><Button secondary onClick={() => void change(item)} disabled={busy || item.status === 'Dibatalkan' || item.status === 'Kadaluarsa'}>Change</Button>{item.status === 'Aktif' && <><Button secondary onClick={() => void transition(item, 'deactivate')} disabled={busy}>Deactivate</Button><Button secondary onClick={() => void transition(item, 'expire')} disabled={busy}>Expire</Button></>}{item.status === 'Ditangguhkan' && <Button secondary onClick={() => void transition(item, 'activate')} disabled={busy}>Activate</Button>}<Button danger onClick={() => void transition(item, 'cancel')} disabled={busy || item.status === 'Dibatalkan'}>Cancel</Button></div></td></tr>)}
       {!filtered.length && <tr><td colSpan={6} style={{ ...td, textAlign: 'center', padding: 40, color: muted }}>Belum ada subscription.</td></tr>}
     </tbody></table></div>
     {selected && <div style={overlay}><aside style={drawer}><div style={dialogHeader}><strong>Detail Subscription</strong><button type="button" onClick={() => setSelected(null)} style={close}>×</button></div><div style={{ padding: 20 }}>{[['Workspace', selected.workspace_name], ['Paket', selected.plan_name], ['Status', selected.status], ['Billing cycle', selected.billing_cycle ?? '—'], ['Auto renew', selected.auto_renew ? 'Ya' : 'Tidak'], ['Payment method', selected.payment_method ?? '—'], ['Diperbarui', dateOf(selected.updated_at)]].map(([key, value]) => <div key={key} style={infoRow}><span style={{ color: muted }}>{key}</span><strong>{value}</strong></div>)}</div></aside></div>}
+    {changeTarget && <ChangePackageDialog item={changeTarget} packages={packages} onClose={() => setChangeTarget(null)} onSaved={() => { setChangeTarget(null); onRefresh(); }} />}
   </div>;
 }
 function Logs({ history, audit }: { history: SubscriptionHistoryEntryAdmin[]; audit: SubscriptionAuditEntry[] }) {

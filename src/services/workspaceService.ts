@@ -684,6 +684,7 @@ export async function setSubscriptionPackageStatus(
   id: string,
   active: boolean,
 ): Promise<SubscriptionServiceResult<SubscriptionPackage>> {
+  if (!id) return { ok: false, error: { message: 'Package ID wajib diisi.', code: 'VALIDATION' } };
   try {
     return { ok: true, data: await repoSetSubscriptionPackageStatus(id, active) };
   } catch (error) {
@@ -699,6 +700,9 @@ export async function deleteSubscriptionPackage(
   id: string,
   preflight: SubscriptionPreflight,
 ): Promise<SubscriptionServiceResult<{ removed: boolean }>> {
+  if (!id || !preflight?.checked_at) {
+    return { ok: false, error: { message: 'Pre-check paket wajib dilakukan sebelum menghapus.', code: 'VALIDATION' } };
+  }
   if (preflight.package.id !== id) {
     return { ok: false, error: { message: 'Pre-check paket tidak cocok.', code: 'VALIDATION' } };
   }
@@ -734,6 +738,9 @@ export async function changeSubscriptionPackage(input: {
   billing_cycle?: 'monthly' | 'yearly';
   expires_at?: string | null;
 }): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  if (!input.subscription_id || !input.package_id) {
+    return { ok: false, error: { message: 'Subscription dan paket wajib dipilih.', code: 'VALIDATION' } };
+  }
   try {
     return { ok: true, data: await repoChangeSubscription(input) };
   } catch (error) {
@@ -742,6 +749,7 @@ export async function changeSubscriptionPackage(input: {
 }
 
 export async function expireSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  if (!id) return { ok: false, error: { message: 'Subscription ID wajib diisi.', code: 'VALIDATION' } };
   try {
     return { ok: true, data: await repoTransitionSubscription(id, 'expire') };
   } catch (error) {
@@ -749,7 +757,26 @@ export async function expireSubscription(id: string): Promise<SubscriptionServic
   }
 }
 
+export async function activateSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  if (!id) return { ok: false, error: { message: 'Subscription ID wajib diisi.', code: 'VALIDATION' } };
+  try {
+    return { ok: true, data: await repoTransitionSubscription(id, 'activate') };
+  } catch (error) {
+    return subscriptionError(error, 'Subscription tidak dapat diaktifkan.');
+  }
+}
+
+export async function deactivateSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  if (!id) return { ok: false, error: { message: 'Subscription ID wajib diisi.', code: 'VALIDATION' } };
+  try {
+    return { ok: true, data: await repoTransitionSubscription(id, 'deactivate') };
+  } catch (error) {
+    return subscriptionError(error, 'Subscription tidak dapat dinonaktifkan.');
+  }
+}
+
 export async function cancelSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  if (!id) return { ok: false, error: { message: 'Subscription ID wajib diisi.', code: 'VALIDATION' } };
   try {
     return { ok: true, data: await repoTransitionSubscription(id, 'cancel') };
   } catch (error) {
