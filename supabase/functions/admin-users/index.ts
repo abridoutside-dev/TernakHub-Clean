@@ -26,7 +26,6 @@ const OWNER_WORKSPACE_MESSAGE = 'User masih menjadi Owner Workspace. Pindahkan k
 const MEMBER_WORKSPACE_MESSAGE = 'User masih menjadi anggota Workspace. Hapus membership terlebih dahulu.';
 const ROLE_MESSAGE = 'User masih memiliki peran atau hak akses Workspace. Hapus peran terlebih dahulu.';
 const INVITATION_MESSAGE = 'User masih memiliki undangan Workspace. Hapus undangan terlebih dahulu.';
-const OWNER_WORKSPACE_GUIDANCE = 'Transfer kepemilikan atau hapus workspace terlebih dahulu';
 
 function sanitizeErrorMessage(message: string, fallback: string): string {
   const normalized = message.replace(/\s+/g, ' ').trim();
@@ -41,7 +40,7 @@ function sanitizeErrorMessage(message: string, fallback: string): string {
     return OWNER_WORKSPACE_MESSAGE;
   }
   if (
-    /violates foreign key constraint|foreign key constraint|sqlstate|postgres|postgrest|database error|syntax error|relation .* does not exist|column .* does not exist|duplicate key|constraint .* failed|stack trace|at \w+\s*\(/i.test(normalized)
+    /violates foreign key constraint|foreign key constraint|sqlstate|postgres|postgrest|database error|syntax error|relation .* does not exist|column .* does not exist|duplicate key|constraint .* failed|stack trace|at \w+\s*\(|auth api|edge function|fetch failed|request failed|http [45]\d\d/i.test(normalized)
   ) {
     return fallback;
   }
@@ -243,7 +242,7 @@ async function fetchAllUsers(url: string, key: string): Promise<{ users: AuthUse
 
   while (true) {
     const response = await authFetch(url, `/users?per_page=${perPage}&page=${page}`, key);
-    if (!response.ok) throw new Error(await responseMessage(response, `Auth API halaman ${page} gagal`));
+    if (!response.ok) throw new Error(await responseMessage(response, 'Data pengguna tidak dapat dimuat saat ini'));
     const body = await response.json() as { users?: AuthUser[] } | AuthUser[];
     const pageUsers = Array.isArray(body) ? body : body.users ?? [];
     users.push(...pageUsers);
@@ -273,13 +272,13 @@ async function fetchAllUsers(url: string, key: string): Promise<{ users: AuthUse
 
 async function readUser(url: string, key: string, id: string): Promise<AuthUser> {
   const response = await authFetch(url, `/users/${id}`, key);
-  if (!response.ok) throw new Error(await responseMessage(response, 'User tidak ditemukan'));
+  if (!response.ok) throw new Error(await responseMessage(response, 'User tidak ditemukan atau tidak dapat dimuat'));
   return await response.json() as AuthUser;
 }
 
 async function readProfiles(url: string, key: string): Promise<Map<string, Profile>> {
   const response = await restFetch(url, '/user_profiles?select=id,full_name,display_name,phone_number,avatar_url', key);
-  if (!response.ok) throw new Error(await responseMessage(response, 'Gagal memuat profil pengguna'));
+  if (!response.ok) throw new Error(await responseMessage(response, 'Profil pengguna tidak dapat dimuat'));
   const profiles = await response.json() as Profile[];
   return new Map((Array.isArray(profiles) ? profiles : []).map(profile => [profile.id, profile]));
 }
@@ -290,22 +289,10 @@ async function readMemberships(url: string, key: string, userId: string): Promis
     `/workspace_members?user_id=eq.${encodeURIComponent(userId)}&select=id,role,status,joined_at,created_at,workspace_id,workspaces(id,name,type,status,city,province)`,
     key,
   );
-  if (!response.ok) throw new Error(await responseMessage(response, 'Gagal memuat workspace pengguna'));
+  if (!response.ok) throw new Error(await responseMessage(response, 'Workspace pengguna tidak dapat dimuat'));
   const memberships = await response.json();
-  if (!Array.isArray(memberships)) throw new Error('Response workspace pengguna tidak valid');
+  if (!Array.isArray(memberships)) throw new Error('Data workspace pengguna tidak dapat dibaca');
   return memberships;
-}
-
-async function readOwnedWorkspaces(url: string, key: string, userId: string): Promise<Array<{ id?: string; name?: string }>> {
-  const response = await restFetch(
-    url,
-    `/workspaces?owner_id=eq.${encodeURIComponent(userId)}&select=id,name`,
-    key,
-  );
-  if (!response.ok) throw new Error(await responseMessage(response, 'Gagal memeriksa kepemilikan workspace'));
-  const workspaces = await response.json();
-  if (!Array.isArray(workspaces)) throw new Error('Response kepemilikan workspace tidak valid');
-  return workspaces as Array<{ id?: string; name?: string }>;
 }
 
 function workspaceDependency(row: Record<string, unknown>): WorkspaceDependency | null {
@@ -454,6 +441,13 @@ async function handleAdminUsers(
 ): Promise<Response> {
   const operation = typeof payload.operation === 'string' ? payload.operation : '';
   const id = typeof payload.id === 'string' ? payload.id : '';
+  const supportedOperations = new Set([
+    'stats', 'list', 'get', 'update', 'update-metadata', 'suspend', 'unsuspend',
+    'verify-email', 'delete', 'sign-out', 'reset-password', 'resend-verification',
+    'get-workspaces', 'get-dependencies', 'transfer-ownership', 'delete-workspace',
+    'remove-role', 'remove-invitation', 'add-workspace', 'update-workspace', 'remove-workspace',
+  ]);
+  if (!supportedOperations.has(operation)) return errorResponse('Operasi pengguna tidak dikenali', 400);
 
   if (operation === 'stats' || operation === 'list') {
     const fetched = await fetchAllUsers(url, serviceRole);
@@ -541,7 +535,7 @@ async function handleAdminUsers(
       readMemberships(url, serviceRole, id),
     ]);
     if (!profilesResponse.ok) {
-      throw new Error(await responseMessage(profilesResponse, 'Gagal memuat profil pengguna'));
+      throw new Error(await responseMessage(profilesResponse, 'Profil pengguna tidak dapat dimuat'));
     }
     const profiles = await profilesResponse.json() as Profile[];
     return jsonResponse({

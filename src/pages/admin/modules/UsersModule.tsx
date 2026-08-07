@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AdminLayout from '../layout/AdminLayout';
-import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   adminUserService,
   type UserListItem,
@@ -534,39 +534,49 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
   const [showAddWs, setShowAddWs]   = useState(false);
   const [wsEditId, setWsEditId]     = useState<string | null>(null);
   const [wsEditRole, setWsEditRole] = useState('');
+  const mountedRef = useRef(true);
+  const userRequestRef = useRef(0);
+  const dependencyRequestRef = useRef(0);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      mountedRef.current = false;
+      document.body.style.overflow = '';
+    };
   }, []);
 
   const loadUser = useCallback(async () => {
+    const requestId = ++userRequestRef.current;
     setLoading(true); setError('');
     try {
       const u = await adminUserService.getUser(userId);
-      setUser(u);
+      if (mountedRef.current && requestId === userRequestRef.current) setUser(u);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal memuat detail user');
+      if (mountedRef.current && requestId === userRequestRef.current) {
+        setError(e instanceof Error ? e.message : 'Detail user tidak dapat dimuat.');
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current && requestId === userRequestRef.current) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => { loadUser(); }, [loadUser]);
 
   const loadDependencies = useCallback(async () => {
+    const requestId = ++dependencyRequestRef.current;
     setDependencyLoading(true);
     setDependencyError('');
     try {
       const result = await adminUserService.getDependencies(userId);
-      setDependencies(result);
+      if (mountedRef.current && requestId === dependencyRequestRef.current) setDependencies(result);
       return result;
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Gagal memuat dependency user';
-      setDependencyError(message);
+      const message = e instanceof Error ? e.message : 'Dependency user tidak dapat dimuat.';
+      if (mountedRef.current && requestId === dependencyRequestRef.current) setDependencyError(message);
       throw e;
     } finally {
-      setDependencyLoading(false);
+      if (mountedRef.current && requestId === dependencyRequestRef.current) setDependencyLoading(false);
     }
   }, [userId]);
 
@@ -1043,24 +1053,15 @@ function SortTh({ col, label, sortBy, order, onSort }: { col: string; label: str
 
 export default function UsersModule() {
   // ── Auth guard: check current user is admin ────────────────────────────────
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAdminUser, setIsAdminUser] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const meta = data.session?.user?.user_metadata ?? {};
-      const app  = data.session?.user?.app_metadata ?? {};
-      // Keep this local guard aligned with AdminGuard and the Edge Function.
-      setIsAdminUser(
-        meta.is_admin === true
-        || meta.role === 'admin'
-        || meta.role === 'system_admin'
-        || app.role === 'admin'
-        || app.role === 'system_admin',
-      );
-      setAuthChecked(true);
-    });
-  }, []);
+  const { currentUser, loading: authLoading } = useAuth();
+  const authChecked = !authLoading;
+  const meta = currentUser?.user_metadata ?? {};
+  const app = currentUser?.app_metadata ?? {};
+  const isAdminUser = meta.is_admin === true
+    || meta.role === 'admin'
+    || meta.role === 'system_admin'
+    || app.role === 'admin'
+    || app.role === 'system_admin';
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [users, setUsers]     = useState<UserListItem[]>([]);
@@ -1083,16 +1084,32 @@ export default function UsersModule() {
   const [toasts, setToasts]         = useState<ToastItem[]>([]);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const mountedRef = useRef(true);
+  const usersRequestRef = useRef(0);
+  const statsRequestRef = useRef(0);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    toastTimers.current.forEach(timer => clearTimeout(timer));
+    toastTimers.current.clear();
+  }, []);
 
   // ── Toast helper ──────────────────────────────────────────────────────────
   const toast = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'success', link?: string) => {
     const id = ++_toastCounter;
     setToasts(t => [...t, { id, msg, type, link }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), link ? 10000 : 4000);
+    const timer = setTimeout(() => {
+      toastTimers.current.delete(timer);
+      if (mountedRef.current) setToasts(t => t.filter(x => x.id !== id));
+    }, link ? 10000 : 4000);
+    toastTimers.current.add(timer);
   }, []);
 
   // ── Load users ────────────────────────────────────────────────────────────
   const loadUsers = useCallback(async (p: number = page) => {
+    const requestId = ++usersRequestRef.current;
     setLoading(true); setError(null);
     try {
       const res = await adminUserService.listUsers({
@@ -1102,26 +1119,31 @@ export default function UsersModule() {
         emailFilter: filterEmail !== 'all' ? filterEmail : undefined,
         sort: sortBy, order,
       });
-      setUsers(res.users ?? []);
-      setTotal(res.total ?? 0);
-      setPages(res.pages ?? 1);
+      if (mountedRef.current && requestId === usersRequestRef.current) {
+        setUsers(res.users ?? []);
+        setTotal(res.total ?? 0);
+        setPages(res.pages ?? 1);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal memuat users');
+      if (mountedRef.current && requestId === usersRequestRef.current) {
+        setError(e instanceof Error ? e.message : 'Daftar pengguna tidak dapat dimuat.');
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current && requestId === usersRequestRef.current) setLoading(false);
     }
   }, [page, search, filterStatus, filterEmail, sortBy, order]);
 
   // ── Load stats ────────────────────────────────────────────────────────────
   const loadStats = useCallback(async () => {
+    const requestId = ++statsRequestRef.current;
     setStatsLoading(true);
     try {
       const s = await adminUserService.getStats();
-      setStats(s);
+      if (mountedRef.current && requestId === statsRequestRef.current) setStats(s);
     } catch {
       // non-fatal
     } finally {
-      setStatsLoading(false);
+      if (mountedRef.current && requestId === statsRequestRef.current) setStatsLoading(false);
     }
   }, []);
 
