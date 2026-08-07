@@ -136,6 +136,12 @@ export function repoListSubscriptionHistory(): Promise<SubscriptionHistoryEntryA
   return invoke('history');
 }
 
+export function repoListWorkspaceSubscriptionHistory(
+  workspaceId: string,
+): Promise<SubscriptionHistoryEntryAdmin[]> {
+  return invoke('workspace-history', { workspace_id: workspaceId });
+}
+
 export function repoListSubscriptionAudit(): Promise<SubscriptionAuditEntry[]> {
   return invoke('audit');
 }

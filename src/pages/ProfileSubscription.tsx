@@ -9,7 +9,7 @@
 //  ✅ Plan is activated only after Admin verifies payment proof.
 //  ✅ Payment instructions come from SUBSCRIPTION_PAYMENT_CONFIG (Admin SSOT).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import {
@@ -17,14 +17,9 @@ import {
   PLAN_ORDER,
   BENEFIT_ROWS,
   SUBSCRIPTION_STATUS_CONFIG,
-  SUBSCRIPTION_ACTION_CONFIG,
-  getSubscriptionHistory,
-  requestPlanChange,
-  getPendingSubscriptionPaymentRequest,
-  submitSubscriptionPaymentProof,
 } from '../data/workspaceSubscriptionData';
-import type { WorkspacePlan } from '../types/workspace';
-import type { SubscriptionPaymentRequest } from '../types/subscription';
+import { getWorkspaceSubscriptionHistory } from '../services/workspaceService';
+import type { SubscriptionHistoryEntryAdmin } from '../types/subscriptionAdmin';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -96,7 +91,7 @@ function InfoBanner() {
   );
 }
 
-// ─── Payment Status Badge ─────────────────────────────────────────────────────
+/* ─── Legacy payment request UI (not part of the live subscription contract) ──
 
 const PAYMENT_REQUEST_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   'Waiting for Payment':    { label: 'Menunggu Pembayaran', color: '#d97706', bg: '#fef3c7', icon: '⏳' },
@@ -384,6 +379,8 @@ function PlanChangeSheet({
     </>
   );
 }
+
+*/
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 

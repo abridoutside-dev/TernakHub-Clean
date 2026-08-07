@@ -317,6 +317,47 @@ async function main(request: Request): Promise<Response> {
       data: mapSubscription(row, new Map([[workspace.id, workspace]]), new Map([[plan.id, plan]])),
     });
   }
+  if (operation === 'workspace-history') {
+    const workspaceId = body.workspace_id;
+    if (!isUuid(workspaceId)) return fail('Workspace ID tidak valid.');
+    const membership = await restFetch(
+      url,
+      `/workspace_members?workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(actor.id)}&status=eq.Aktif&select=id&limit=1`,
+      serviceKey,
+    );
+    if (!membership.ok) return fail('Membership workspace tidak dapat diverifikasi.', 'DATABASE', 500);
+    const members = await membership.json() as Array<{ id: string }>;
+    if (!members.length && !isAdmin(actor)) return fail('Akses ditolak untuk workspace ini.', 'FORBIDDEN', 403);
+    const [historyResult, workspaceResult, packagesResult] = await Promise.all([
+      restFetch(url, `/subscription_history?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=*&order=created_at.desc`, serviceKey),
+      restFetch(url, `/workspaces?id=eq.${encodeURIComponent(workspaceId)}&select=id,name&limit=1`, serviceKey),
+      restFetch(url, '/subscription_plans?select=id,plan_key', serviceKey),
+    ]);
+    if (!historyResult.ok || !workspaceResult.ok || !packagesResult.ok) {
+      return fail('Riwayat subscription tidak dapat dimuat.', 'DATABASE', 500);
+    }
+    const rows = await historyResult.json() as Array<Record<string, unknown>>;
+    const workspace = (await workspaceResult.json() as Array<{ id: string; name: string }>)[0];
+    const packages = await packagesResult.json() as Array<{ id: string; plan_key: string }>;
+    const packageKeys = new Map(packages.map((item) => [item.id, item.plan_key]));
+    return response({
+      ok: true,
+      data: rows.map((row) => ({
+        id: row.id,
+        subscription_id: row.subscription_id ?? null,
+        workspace_id: row.workspace_id,
+        workspace_name: workspace?.name ?? '—',
+        action: row.action,
+        from_plan_key: row.from_plan_id ? packageKeys.get(String(row.from_plan_id)) ?? null : null,
+        to_plan_key: row.to_plan_id ? packageKeys.get(String(row.to_plan_id)) ?? null : null,
+        from_status: row.from_status ?? null,
+        to_status: row.to_status ?? null,
+        note: row.note ?? null,
+        changed_by: row.changed_by ?? null,
+        created_at: row.created_at,
+      })),
+    });
+  }
   if (!isAdmin(actor)) return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
   const base = await readBase(url, serviceKey);
   const mapSubscriptionRow = (row: SubscriptionRow) =>

@@ -137,6 +137,7 @@ import {
   repoListSubscriptionAdmin,
   repoListSubscriptionAudit,
   repoListSubscriptionHistory,
+  repoListWorkspaceSubscriptionHistory,
   repoListSubscriptionPlans,
   repoSetSubscriptionPackageStatus,
   repoTransitionSubscription,
@@ -786,6 +787,13 @@ export async function cancelSubscription(id: string): Promise<SubscriptionServic
 
 export function getSubscriptionHistory(): Promise<SubscriptionHistoryEntryAdmin[]> {
   return repoListSubscriptionHistory();
+}
+
+export function getWorkspaceSubscriptionHistory(
+  workspaceId: string,
+): Promise<SubscriptionHistoryEntryAdmin[]> {
+  if (!workspaceId) return Promise.resolve([]);
+  return repoListWorkspaceSubscriptionHistory(workspaceId);
 }
 
 export function getSubscriptionAudit(): Promise<SubscriptionAuditEntry[]> {
