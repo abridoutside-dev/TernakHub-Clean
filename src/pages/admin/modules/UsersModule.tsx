@@ -168,24 +168,28 @@ function ConfirmDialog({ title, message, confirmLabel = 'Konfirmasi', danger = f
 }
 
 function DependencyModal({
+  userId,
   dependencies,
   loading,
   actionLoading,
   error,
   onClose,
   onReload,
+  onDeleteUser,
   onTransferOwnership,
   onDeleteWorkspace,
   onRemoveMember,
   onRemoveRole,
   onRemoveInvitation,
 }: {
+  userId: string;
   dependencies: UserDependencies | null;
   loading: boolean;
   actionLoading: string | null;
   error: string;
   onClose: () => void;
   onReload: () => Promise<void>;
+  onDeleteUser: () => Promise<void>;
   onTransferOwnership: (workspaceId: string, newOwnerId: string) => Promise<void>;
   onDeleteWorkspace: (workspaceId: string) => Promise<void>;
   onRemoveMember: (membershipId: string) => Promise<void>;
@@ -194,6 +198,46 @@ function DependencyModal({
 }) {
   const [newOwnerId, setNewOwnerId] = useState('');
   const [transferWorkspaceId, setTransferWorkspaceId] = useState<string | null>(null);
+  const [ownerQuery, setOwnerQuery] = useState('');
+  const [ownerCandidates, setOwnerCandidates] = useState<UserListItem[]>([]);
+  const [ownerSearchLoading, setOwnerSearchLoading] = useState(false);
+
+  useEffect(() => {
+    if (!transferWorkspaceId || ownerQuery.trim().length < 2) {
+      setOwnerCandidates([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setOwnerSearchLoading(true);
+      try {
+        const result = await adminUserService.listUsers({
+          search: ownerQuery.trim(),
+          limit: 8,
+          status: 'Active',
+          emailFilter: 'verified',
+          sort: 'name',
+          order: 'asc',
+        });
+        if (!cancelled) setOwnerCandidates(result.users.filter(candidate => candidate.id !== userId));
+      } catch {
+        if (!cancelled) setOwnerCandidates([]);
+      } finally {
+        if (!cancelled) setOwnerSearchLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ownerQuery, transferWorkspaceId, userId]);
+
+  const resetTransfer = () => {
+    setTransferWorkspaceId(null);
+    setOwnerQuery('');
+    setOwnerCandidates([]);
+    setNewOwnerId('');
+  };
 
   return (
     <>
@@ -216,62 +260,89 @@ function DependencyModal({
                 {dependencies.canDelete ? '✓ Semua dependency sudah bersih. User dapat dihapus.' : 'User belum dapat dihapus. Selesaikan semua dependency berikut.'}
               </div>
 
-              {dependencies.ownerWorkspaces.length > 0 && (
-                <DependencySection title="Owner Workspace" count={dependencies.ownerWorkspaces.length}>
-                  {dependencies.ownerWorkspaces.map(workspace => (
+              <DependencySection title="Owner Workspace" count={dependencies.ownerWorkspaces.length}>
+                {dependencies.ownerWorkspaces.length === 0 ? <DependencyEmpty /> : dependencies.ownerWorkspaces.map(workspace => (
                     <DependencyRow key={workspace.id} title={workspace.name} detail={workspace.workspace_type || 'Workspace'}>
                       {transferWorkspaceId === workspace.id ? (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                          <input value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)} placeholder="UUID pemilik baru" style={{ width: 190, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 11.5 }} />
-                          <button disabled={actionLoading !== null || !newOwnerId.trim()} onClick={() => onTransferOwnership(workspace.id, newOwnerId.trim()).then(() => { setTransferWorkspaceId(null); setNewOwnerId(''); })} style={smallButton('#2563eb', '#eff6ff', actionLoading !== null || !newOwnerId.trim())}>Simpan</button>
-                          <button disabled={actionLoading !== null} onClick={() => setTransferWorkspaceId(null)} style={smallButton('#64748b', '#f8fafc', actionLoading !== null)}>Batal</button>
+                        <div style={{ minWidth: 250, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
+                          <input
+                            value={ownerQuery}
+                            onChange={e => { setOwnerQuery(e.target.value); setNewOwnerId(''); }}
+                            placeholder="Cari nama, email, atau ID user"
+                            autoFocus
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 11.5 }}
+                          />
+                          {ownerSearchLoading && <div style={{ fontSize: 11, color: '#64748b' }}>Mencari user aktif…</div>}
+                          {!ownerSearchLoading && ownerQuery.trim().length >= 2 && ownerCandidates.length === 0 && (
+                            <div style={{ fontSize: 11, color: '#b45309' }}>User aktif tidak ditemukan.</div>
+                          )}
+                          {ownerCandidates.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 130, overflowY: 'auto' }}>
+                              {ownerCandidates.map(candidate => (
+                                <button
+                                  key={candidate.id}
+                                  type="button"
+                                  onClick={() => { setNewOwnerId(candidate.id); setOwnerQuery(`${displayName(candidate) || candidate.email} · ${candidate.id.slice(0, 8)}`); setOwnerCandidates([]); }}
+                                  style={{ textAlign: 'left', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, background: newOwnerId === candidate.id ? '#eff6ff' : '#fff', cursor: 'pointer' }}
+                                >
+                                  <div style={{ fontSize: 11.5, fontWeight: 600, color: '#0f172a' }}>{displayName(candidate) || 'Tanpa nama'}</div>
+                                  <div style={{ fontSize: 10.5, color: '#64748b' }}>{candidate.email || candidate.id}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button disabled={actionLoading !== null || !newOwnerId} onClick={() => onTransferOwnership(workspace.id, newOwnerId).then(resetTransfer)} style={smallButton('#2563eb', '#eff6ff', actionLoading !== null || !newOwnerId)}>Transfer</button>
+                            <button disabled={actionLoading !== null} onClick={resetTransfer} style={smallButton('#64748b', '#f8fafc', actionLoading !== null)}>Batal</button>
+                          </div>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                          <button disabled={actionLoading !== null} onClick={() => setTransferWorkspaceId(workspace.id)} style={smallButton('#2563eb', '#eff6ff', actionLoading !== null)}>Transfer Ownership</button>
+                          <button disabled={actionLoading !== null} onClick={() => { setTransferWorkspaceId(workspace.id); setNewOwnerId(''); setOwnerQuery(''); }} style={smallButton('#2563eb', '#eff6ff', actionLoading !== null)}>Transfer Ownership</button>
                           <button disabled={actionLoading !== null} onClick={() => onDeleteWorkspace(workspace.id)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Hapus Workspace</button>
                         </div>
                       )}
                     </DependencyRow>
                   ))}
-                </DependencySection>
-              )}
+              </DependencySection>
 
-              {dependencies.memberWorkspaces.length > 0 && (
-                <DependencySection title="Member Workspace" count={dependencies.memberWorkspaces.length}>
-                  {dependencies.memberWorkspaces.map(member => (
+              <DependencySection title="Member Workspace" count={dependencies.memberWorkspaces.length}>
+                {dependencies.memberWorkspaces.length === 0 ? <DependencyEmpty /> : dependencies.memberWorkspaces.map(member => (
                     <DependencyRow key={member.membership_id} title={member.name} detail={`${member.workspace_type || 'Workspace'} · ${member.role}`}>
                       <button disabled={actionLoading !== null} onClick={() => onRemoveMember(member.membership_id)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Remove Member</button>
                     </DependencyRow>
                   ))}
-                </DependencySection>
-              )}
+              </DependencySection>
 
-              {dependencies.roles.length > 0 && (
-                <DependencySection title="Workspace Role" count={dependencies.roles.length}>
-                  {dependencies.roles.map(role => (
+              <DependencySection title="Roles" count={dependencies.roles.length}>
+                {dependencies.roles.length === 0 ? <DependencyEmpty /> : dependencies.roles.map(role => (
                     <DependencyRow key={`${role.role_kind}-${role.id}-${role.workspace_id}`} title={role.name} detail={`${role.workspace_type || 'Workspace'} · ${role.role_kind === 'assigned' ? 'Assigned' : 'Created by user'}`}>
                       <button disabled={actionLoading !== null} onClick={() => onRemoveRole(role)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Remove Role</button>
                     </DependencyRow>
                   ))}
-                </DependencySection>
-              )}
+              </DependencySection>
 
-              {dependencies.invitations.length > 0 && (
-                <DependencySection title="Workspace Invitation" count={dependencies.invitations.length}>
-                  {dependencies.invitations.map(invitation => (
+              <DependencySection title="Invitation" count={dependencies.invitations.length}>
+                {dependencies.invitations.length === 0 ? <DependencyEmpty /> : dependencies.invitations.map(invitation => (
                     <DependencyRow key={invitation.id} title={invitation.name} detail={`${invitation.email} · ${invitation.role} · ${invitation.status}`}>
                       <button disabled={actionLoading !== null} onClick={() => onRemoveInvitation(invitation.id)} style={smallButton('#b91c1c', '#fff1f2', actionLoading !== null)}>Hapus Undangan</button>
                     </DependencyRow>
                   ))}
-                </DependencySection>
-              )}
+              </DependencySection>
               {dependencies.canDelete && <div style={{ marginTop: 18, padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, color: '#166534', fontSize: 12 }}>Dependency bersih. Tutup dialog ini lalu konfirmasi Delete User.</div>}
             </>
           )}
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={() => onReload()} disabled={loading || actionLoading !== null} style={smallButton('#475569', '#f8fafc', loading || actionLoading !== null)}>↻ Reload Dependency</button>
+          <button
+            onClick={onDeleteUser}
+            disabled={loading || actionLoading !== null || !dependencies?.canDelete}
+            style={smallButton('#b91c1c', '#fff1f2', loading || actionLoading !== null || !dependencies?.canDelete)}
+            title={dependencies?.canDelete ? 'Hapus user setelah semua dependency bersih' : 'Selesaikan semua dependency terlebih dahulu'}
+          >
+            🗑️ Delete User
+          </button>
           <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
         </div>
       </div>
@@ -286,6 +357,10 @@ function DependencySection({ title, count, children }: { title: string; count: n
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
     </section>
   );
+}
+
+function DependencyEmpty() {
+  return <div style={{ padding: '9px 11px', border: '1px dashed #cbd5e1', borderRadius: 8, color: '#94a3b8', background: '#fff', fontSize: 11.5 }}>Tidak ada dependency.</div>;
 }
 
 function DependencyRow({ title, detail, children }: { title: string; detail: string; children: React.ReactNode }) {
@@ -495,6 +570,10 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
     }
   }, [userId]);
 
+  useEffect(() => {
+    if (!loading) void loadDependencies().catch(() => undefined);
+  }, [loading, loadDependencies]);
+
   const prepareDelete = async () => {
     try {
       const result = await loadDependencies();
@@ -615,6 +694,7 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
   const name = user ? displayName(user) : '';
 
   const visibleActions = ACTIONS.filter(a => a.show !== false);
+  const deleteReady = dependencies?.canDelete === true;
 
   return (
     <>
@@ -743,17 +823,28 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
                   ✏️ Edit User
                 </button>
+                <button
+                  onClick={() => { setShowDependencies(true); void loadDependencies().catch(() => undefined); }}
+                  disabled={!!actionLoading}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid #2563eb30', background: '#eff6ff', color: '#2563eb', fontSize: 12.5, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1 }}>
+                  🔗 Kelola Dependency
+                </button>
                 {visibleActions.map(action => (
                   <button
                     key={action.key}
-                    disabled={!!actionLoading}
+                    disabled={!!actionLoading || (action.key === 'delete' && !deleteReady)}
                     onClick={() => action.key === 'delete'
                       ? prepareDelete()
                       : setConfirm({ key: action.key, title: action.title, message: action.message, danger: action.danger })}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: `1px solid ${action.color}30`, background: action.bg, color: action.color, fontSize: 12.5, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: `1px solid ${action.color}30`, background: action.bg, color: action.color, fontSize: 12.5, fontWeight: 600, cursor: actionLoading || (action.key === 'delete' && !deleteReady) ? 'not-allowed' : 'pointer', opacity: actionLoading || (action.key === 'delete' && !deleteReady) ? 0.45 : 1, whiteSpace: 'nowrap' }}>
                     {actionLoading === action.key ? '⏳' : action.icon} {action.label}
                   </button>
                 ))}
+                {!deleteReady && (
+                  <div style={{ width: '100%', fontSize: 11.5, color: '#9a3412' }}>
+                    Hapus Permanen aktif setelah Owner Workspace, Member Workspace, Roles, dan Invitation berjumlah 0.
+                  </div>
+                )}
               </div>
             </>
           ) : null}
@@ -785,12 +876,20 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
 
       {showDependencies && (
         <DependencyModal
+          userId={userId}
           dependencies={dependencies}
           loading={dependencyLoading}
           actionLoading={actionLoading}
           error={dependencyError}
           onClose={() => setShowDependencies(false)}
           onReload={async () => { await loadDependencies(); }}
+          onDeleteUser={async () => {
+            if (!dependencies?.canDelete) return;
+            setShowDependencies(false);
+            const action = ACTIONS.find(item => item.key === 'delete');
+            if (!action) return;
+            setConfirm({ key: 'delete', title: action.title, message: action.message, danger: action.danger });
+          }}
           onTransferOwnership={(workspaceId, newOwnerId) => runDependencyAction(
             `transfer:${workspaceId}`,
             () => adminUserService.transferOwnership(userId, workspaceId, newOwnerId),

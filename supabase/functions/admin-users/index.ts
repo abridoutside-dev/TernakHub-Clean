@@ -156,7 +156,7 @@ async function restFetch(url: string, path: string, key: string, init: RequestIn
 async function responseMessage(response: Response, fallback: string): Promise<string> {
   try {
     const raw = await response.clone().text();
-    if (!raw.trim()) return `${fallback} (HTTP ${response.status})`;
+    if (!raw.trim()) return fallback;
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(raw) as Record<string, unknown>;
@@ -178,9 +178,9 @@ async function responseMessage(response: Response, fallback: string): Promise<st
         `${message}${body.code && typeof body.code === 'string' ? ` [${body.code}]` : ''}`,
         fallback,
       )
-      : `${fallback} (HTTP ${response.status})`;
+      : fallback;
   } catch {
-    return `${fallback} (HTTP ${response.status})`;
+    return fallback;
   }
 }
 
@@ -710,15 +710,20 @@ async function handleAdminUsers(
     if (invalidWorkspaceId || invalidNewOwnerId) return errorResponse(invalidWorkspaceId ?? invalidNewOwnerId ?? 'Data transfer tidak valid', 400);
     if (newOwnerId === id) return errorResponse('Pemilik baru harus berbeda dari user yang akan dihapus', 400);
 
-    const [workspaceResponse, newOwner, currentMemberResponse, newOwnerMemberResponse] = await Promise.all([
+    const [workspaceResponse, newOwnerResponse, currentMemberResponse, newOwnerMemberResponse] = await Promise.all([
       restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}&select=id,name`, serviceRole),
-      readUser(url, serviceRole, newOwnerId),
+      authFetch(url, `/users/${newOwnerId}`, serviceRole),
       restFetch(url, `/workspace_members?workspace_id=eq.${workspaceId}&user_id=eq.${id}&select=id,role,status`, serviceRole),
       restFetch(url, `/workspace_members?workspace_id=eq.${workspaceId}&user_id=eq.${newOwnerId}&select=id,role,status`, serviceRole),
     ]);
-    if (!workspaceResponse.ok) return errorResponse(await responseMessage(workspaceResponse, 'Workspace tidak ditemukan'), 404);
+    if (!workspaceResponse.ok) return errorResponse(await responseMessage(workspaceResponse, 'Workspace tidak dapat diverifikasi'), 409);
     const ownedRows = await workspaceResponse.json();
     if (!Array.isArray(ownedRows) || ownedRows.length === 0) return errorResponse('User bukan pemilik Workspace tersebut', 409);
+    if (!newOwnerResponse.ok) return errorResponse('User tujuan tidak ditemukan atau sudah tidak tersedia', 409);
+    const newOwner = await newOwnerResponse.json() as AuthUser;
+    if (status(newOwner) !== 'Active') {
+      return errorResponse('User tujuan harus berstatus Aktif dan sudah terverifikasi', 409);
+    }
     if (!currentMemberResponse.ok || !newOwnerMemberResponse.ok) {
       return errorResponse('Membership Workspace tidak dapat diverifikasi', 409);
     }
@@ -769,11 +774,18 @@ async function handleAdminUsers(
     if (!workspaceId) return errorResponse('Workspace ID wajib diisi', 400);
     const invalidWorkspaceId = requireUuid(workspaceId, 'Workspace ID');
     if (invalidWorkspaceId) return errorResponse(invalidWorkspaceId, 400);
-    const response = await restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}`, serviceRole, { method: 'DELETE' });
+    // Workspace deletion follows the existing Workspace Settings workflow:
+    // archive the workspace and preserve its child data for recovery/audit.
+    // Never hard-delete here; that bypasses the application lifecycle and can
+    // surface foreign-key diagnostics from child tables.
+    const response = await restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}`, serviceRole, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'Archived', archived_at: new Date().toISOString() }),
+    });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Workspace tidak dapat dihapus'), response.status);
-    const deleted = await response.json();
-    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Workspace tidak ditemukan atau bukan milik user ini', 404);
-    return jsonResponse({ ok: true, data: { ok: true } });
+    const archived = await response.json();
+    if (!Array.isArray(archived) || archived.length === 0) return errorResponse('Workspace tidak ditemukan atau bukan milik user ini', 409);
+    return jsonResponse({ ok: true, data: { ok: true, archived: true } });
   }
 
   if (operation === 'remove-role') {
@@ -788,7 +800,7 @@ async function handleAdminUsers(
       });
       if (!response.ok) return errorResponse(await responseMessage(response, 'Peran user gagal dihapus'), response.status);
       const changed = await response.json();
-      if (!Array.isArray(changed) || changed.length === 0) return errorResponse('Peran user tidak ditemukan', 404);
+      if (!Array.isArray(changed) || changed.length === 0) return errorResponse('Peran user tidak ditemukan atau sudah dibersihkan', 409);
       return jsonResponse({ ok: true, data: { ok: true } });
     }
     if (!roleId) return errorResponse('Role ID atau membership ID wajib diisi', 400);
@@ -797,7 +809,7 @@ async function handleAdminUsers(
     const response = await restFetch(url, `/workspace_custom_roles?id=${roleId}&created_by=${id}`, serviceRole, { method: 'DELETE' });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Peran Workspace gagal dihapus'), response.status);
     const deleted = await response.json();
-    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Peran Workspace tidak ditemukan', 404);
+    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Peran Workspace tidak ditemukan atau sudah dibersihkan', 409);
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
@@ -809,7 +821,7 @@ async function handleAdminUsers(
     const response = await restFetch(url, `/workspace_invitations?id=${invitationId}&invited_by=${id}`, serviceRole, { method: 'DELETE' });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Undangan Workspace gagal dihapus'), response.status);
     const deleted = await response.json();
-    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Undangan Workspace tidak ditemukan', 404);
+    if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Undangan Workspace tidak ditemukan atau sudah dibersihkan', 409);
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
@@ -852,7 +864,7 @@ async function handleAdminUsers(
     });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Operasi membership gagal'), response.status);
     const changed = await response.json();
-    if (!Array.isArray(changed) || changed.length === 0) return errorResponse('Workspace membership tidak ditemukan', 404);
+    if (!Array.isArray(changed) || changed.length === 0) return errorResponse('Workspace membership tidak ditemukan atau sudah dibersihkan', 409);
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
