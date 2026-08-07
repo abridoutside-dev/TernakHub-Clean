@@ -16,13 +16,14 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useWorkspacePermission } from '../../hooks/useWorkspacePermission';
 import type { PermissionModule, PermissionAction } from '../../types/workspacePermissions';
+import type { ReactNode } from 'react';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface WorkspacePermissionGuardProps {
   module:   PermissionModule;
   action:   PermissionAction;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
@@ -32,14 +33,8 @@ export default function WorkspacePermissionGuard({
   action,
   children,
 }: WorkspacePermissionGuardProps) {
-  if (typeof window !== 'undefined') {
-    (window as Window & { __lastRenderedReactComponent?: string }).__lastRenderedReactComponent = 'WorkspacePermissionGuard';
-  }
   const { id } = useParams<{ id?: string }>();
   const safeWorkspaceId = typeof id === 'string' && id.trim().length > 0 ? id : undefined;
-  if (!safeWorkspaceId) {
-    console.warn('[WorkspacePermissionGuard] No valid workspace id in route; falling back to active workspace context.');
-  }
   const { can, loading, role } = useWorkspacePermission(safeWorkspaceId);
   const navigate = useNavigate();
 

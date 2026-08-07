@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Dashboard from './pages/Dashboard';
@@ -207,7 +207,6 @@ import WorkspaceSettingsArchive from './pages/WorkspaceSettingsArchive';
 import WorkspaceSettingsRoles from './pages/WorkspaceSettingsRoles';
 import AcceptInvitation from './pages/auth/AcceptInvitation';
 import WorkspacePermissionGuard from './components/auth/WorkspacePermissionGuard';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminGuard from './pages/admin/layout/AdminGuard';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicLayout from './components/PublicLayout';
@@ -218,56 +217,62 @@ import Landing from './pages/Landing';
 import InitializeGuard from './components/InitializeGuard';
 import PlatformInitGuard from './components/PlatformInitGuard';
 import Initialize from './pages/auth/Initialize';
-import UsersModule from './pages/admin/modules/UsersModule';
-import WorkspacesModule from './pages/admin/modules/WorkspacesModule';
-import MarketplaceModule from './pages/admin/modules/MarketplaceModule';
-import LivestockModule from './pages/admin/modules/LivestockModule';
-import FeedModule from './pages/admin/modules/FeedModule';
-import MedicineModule from './pages/admin/modules/MedicineModule';
-import SubscriptionModule from './pages/admin/modules/SubscriptionModule';
-import TrustModule from './pages/admin/modules/TrustModule';
-import AnnouncementsModule from './pages/admin/modules/AnnouncementsModule';
-import NotificationsModule from './pages/admin/modules/NotificationsModule';
-import ReportsModule from './pages/admin/modules/ReportsModule';
-import MonitoringModule from './pages/admin/modules/MonitoringModule';
-import PlatformHealthModule from './pages/admin/modules/PlatformHealthModule';
-import BackupModule from './pages/admin/modules/BackupModule';
-import ActivityCenterModule from './pages/admin/modules/ActivityCenterModule';
-import DataMasterModule from './pages/admin/modules/DataMasterModule';
-import SettingsModule from './pages/admin/modules/SettingsModule';
-import GlobalSearchModule from './pages/admin/modules/GlobalSearchModule';
-import EscrowModule from './pages/admin/modules/EscrowModule';
-import MasterEscrowModule from './pages/admin/modules/MasterEscrowModule';
-import RelationshipModule from './pages/admin/modules/RelationshipModule';
-import OwnershipTransferModule from './pages/admin/modules/OwnershipTransferModule';
-import CrossWorkspaceLineageModule from './pages/admin/modules/CrossWorkspaceLineageModule';
-import FarmDashboardModule from './pages/admin/modules/FarmDashboardModule';
-import FarmBatchModule from './pages/admin/modules/FarmBatchModule';
-import FarmCatatBobotModule from './pages/admin/modules/FarmCatatBobotModule';
-import FarmPemberianPakanModule from './pages/admin/modules/FarmPemberianPakanModule';
-import FarmMasterPakanModule from './pages/admin/modules/FarmMasterPakanModule';
-import FarmFormulaPakanModule from './pages/admin/modules/FarmFormulaPakanModule';
-import FarmKesehatanModule from './pages/admin/modules/FarmKesehatanModule';
-import FarmReproduksiModule from './pages/admin/modules/FarmReproduksiModule';
-import FarmMutasiModule from './pages/admin/modules/FarmMutasiModule';
-import FarmStokPakanModule from './pages/admin/modules/FarmStokPakanModule';
-import FarmStokObatModule from './pages/admin/modules/FarmStokObatModule';
-import FarmMasterObatModule from './pages/admin/modules/FarmMasterObatModule';
-import { UsersRolesPage, UsersActivityPage } from './pages/admin/modules/UsersSubPages';
-import { WorkspacesPlansPage, WorkspacesVerificationPage, BlockedWorkspacesPage, PendingRequestsPage } from './pages/admin/modules/WorkspacesSubPages';
-import { MarketplaceTransactionsPage, MarketplaceReportsPage } from './pages/admin/modules/MarketplaceSubPages';
-import { FeedStockPage, FeedConsumptionPage } from './pages/admin/modules/FeedSubPages';
-import { MedicineStockPage, MedicineUsagePage } from './pages/admin/modules/MedicineSubPages';
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const UsersModule = lazy(() => import('./pages/admin/modules/UsersModule'));
+const WorkspacesModule = lazy(() => import('./pages/admin/modules/WorkspacesModule'));
+const MarketplaceModule = lazy(() => import('./pages/admin/modules/MarketplaceModule'));
+const LivestockModule = lazy(() => import('./pages/admin/modules/LivestockModule'));
+const FeedModule = lazy(() => import('./pages/admin/modules/FeedModule'));
+const MedicineModule = lazy(() => import('./pages/admin/modules/MedicineModule'));
+const SubscriptionModule = lazy(() => import('./pages/admin/modules/SubscriptionModule'));
+const TrustModule = lazy(() => import('./pages/admin/modules/TrustModule'));
+const AnnouncementsModule = lazy(() => import('./pages/admin/modules/AnnouncementsModule'));
+const NotificationsModule = lazy(() => import('./pages/admin/modules/NotificationsModule'));
+const ReportsModule = lazy(() => import('./pages/admin/modules/ReportsModule'));
+const MonitoringModule = lazy(() => import('./pages/admin/modules/MonitoringModule'));
+const PlatformHealthModule = lazy(() => import('./pages/admin/modules/PlatformHealthModule'));
+const BackupModule = lazy(() => import('./pages/admin/modules/BackupModule'));
+const ActivityCenterModule = lazy(() => import('./pages/admin/modules/ActivityCenterModule'));
+const DataMasterModule = lazy(() => import('./pages/admin/modules/DataMasterModule'));
+const SettingsModule = lazy(() => import('./pages/admin/modules/SettingsModule'));
+const GlobalSearchModule = lazy(() => import('./pages/admin/modules/GlobalSearchModule'));
+const EscrowModule = lazy(() => import('./pages/admin/modules/EscrowModule'));
+const MasterEscrowModule = lazy(() => import('./pages/admin/modules/MasterEscrowModule'));
+const RelationshipModule = lazy(() => import('./pages/admin/modules/RelationshipModule'));
+const OwnershipTransferModule = lazy(() => import('./pages/admin/modules/OwnershipTransferModule'));
+const CrossWorkspaceLineageModule = lazy(() => import('./pages/admin/modules/CrossWorkspaceLineageModule'));
+const FarmDashboardModule = lazy(() => import('./pages/admin/modules/FarmDashboardModule'));
+const FarmBatchModule = lazy(() => import('./pages/admin/modules/FarmBatchModule'));
+const FarmCatatBobotModule = lazy(() => import('./pages/admin/modules/FarmCatatBobotModule'));
+const FarmPemberianPakanModule = lazy(() => import('./pages/admin/modules/FarmPemberianPakanModule'));
+const FarmMasterPakanModule = lazy(() => import('./pages/admin/modules/FarmMasterPakanModule'));
+const FarmFormulaPakanModule = lazy(() => import('./pages/admin/modules/FarmFormulaPakanModule'));
+const FarmKesehatanModule = lazy(() => import('./pages/admin/modules/FarmKesehatanModule'));
+const FarmReproduksiModule = lazy(() => import('./pages/admin/modules/FarmReproduksiModule'));
+const FarmMutasiModule = lazy(() => import('./pages/admin/modules/FarmMutasiModule'));
+const FarmStokPakanModule = lazy(() => import('./pages/admin/modules/FarmStokPakanModule'));
+const FarmStokObatModule = lazy(() => import('./pages/admin/modules/FarmStokObatModule'));
+const FarmMasterObatModule = lazy(() => import('./pages/admin/modules/FarmMasterObatModule'));
+const UsersRolesPage = lazy(() => import('./pages/admin/modules/UsersSubPages').then(m => ({ default: m.UsersRolesPage })));
+const UsersActivityPage = lazy(() => import('./pages/admin/modules/UsersSubPages').then(m => ({ default: m.UsersActivityPage })));
+const WorkspacesPlansPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.WorkspacesPlansPage })));
+const WorkspacesVerificationPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.WorkspacesVerificationPage })));
+const BlockedWorkspacesPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.BlockedWorkspacesPage })));
+const PendingRequestsPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.PendingRequestsPage })));
+const MarketplaceTransactionsPage = lazy(() => import('./pages/admin/modules/MarketplaceSubPages').then(m => ({ default: m.MarketplaceTransactionsPage })));
+const MarketplaceReportsPage = lazy(() => import('./pages/admin/modules/MarketplaceSubPages').then(m => ({ default: m.MarketplaceReportsPage })));
+const FeedStockPage = lazy(() => import('./pages/admin/modules/FeedSubPages').then(m => ({ default: m.FeedStockPage })));
+const FeedConsumptionPage = lazy(() => import('./pages/admin/modules/FeedSubPages').then(m => ({ default: m.FeedConsumptionPage })));
+const MedicineStockPage = lazy(() => import('./pages/admin/modules/MedicineSubPages').then(m => ({ default: m.MedicineStockPage })));
+const MedicineUsagePage = lazy(() => import('./pages/admin/modules/MedicineSubPages').then(m => ({ default: m.MedicineUsagePage })));
 // Transport domain — ADMIN-SYNC-008
-import TransportModule from './pages/admin/modules/TransportModule';
-import {
-  TransportVehiclesAdmin,
-  TransportDriversAdmin,
-  TransportDeliveryAdmin,
-  TransportScheduleAdmin,
-  TransportRouteAdmin,
-  TransportReportsAdmin,
-} from './pages/admin/modules/TransportSubPages';
+const TransportModule = lazy(() => import('./pages/admin/modules/TransportModule'));
+const TransportVehiclesAdmin = lazy(() => import('./pages/admin/modules/TransportSubPages').then(m => ({ default: m.TransportVehiclesAdmin })));
+const TransportDriversAdmin = lazy(() => import('./pages/admin/modules/TransportSubPages').then(m => ({ default: m.TransportDriversAdmin })));
+const TransportDeliveryAdmin = lazy(() => import('./pages/admin/modules/TransportSubPages').then(m => ({ default: m.TransportDeliveryAdmin })));
+const TransportScheduleAdmin = lazy(() => import('./pages/admin/modules/TransportSubPages').then(m => ({ default: m.TransportScheduleAdmin })));
+const TransportRouteAdmin = lazy(() => import('./pages/admin/modules/TransportSubPages').then(m => ({ default: m.TransportRouteAdmin })));
+const TransportReportsAdmin = lazy(() => import('./pages/admin/modules/TransportSubPages').then(m => ({ default: m.TransportReportsAdmin })));
 
 // ─── PublicRoute ──────────────────────────────────────────────────────────────
 // AUTH-004 — Redirects already-authenticated users away from public auth pages
@@ -332,6 +337,7 @@ export default function App() {
   }, [authLoading, currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <Suspense fallback={null}>
     <Routes>
       {/* ── AUTH-001: /initialize — only accessible when not yet initialized ── */}
       <Route element={<InitializeGuard />}>
@@ -776,5 +782,6 @@ export default function App() {
       </Route>
 
     </Routes>
+    </Suspense>
   );
 }

@@ -32,9 +32,7 @@ import {
   WORKSPACE_PLANS,
 } from '../types/workspace';
 import {
-  // LEGACY — scheduled removal after production migration.
-  // Slug utilities: pure string helpers used only for UX hints (auto-suggest while typing).
-  // The Supabase unique constraint is the authoritative guard; these are best-effort only.
+  // Slug utilities are pure UX hints; the Supabase unique constraint is authoritative.
   deriveSlug,
   isSlugTaken,
 } from '../data/workspaceFoundationData';
@@ -45,7 +43,6 @@ import {
   repoGetWorkspacesByOwner,
   repoGetWorkspaceByUuid,
   repoGetWorkspaceBySlug,
-  repoInsertWorkspace,
   repoPatchWorkspace,
   repoDeleteWorkspace as repoHardDelete,
   WorkspaceRepoError,

@@ -110,15 +110,20 @@ export function useWorkspacePermission(workspaceId?: string): WorkspacePermissio
 
   const [customRole, setCustomRole] = useState<CustomRoleRecord | null>(null);
   const [loading,    setLoading]    = useState(false);
+  const customRoleId = (membership as (WorkspaceMemberRecord & { custom_role_id?: string | null }) | null)?.custom_role_id;
 
   // Fetch custom role async whenever membership.custom_role_id changes.
   useEffect(() => {
-    const customRoleId = (membership as (WorkspaceMemberRecord & { custom_role_id?: string | null }) | null)?.custom_role_id;
-    if (!customRoleId) {
-      setCustomRole(null);
-      return;
-    }
     let cancelled = false;
+    if (!customRoleId) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setCustomRole(null);
+          setLoading(false);
+        }
+      });
+      return () => { cancelled = true; };
+    }
     setLoading(true);
     getCustomRoleById(customRoleId).then((cr) => {
       if (!cancelled) {
@@ -132,7 +137,7 @@ export function useWorkspacePermission(workspaceId?: string): WorkspacePermissio
       }
     });
     return () => { cancelled = true; };
-  }, [(membership as (WorkspaceMemberRecord & { custom_role_id?: string | null }) | null)?.custom_role_id]);
+  }, [customRoleId]);
 
   const role: MemberRole | null = membership?.role ?? null;
 

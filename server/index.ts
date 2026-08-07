@@ -24,24 +24,6 @@ import {
   type AtomicRegistrationInput,
 } from './atomicRegistration';
 import { registerWithSupabaseAdmin } from './registration';
-import {
-  requireAdmin,
-  getUserStats,
-  listUsers,
-  getUser,
-  updateUser,
-  suspendUser,
-  unsuspendUser,
-  deleteUser,
-  resetPassword,
-  verifyEmail,
-  resendVerification,
-  signOutUser,
-  getUserWorkspaces,
-  addWorkspaceMembership,
-  updateWorkspaceMembership,
-  removeWorkspaceMembership,
-} from './adminUsers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -123,25 +105,6 @@ app.post('/api/auth/register', async (req, res) => {
 app.get('/api/ping', (_req, res) => {
   res.json({ ok: true, service: 'ternakhub-api', ts: new Date().toISOString() });
 });
-
-// ─── Admin User Management — ADM-003 ─────────────────────────────────────────
-// All routes protected by requireAdmin middleware (verifies admin JWT server-side).
-app.get( '/api/admin/users/stats',                         requireAdmin, getUserStats);
-app.get( '/api/admin/users',                               requireAdmin, listUsers);
-app.get( '/api/admin/users/:id',                           requireAdmin, getUser);
-app.patch('/api/admin/users/:id',                          requireAdmin, updateUser);
-app.post('/api/admin/users/:id/suspend',                   requireAdmin, suspendUser);
-app.post('/api/admin/users/:id/unsuspend',                 requireAdmin, unsuspendUser);
-app.delete('/api/admin/users/:id',                         requireAdmin, deleteUser);
-app.post('/api/admin/users/:id/reset-password',            requireAdmin, resetPassword);
-app.post('/api/admin/users/:id/verify-email',              requireAdmin, verifyEmail);
-app.post('/api/admin/users/:id/resend-verification',       requireAdmin, resendVerification);
-app.post('/api/admin/users/:id/sign-out',                  requireAdmin, signOutUser);
-app.get( '/api/admin/users/:id/workspaces',                requireAdmin, getUserWorkspaces);
-app.post('/api/admin/users/:id/workspaces',                requireAdmin, addWorkspaceMembership);
-app.patch('/api/admin/users/:id/workspaces/:wsId',         requireAdmin, updateWorkspaceMembership);
-app.delete('/api/admin/users/:id/workspaces/:wsId',        requireAdmin, removeWorkspaceMembership);
-
 
 // ─── Static SPA (production only) ────────────────────────────────────────────
 // In production the Express server is the sole entry point (port exposed as 80).

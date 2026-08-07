@@ -3,10 +3,10 @@
 // Shows 0 / empty state when no data. No hardcoded values.
 
 import { useState, useMemo, useEffect } from 'react';
+import type { ReactNode } from 'react';
 const PAGE_SIZE = 20;
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
-// LEGACY — scheduled removal after production migration.
 // adminWorkspacesData provides UI display-config constants (colors, icons, labels)
 // and AdminWorkspaceRecord type used for rendering only. All actual workspace data
 // is already fetched directly from Supabase below. No workspace CRUD goes through
@@ -105,11 +105,11 @@ function TypeBadge({ type }: { type: WsType }) {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginTop: 20 }}>{children}</div>;
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '7px 0', borderBottom: '1px solid #f1f5f9' }}>
       <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>

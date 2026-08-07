@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { PlatformInitProvider } from './contexts/PlatformInitContext';
 import RootErrorBoundary from './components/RootErrorBoundary';
+import { restoreUserWeightToLivestock } from './data/livestockData';
 import './index.css';
 
 // Developer Data Factory — dev-only, excluded from production builds.
@@ -20,8 +21,6 @@ async function boot() {
   // Restore user-recorded weight entries from localStorage before React mounts,
   // so every page's initial render already sees the user's latest weights.
   // This runs unconditionally (dev and prod) since user data lives in localStorage.
-  const { restoreUserWeightToLivestock } = await import('./data/livestockData');
-
   if (import.meta.env.DEV) {
     try {
       const { devAutoSeed } = await import('./dev/data-factory/devAutoSeed');

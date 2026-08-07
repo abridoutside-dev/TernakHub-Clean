@@ -718,6 +718,7 @@ export function PendingRequestsPage() {
   const [error, setError]     = useState<string | null>(null);
   const [search, setSearch]   = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -753,9 +754,9 @@ export function PendingRequestsPage() {
   }, [rows, search]);
 
   const expiredSoon = useMemo(() => {
-    const cutoff = Date.now() + 3 * 86400000;
+    const cutoff = now + 3 * 86400000;
     return rows.filter(r => r.expires_at && new Date(r.expires_at).getTime() < cutoff).length;
-  }, [rows]);
+  }, [now, rows]);
 
   const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage    = Math.min(currentPage, totalPages);
@@ -862,7 +863,7 @@ export function PendingRequestsPage() {
                     </td>
                   </tr>
                 ) : pageRows.map((r, i) => {
-                  const isExpiringSoon = r.expires_at && new Date(r.expires_at).getTime() < Date.now() + 3 * 86400000;
+                  const isExpiringSoon = r.expires_at && new Date(r.expires_at).getTime() < now + 3 * 86400000;
                   const roleColor = ROLE_COLOR[r.role ?? ''] ?? '#64748b';
                   return (
                     <tr key={r.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc', borderBottom: '1px solid #f1f5f9' }}>
