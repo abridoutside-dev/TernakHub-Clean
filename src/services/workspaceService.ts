@@ -71,6 +71,23 @@ import {
   removeWorkspaceMemberCache,
 } from '../data/workspaceMembersData';
 import type { MemberRole, MemberStatus } from '../types/workspacePermissions';
+import type {
+  CustomRoleCreateInput,
+  CustomRoleRecord,
+  CustomRoleResult,
+  CustomRoleUpdateInput,
+  WorkspaceRoleRecord,
+  WorkspaceRoleRemovalPreflight,
+} from '../types/customRole';
+import {
+  repoListWorkspaceRoles,
+  repoGetWorkspaceRole,
+  repoCreateWorkspaceRole,
+  repoUpdateWorkspaceRole,
+  repoUpdateWorkspaceRoleStatus,
+  repoGetWorkspaceRoleRemovalPreflight,
+  repoDeleteWorkspaceRole,
+} from '../repositories/workspaceRolesRepository';
 import { supabase } from '../lib/supabase';
 
 // ─── Re-export slug utilities (consumers import from the service, not the repo)
@@ -255,6 +272,108 @@ export async function removeWorkspaceMember(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Gagal menghapus membership.';
     return { ok: false, errors: [{ field: 'general', message }] };
+  }
+}
+
+// ─── Workspace Roles ─────────────────────────────────────────────────────────
+// Workspace Roles uses one browser path only:
+// UI → WorkspaceService → WorkspaceRolesRepository → workspace-roles Edge Function.
+
+function validateWorkspaceRoleName(name: string): string | null {
+  const normalized = name.trim();
+  if (!normalized) return 'Nama role wajib diisi.';
+  if (normalized.length < 2) return 'Nama role minimal 2 karakter.';
+  if (normalized.length > 40) return 'Nama role maksimal 40 karakter.';
+  return null;
+}
+
+export async function getWorkspaceRoles(
+  workspaceUuid: string,
+): Promise<WorkspaceRoleRecord[]> {
+  return repoListWorkspaceRoles(workspaceUuid);
+}
+
+export async function getWorkspaceRole(
+  roleId: string,
+  workspaceUuid: string,
+  roleKind: 'builtin' | 'custom' = 'custom',
+): Promise<WorkspaceRoleRecord | null> {
+  return repoGetWorkspaceRole(roleId, workspaceUuid, roleKind);
+}
+
+export async function addWorkspaceRole(
+  input: CustomRoleCreateInput,
+): Promise<CustomRoleResult<CustomRoleRecord>> {
+  const nameError = validateWorkspaceRoleName(input.name);
+  if (nameError) return { ok: false, error: { code: 'NAME_REQUIRED', message: nameError } };
+  try {
+    const roles = await repoListWorkspaceRoles(input.workspace_id);
+    if (roles.filter((role) => role.role_kind === 'custom').length >= 20) {
+      return { ok: false, error: { code: 'FORBIDDEN', message: 'Maksimal 20 custom role per workspace.' } };
+    }
+    return { ok: true, data: await repoCreateWorkspaceRole(input) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gagal membuat role.';
+    return { ok: false, error: { code: 'NOT_FOUND', message } };
+  }
+}
+
+export async function editWorkspaceRole(
+  roleId: string,
+  workspaceUuid: string,
+  patch: CustomRoleUpdateInput,
+): Promise<CustomRoleResult<CustomRoleRecord>> {
+  if (patch.name !== undefined) {
+    const nameError = validateWorkspaceRoleName(patch.name);
+    if (nameError) return { ok: false, error: { code: 'NAME_REQUIRED', message: nameError } };
+  }
+  try {
+    return { ok: true, data: await repoUpdateWorkspaceRole(roleId, workspaceUuid, patch) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gagal memperbarui role.';
+    return { ok: false, error: { code: 'NOT_FOUND', message } };
+  }
+}
+
+export async function updateWorkspaceRoleStatus(
+  roleId: string,
+  workspaceUuid: string,
+  status: 'Active' | 'Inactive',
+): Promise<CustomRoleResult<CustomRoleRecord>> {
+  try {
+    return { ok: true, data: await repoUpdateWorkspaceRoleStatus(roleId, workspaceUuid, status) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gagal mengubah status role.';
+    return { ok: false, error: { code: 'NOT_FOUND', message } };
+  }
+}
+
+export async function getWorkspaceRoleRemovalPreflight(
+  roleId: string,
+  workspaceUuid: string,
+): Promise<WorkspaceRoleRemovalPreflight | null> {
+  return repoGetWorkspaceRoleRemovalPreflight(roleId, workspaceUuid);
+}
+
+export async function removeWorkspaceRole(
+  roleId: string,
+  workspaceUuid: string,
+  preflight: WorkspaceRoleRemovalPreflight,
+): Promise<CustomRoleResult<boolean>> {
+  if (preflight.role.id !== roleId || preflight.role.workspace_id !== workspaceUuid) {
+    return { ok: false, error: { code: 'FORBIDDEN', message: 'Pre-check role tidak cocok.' } };
+  }
+  if (preflight.dependencies.some((dependency) => dependency.blocksDelete && dependency.count > 0)) {
+    return { ok: false, error: { code: 'FORBIDDEN', message: 'Role masih digunakan oleh member workspace.' } };
+  }
+  try {
+    const result = await repoDeleteWorkspaceRole(roleId, workspaceUuid);
+    return result.removed
+      ? { ok: true, data: true }
+      : { ok: false, error: { code: 'NOT_FOUND', message: 'Role tidak ditemukan.' } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gagal menghapus role.';
+    return { ok: false, error: { code: 'NOT_FOUND', message } };
   }
 }
 

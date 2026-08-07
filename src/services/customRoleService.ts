@@ -13,18 +13,23 @@
 //  - Name must be 2–40 characters, unique within workspace.
 
 import {
-  repoListCustomRoles,
-  repoGetCustomRoleById,
-  repoCreateCustomRole,
-  repoUpdateCustomRole,
-  repoDeleteCustomRole,
-  CustomRoleRepoError,
-} from '../repositories/customRolesRepository';
+  repoListWorkspaceRoles,
+  repoGetWorkspaceRole,
+  repoCreateWorkspaceRole,
+  repoUpdateWorkspaceRole,
+  repoUpdateWorkspaceRoleStatus,
+  repoGetWorkspaceRoleRemovalPreflight,
+  repoDeleteWorkspaceRole,
+  WorkspaceRolesRepoError,
+} from '../repositories/workspaceRolesRepository';
 import type {
+  BuiltinRoleRecord,
   CustomRoleRecord,
   CustomRoleCreateInput,
   CustomRoleUpdateInput,
   CustomRoleResult,
+  WorkspaceRoleRecord,
+  WorkspaceRoleRemovalPreflight,
 } from '../types/customRole';
 import type { PermissionModule, PermissionAction } from '../types/workspacePermissions';
 import { ROLE_PERMISSION_MATRIX } from '../types/workspacePermissions';
@@ -44,13 +49,31 @@ function validateName(name: string): string | null {
 export async function listCustomRoles(
   workspaceId: string,
 ): Promise<CustomRoleRecord[]> {
-  return repoListCustomRoles(workspaceId);
+  const roles = await repoListWorkspaceRoles(workspaceId);
+  return roles.filter((role): role is CustomRoleRecord => role.role_kind === 'custom');
 }
 
 export async function getCustomRoleById(
   id: string,
+  workspaceId?: string,
 ): Promise<CustomRoleRecord | null> {
-  return repoGetCustomRoleById(id);
+  if (!workspaceId) return null;
+  const role = await repoGetWorkspaceRole(id, workspaceId, 'custom');
+  return role?.role_kind === 'custom' ? role : null;
+}
+
+export async function listWorkspaceRoles(
+  workspaceId: string,
+): Promise<WorkspaceRoleRecord[]> {
+  return repoListWorkspaceRoles(workspaceId);
+}
+
+export async function getWorkspaceRole(
+  id: string,
+  workspaceId: string,
+  roleKind: 'builtin' | 'custom',
+): Promise<WorkspaceRoleRecord | null> {
+  return repoGetWorkspaceRole(id, workspaceId, roleKind);
 }
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
@@ -64,7 +87,7 @@ export async function createCustomRole(
   }
 
   // Soft limit check
-  const existing = await repoListCustomRoles(input.workspace_id);
+  const existing = await listCustomRoles(input.workspace_id);
   if (existing.length >= 20) {
     return {
       ok: false,
@@ -76,10 +99,10 @@ export async function createCustomRole(
   }
 
   try {
-    const record = await repoCreateCustomRole(input);
+    const record = await repoCreateWorkspaceRole(input);
     return { ok: true, data: record };
   } catch (err) {
-    if (err instanceof CustomRoleRepoError && err.code === 'DUPLICATE_NAME') {
+    if (err instanceof WorkspaceRolesRepoError && err.code === 'DUPLICATE_NAME') {
       return {
         ok: false,
         error: { code: 'DUPLICATE_NAME', message: err.message },
@@ -93,6 +116,7 @@ export async function createCustomRole(
 export async function updateCustomRole(
   id:    string,
   patch: CustomRoleUpdateInput,
+  workspaceId?: string,
 ): Promise<CustomRoleResult<CustomRoleRecord>> {
   if (patch.name !== undefined) {
     const nameError = validateName(patch.name);
@@ -102,13 +126,16 @@ export async function updateCustomRole(
   }
 
   try {
-    const updated = await repoUpdateCustomRole(id, patch);
+    if (!workspaceId) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: 'Workspace tidak ditemukan.' } };
+    }
+    const updated = await repoUpdateWorkspaceRole(id, workspaceId, patch);
     if (!updated) {
       return { ok: false, error: { code: 'NOT_FOUND', message: 'Custom role tidak ditemukan.' } };
     }
     return { ok: true, data: updated };
   } catch (err) {
-    if (err instanceof CustomRoleRepoError && err.code === 'DUPLICATE_NAME') {
+    if (err instanceof WorkspaceRolesRepoError && err.code === 'DUPLICATE_NAME') {
       return { ok: false, error: { code: 'DUPLICATE_NAME', message: err.message } };
     }
     const message = err instanceof Error ? err.message : 'Gagal memperbarui custom role.';
@@ -118,15 +145,50 @@ export async function updateCustomRole(
 
 export async function deleteCustomRole(
   id: string,
+  workspaceId?: string,
+  preflight?: WorkspaceRoleRemovalPreflight,
 ): Promise<CustomRoleResult<boolean>> {
   try {
-    const deleted = await repoDeleteCustomRole(id);
-    if (!deleted) {
+    if (!workspaceId) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: 'Workspace tidak ditemukan.' } };
+    }
+    if (!preflight) {
+      return { ok: false, error: { code: 'FORBIDDEN', message: 'Pre-check penghapusan wajib dilakukan.' } };
+    }
+    if (preflight.role.id !== id || preflight.role.workspace_id !== workspaceId) {
+      return { ok: false, error: { code: 'FORBIDDEN', message: 'Pre-check role tidak cocok.' } };
+    }
+    if (preflight.dependencies.some((dependency) => dependency.blocksDelete && dependency.count > 0)) {
+      return { ok: false, error: { code: 'FORBIDDEN', message: 'Role masih digunakan oleh member workspace.' } };
+    }
+    const deleted = await repoDeleteWorkspaceRole(id, workspaceId);
+    if (!deleted.removed) {
       return { ok: false, error: { code: 'NOT_FOUND', message: 'Custom role tidak ditemukan.' } };
     }
     return { ok: true, data: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Gagal menghapus custom role.';
+    return { ok: false, error: { code: 'NOT_FOUND', message } };
+  }
+}
+
+export async function getWorkspaceRoleRemovalPreflight(
+  id: string,
+  workspaceId: string,
+): Promise<WorkspaceRoleRemovalPreflight | null> {
+  return repoGetWorkspaceRoleRemovalPreflight(id, workspaceId);
+}
+
+export async function updateCustomRoleStatus(
+  id: string,
+  workspaceId: string,
+  status: 'Active' | 'Inactive',
+): Promise<CustomRoleResult<CustomRoleRecord>> {
+  try {
+    const updated = await repoUpdateWorkspaceRoleStatus(id, workspaceId, status);
+    return { ok: true, data: updated };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Gagal mengubah status role.';
     return { ok: false, error: { code: 'NOT_FOUND', message } };
   }
 }

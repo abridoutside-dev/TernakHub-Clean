@@ -18,6 +18,21 @@ export type CustomRolePermissions = Partial<
   Record<PermissionModule, Partial<Record<PermissionAction, boolean>>>
 >;
 
+export type WorkspaceRoleStatus = 'Active' | 'Inactive';
+
+export interface BuiltinRoleRecord {
+  id: string;
+  workspace_id: string | null;
+  name: string;
+  description: string | null;
+  permissions: CustomRolePermissions;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  status: 'Active';
+  role_kind: 'builtin';
+}
+
 export interface CustomRoleRecord {
   id:           string;
   workspace_id: string;
@@ -27,6 +42,23 @@ export interface CustomRoleRecord {
   created_by:   string | null;
   created_at:   string;
   updated_at:   string;
+  status:       WorkspaceRoleStatus;
+  role_kind:    'custom';
+}
+
+export type WorkspaceRoleRecord = BuiltinRoleRecord | CustomRoleRecord;
+
+export interface WorkspaceRoleDependency {
+  key: 'members';
+  label: string;
+  count: number;
+  description: string;
+  blocksDelete: boolean;
+}
+
+export interface WorkspaceRoleRemovalPreflight {
+  role: CustomRoleRecord;
+  dependencies: WorkspaceRoleDependency[];
 }
 
 export interface CustomRoleCreateInput {
