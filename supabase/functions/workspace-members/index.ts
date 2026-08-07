@@ -13,7 +13,7 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-type MemberRole = 'Owner' | 'Admin' | 'Staff' | 'Viewer' | 'Guest';
+type MemberRole = 'Owner' | 'Admin' | 'Manager' | 'Staff' | 'Viewer' | 'Guest';
 type MemberStatus = 'Aktif' | 'Nonaktif' | 'Diundang' | 'Ditangguhkan';
 
 function response(body: unknown, status = 200): Response {
@@ -34,7 +34,7 @@ function uuid(value: unknown): value is string {
 
 function dbRole(role: unknown): MemberRole | null {
   return role === 'Owner' || role === 'Admin' || role === 'Staff'
-    || role === 'Viewer' || role === 'Guest' ? role : null;
+    || role === 'Manager' || role === 'Viewer' || role === 'Guest' ? role : null;
 }
 
 function dbStatus(status: unknown): MemberStatus | null {

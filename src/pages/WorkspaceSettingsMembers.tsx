@@ -797,7 +797,7 @@ export default function WorkspaceSettingsMembers() {
   // ── Modal state ────────────────────────────────────────────────────────────
   const [openMenuId,    setOpenMenuId]    = useState<string | null>(null);
   const [roleModalId,   setRoleModalId]   = useState<string | null>(null);
-  const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
+  const [detailMember, setDetailMember] = useState<WorkspaceMemberRecord | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [confirmState,  setConfirmState]  = useState<
     | { action: 'remove' | 'deactivate'; memberId: string }
@@ -832,6 +832,21 @@ export default function WorkspaceSettingsMembers() {
       await loadMembers();
     } else {
       showToast('error', result.errors[0]?.message ?? 'Gagal mengubah role member.');
+    }
+  }
+
+  async function handleViewDetail(memberId: string) {
+    const workspaceId = activeWorkspace?.workspace_uuid ?? '';
+    if (!workspaceId) return;
+    try {
+      const member = await getWorkspaceMember(memberId, workspaceId);
+      if (!member) {
+        showToast('error', 'Member tidak ditemukan.');
+        return;
+      }
+      setDetailMember(member);
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Gagal memuat detail member.');
     }
   }
 
@@ -890,8 +905,6 @@ export default function WorkspaceSettingsMembers() {
 
   const roleModalMember = roleModalId ? allMembers.find((m) => m.member_uuid === roleModalId) ?? null : null;
   const confirmMember   = confirmState ? allMembers.find((m) => m.member_uuid === confirmState.memberId) ?? null : null;
-  const detailMember    = detailMemberId ? allMembers.find((m) => m.member_uuid === detailMemberId) ?? null : null;
-
   const inp: React.CSSProperties = {
     width: '100%', padding: '10px 12px 10px 38px', borderRadius: 10,
     border: '1.5px solid var(--color-border)', fontSize: 14,
@@ -924,7 +937,7 @@ export default function WorkspaceSettingsMembers() {
       {detailMember && (
         <MemberDetailsModal
           member={detailMember}
-          onCancel={() => setDetailMemberId(null)}
+          onCancel={() => setDetailMember(null)}
         />
       )}
       {showAddMember && activeWorkspace && (
@@ -1157,7 +1170,7 @@ export default function WorkspaceSettingsMembers() {
                     <button
                       onClick={() => {
                         setOpenMenuId(null);
-                        setDetailMemberId(member.member_uuid);
+                        void handleViewDetail(member.member_uuid);
                       }}
                       style={{ width: 32, height: 32, borderRadius: 8, background: 'none', border: '1px solid var(--color-border)', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 14 }}
                       aria-label="View member details"
