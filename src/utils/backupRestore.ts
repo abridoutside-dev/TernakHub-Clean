@@ -9,7 +9,7 @@ import { getInventarisList } from '../data/stokInventarisData';
 import { getFormulaList, replaceFormulaList, type FormulaRecord } from '../data/formulaData';
 import { getMasterPakanList } from '../data/masterPakanData';
 import { getProdukKomersialList } from '../data/produkKomersialData';
-// DB-001B-3: workspaceManagementData removed — workspace data lives in Supabase.
+// DB-001B-3: workspace records live in Supabase.
 
 // ─── Snapshot schema ──────────────────────────────────────────────────────────
 

@@ -42,7 +42,6 @@ export class UserProfileRepoError extends Error {
  * if RLS denies access.
  */
 export async function repoGetUserProfile(userId: string): Promise<UserProfile | null> {
-  console.log('[userProfileRepository] PROFILE QUERY START', { userId });
   try {
     const { data, error } = await supabase
       .from('user_profiles')
@@ -56,7 +55,6 @@ export async function repoGetUserProfile(userId: string): Promise<UserProfile | 
     }
 
     const profile = (data ?? null) as UserProfile | null;
-    console.log('[userProfileRepository] PROFILE QUERY SUCCESS', { userId, profile });
     return profile;
   } catch (err) {
     console.error('[userProfileRepository] PROFILE QUERY EXCEPTION', { userId, error: err });

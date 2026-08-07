@@ -125,7 +125,6 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { currentUser, loading: authLoading } = useAuth();
-  console.log('[Render] WorkspaceProvider');
   if (typeof window !== 'undefined') {
     (window as Window & { __lastRenderedReactComponent?: string }).__lastRenderedReactComponent = 'WorkspaceProvider';
   }
@@ -162,10 +161,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // If auth is still loading, wait — we don't want to fetch with no session
   // and then fetch again with a session.
   useEffect(() => {
-    console.log('[WorkspaceContext] useEffect auth state change', {
-      authLoading,
-      currentUserId: currentUser?.id ?? null,
-    });
     if (authLoading) return;
 
     if (!currentUser) {

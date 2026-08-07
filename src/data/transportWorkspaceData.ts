@@ -178,7 +178,7 @@ export interface TransportAccessDecision {
   canEditFleet: boolean;          // owner/admin fleet management permission
 }
 
-/** Member registry — local to avoid circular imports from workspaceManagementData. */
+/** Member registry — local to avoid circular imports from workspace data modules. */
 type MemberEntry = { userId: string; workspaceId: string; role: 'Owner' | 'Admin' | 'Member' };
 
 const TRANSPORT_MEMBER_ROLES: MemberEntry[] = [

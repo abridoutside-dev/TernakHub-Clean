@@ -13,7 +13,7 @@
 //
 // Disimpan PER WORKSPACE (Workspace Farm A punya layout sendiri, terpisah
 // dari Workspace Farm B), konsisten dengan pola in-memory store lain di
-// project ini (mis. workspaceManagementData.ts).
+// project ini (mis. workspace data stores).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Widget Registry ───────────────────────────────────────────────────────

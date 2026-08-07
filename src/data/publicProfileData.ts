@@ -703,7 +703,7 @@ const PRIVATE_USER_PROFILES: PrivateUserProfile[] = [
 ];
 
 // ─── Member Registry (for access control derivation) ─────────────────────────
-// Mirror of workspaceManagementData — kept local to avoid circular import.
+// Local workspace mirror kept here to avoid a circular import.
 // owner of w1,w2,w3,w4 = 'usr-berkah-001'; member of w6 = 'usr-berkah-001'
 
 type MemberEntry = { userId: string; workspaceId: string; role: 'Owner' | 'Admin' | 'Member' };

@@ -34,8 +34,8 @@
 // RELASI YANG DISIAPKAN (belum di-wire):
 //   media_uuid          → Supabase media repository
 //   evidence_uuid       → dapat disimpan di entitas modul sebagai foreign key
-//   uploaded_by         → workspaceManagementData.ts (workspace UUID)
-//   verified_by         → workspaceManagementData.ts (workspace UUID)
+//   uploaded_by         → workspace UUID
+//   verified_by         → workspace UUID
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {

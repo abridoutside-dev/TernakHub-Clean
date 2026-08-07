@@ -58,8 +58,6 @@ function adaptProfile(p: ProfileRow): AdminUserRecord {
     avatarColor: color,
     status: 'Active' as UserStatus,  // user_profiles has no status column
     isAdmin: false,                  // cannot determine without JWT/auth.users
-    totalWorkspaces: 0,
-    workspaces: [],
     registeredAt: p.created_at ? new Date(p.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     lastActiveAt: p.updated_at ? new Date(p.updated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     lastActiveDaysAgo: p.updated_at ? Math.floor((Date.now() - new Date(p.updated_at).getTime()) / 86400000) : 999,

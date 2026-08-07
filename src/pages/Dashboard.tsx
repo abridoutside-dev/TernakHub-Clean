@@ -92,7 +92,6 @@ function getDynamicGreeting(): string {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  console.log('[Render] Dashboard');
   if (typeof window !== 'undefined') {
     (window as Window & { __lastRenderedReactComponent?: string }).__lastRenderedReactComponent = 'Dashboard';
   }

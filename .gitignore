@@ -5,3 +5,11 @@ dist-ssr
 .env
 .DS_Store
 tsconfig.tsbuildinfo
+
+# Generated test and audit artifacts
+test-results/
+playwright-report/
+coverage/
+screenshots/
+audit-reports/
+audit_startup.txt

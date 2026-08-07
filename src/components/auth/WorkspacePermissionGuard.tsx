@@ -32,7 +32,6 @@ export default function WorkspacePermissionGuard({
   action,
   children,
 }: WorkspacePermissionGuardProps) {
-  console.log('[Render] WorkspacePermissionGuard', { module, action });
   if (typeof window !== 'undefined') {
     (window as Window & { __lastRenderedReactComponent?: string }).__lastRenderedReactComponent = 'WorkspacePermissionGuard';
   }

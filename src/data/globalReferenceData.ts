@@ -442,7 +442,7 @@ seed('f4000001-0000-4000-a000-000000000004', 'AI_INSIGHT_TYPE', 'LOW',   'Low', 
 seed('f4000001-0000-4000-a000-000000000005', 'AI_INSIGHT_TYPE', 'INF',   'Information',     5,  { description: 'Insight informasional — tidak memerlukan tindakan langsung.' });
 
 // ── BUSINESS TYPE ─────────────────────────────────────────────────────────────
-// Matches jenis values in src/data/workspaceManagementData.ts
+// Matches workspace jenis values used by the profile and workspace registries.
 seed('f5000001-0000-4000-a000-000000000001', 'BUSINESS_TYPE', 'PTK',  'Peternakan',              1,  { description: 'Usaha peternakan mandiri atau kelompok ternak.' });
 seed('f5000001-0000-4000-a000-000000000002', 'BUSINESS_TYPE', 'KOP',  'Koperasi',                2,  { description: 'Koperasi peternak atau kelompok tani ternak.' });
 seed('f5000001-0000-4000-a000-000000000003', 'BUSINESS_TYPE', 'DST',  'Distributor',             3,  { description: 'Distributor pakan, obat, atau ternak.' });
