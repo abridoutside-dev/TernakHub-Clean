@@ -759,13 +759,20 @@ async function handleAdminUsers(
       body: JSON.stringify({ owner_id: newOwnerId }),
     });
     if (!updateWorkspace.ok) return errorResponse(await responseMessage(updateWorkspace, 'Kepemilikan Workspace gagal dipindahkan'), updateWorkspace.status);
-    const demoteCurrent = await restFetch(
+    // The admin deletion workflow requires the previous owner to have no
+    // remaining workspace dependency. Remove the old owner's membership after
+    // the workspace owner has been updated, rather than demoting them to Admin.
+    const removeCurrent = await restFetch(
       url,
       `/workspace_members?id=eq.${encodeURIComponent(currentMembers[0].id)}&workspace_id=eq.${workspaceId}&user_id=eq.${id}`,
       serviceRole,
-      { method: 'PATCH', body: JSON.stringify({ role: 'Admin' }) },
+      { method: 'DELETE' },
     );
-    if (!demoteCurrent.ok) return errorResponse(await responseMessage(demoteCurrent, 'Kepemilikan berpindah, tetapi peran pemilik lama gagal diperbarui'), demoteCurrent.status);
+    if (!removeCurrent.ok) return errorResponse(await responseMessage(removeCurrent, 'Kepemilikan berpindah, tetapi membership pemilik lama gagal dihapus'), removeCurrent.status);
+    const removedCurrent = await removeCurrent.json();
+    if (!Array.isArray(removedCurrent) || removedCurrent.length === 0) {
+      return errorResponse('Kepemilikan berpindah, tetapi membership pemilik lama tidak ditemukan', 409);
+    }
     return jsonResponse({ ok: true, data: { ok: true, new_owner_id: newOwner.id } });
   }
 
@@ -780,7 +787,7 @@ async function handleAdminUsers(
     // surface foreign-key diagnostics from child tables.
     const response = await restFetch(url, `/workspaces?id=eq.${workspaceId}&owner_id=eq.${id}`, serviceRole, {
       method: 'PATCH',
-      body: JSON.stringify({ status: 'Archived', archived_at: new Date().toISOString() }),
+      body: JSON.stringify({ status: 'Diarsipkan', archived_at: new Date().toISOString() }),
     });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Workspace tidak dapat dihapus'), response.status);
     const archived = await response.json();
@@ -794,7 +801,7 @@ async function handleAdminUsers(
     if (memberId) {
       const invalidMemberId = requireUuid(memberId, 'Workspace membership ID');
       if (invalidMemberId) return errorResponse(invalidMemberId, 400);
-      const response = await restFetch(url, `/workspace_members?id=${memberId}&user_id=${id}&custom_role_id=not.is.null`, serviceRole, {
+      const response = await restFetch(url, `/workspace_members?id=eq.${encodeURIComponent(memberId)}&user_id=eq.${encodeURIComponent(id)}&custom_role_id=not.is.null`, serviceRole, {
         method: 'PATCH',
         body: JSON.stringify({ custom_role_id: null }),
       });
@@ -806,7 +813,12 @@ async function handleAdminUsers(
     if (!roleId) return errorResponse('Role ID atau membership ID wajib diisi', 400);
     const invalidRoleId = requireUuid(roleId, 'Role ID');
     if (invalidRoleId) return errorResponse(invalidRoleId, 400);
-    const response = await restFetch(url, `/workspace_custom_roles?id=${roleId}&created_by=${id}`, serviceRole, { method: 'DELETE' });
+    const response = await restFetch(
+      url,
+      `/workspace_custom_roles?id=eq.${encodeURIComponent(roleId)}&created_by=eq.${encodeURIComponent(id)}`,
+      serviceRole,
+      { method: 'DELETE' },
+    );
     if (!response.ok) return errorResponse(await responseMessage(response, 'Peran Workspace gagal dihapus'), response.status);
     const deleted = await response.json();
     if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Peran Workspace tidak ditemukan atau sudah dibersihkan', 409);
@@ -818,7 +830,12 @@ async function handleAdminUsers(
     if (!invitationId) return errorResponse('Invitation ID wajib diisi', 400);
     const invalidInvitationId = requireUuid(invitationId, 'Invitation ID');
     if (invalidInvitationId) return errorResponse(invalidInvitationId, 400);
-    const response = await restFetch(url, `/workspace_invitations?id=${invitationId}&invited_by=${id}`, serviceRole, { method: 'DELETE' });
+    const response = await restFetch(
+      url,
+      `/workspace_invitations?id=eq.${encodeURIComponent(invitationId)}&invited_by=eq.${encodeURIComponent(id)}`,
+      serviceRole,
+      { method: 'DELETE' },
+    );
     if (!response.ok) return errorResponse(await responseMessage(response, 'Undangan Workspace gagal dihapus'), response.status);
     const deleted = await response.json();
     if (!Array.isArray(deleted) || deleted.length === 0) return errorResponse('Undangan Workspace tidak ditemukan atau sudah dibersihkan', 409);
