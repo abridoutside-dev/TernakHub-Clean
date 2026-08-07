@@ -126,6 +126,32 @@ import {
   repoTransitionOwnershipTransfer,
   WorkspaceOwnershipRepoError,
 } from '../repositories/workspaceOwnershipRepository';
+import {
+  repoAssignSubscription,
+  repoChangeSubscription,
+  repoCreateSubscriptionPackage,
+  repoDeleteSubscriptionPackage,
+  repoGetPackageDeletePreflight,
+  repoGetSubscriptionPackage,
+  repoGetWorkspaceSubscription,
+  repoListSubscriptionAdmin,
+  repoListSubscriptionAudit,
+  repoListSubscriptionHistory,
+  repoListSubscriptionPlans,
+  repoSetSubscriptionPackageStatus,
+  repoTransitionSubscription,
+  repoUpdateSubscriptionPackage,
+  SubscriptionRepoError,
+} from '../repositories/workspaceSubscriptionRepository';
+import type {
+  SubscriptionAdminData,
+  SubscriptionAuditEntry,
+  SubscriptionHistoryEntryAdmin,
+  SubscriptionPackage,
+  SubscriptionPackageInput,
+  SubscriptionPreflight,
+  SubscriptionRecordAdmin,
+} from '../types/subscriptionAdmin';
 
 // ─── Re-export slug utilities (consumers import from the service, not the repo)
 
@@ -592,6 +618,151 @@ export async function transitionOwnershipTransfer(
   } catch (error) {
     return ownershipTransferError(error, 'Status transfer kepemilikan tidak dapat diperbarui.');
   }
+}
+
+// ─── Subscription ──────────────────────────────────────────────────────────────
+// UI → WorkspaceService → WorkspaceSubscriptionRepository → Edge Function.
+
+export type SubscriptionServiceResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { message: string; code?: string } };
+
+function subscriptionError(error: unknown, fallback: string): SubscriptionServiceResult<never> {
+  return {
+    ok: false,
+    error: {
+      message: error instanceof SubscriptionRepoError
+        ? error.message
+        : error instanceof Error ? error.message : fallback,
+      code: error instanceof SubscriptionRepoError ? error.code : undefined,
+    },
+  };
+}
+
+export function getSubscriptionAdmin(): Promise<SubscriptionAdminData> {
+  return repoListSubscriptionAdmin();
+}
+
+export function getSubscriptionPackages(): Promise<SubscriptionPackage[]> {
+  return repoListSubscriptionPlans();
+}
+
+export function getSubscriptionPackage(id: string): Promise<SubscriptionPackage | null> {
+  return repoGetSubscriptionPackage(id);
+}
+
+export function getWorkspaceSubscription(workspaceId: string): Promise<SubscriptionRecordAdmin | null> {
+  return repoGetWorkspaceSubscription(workspaceId);
+}
+
+export async function createSubscriptionPackage(
+  input: SubscriptionPackageInput,
+): Promise<SubscriptionServiceResult<SubscriptionPackage>> {
+  if (!input.plan_key.trim() || !input.name.trim()) {
+    return { ok: false, error: { message: 'Plan key dan nama paket wajib diisi.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoCreateSubscriptionPackage(input) };
+  } catch (error) {
+    return subscriptionError(error, 'Paket tidak dapat dibuat.');
+  }
+}
+
+export async function updateSubscriptionPackage(
+  id: string,
+  input: Partial<SubscriptionPackageInput>,
+): Promise<SubscriptionServiceResult<SubscriptionPackage>> {
+  if (!id) return { ok: false, error: { message: 'Package ID wajib diisi.', code: 'VALIDATION' } };
+  try {
+    return { ok: true, data: await repoUpdateSubscriptionPackage(id, input) };
+  } catch (error) {
+    return subscriptionError(error, 'Paket tidak dapat diperbarui.');
+  }
+}
+
+export async function setSubscriptionPackageStatus(
+  id: string,
+  active: boolean,
+): Promise<SubscriptionServiceResult<SubscriptionPackage>> {
+  try {
+    return { ok: true, data: await repoSetSubscriptionPackageStatus(id, active) };
+  } catch (error) {
+    return subscriptionError(error, 'Status paket tidak dapat diubah.');
+  }
+}
+
+export function getSubscriptionPackageDeletePreflight(id: string): Promise<SubscriptionPreflight> {
+  return repoGetPackageDeletePreflight(id);
+}
+
+export async function deleteSubscriptionPackage(
+  id: string,
+  preflight: SubscriptionPreflight,
+): Promise<SubscriptionServiceResult<{ removed: boolean }>> {
+  if (preflight.package.id !== id) {
+    return { ok: false, error: { message: 'Pre-check paket tidak cocok.', code: 'VALIDATION' } };
+  }
+  if (preflight.dependencies.some((dependency) => dependency.blocks_delete && dependency.count > 0)) {
+    return { ok: false, error: { message: 'Paket masih digunakan oleh subscription aktif.', code: 'DEPENDENCY' } };
+  }
+  try {
+    return { ok: true, data: await repoDeleteSubscriptionPackage(id, preflight) };
+  } catch (error) {
+    return subscriptionError(error, 'Paket tidak dapat dihapus.');
+  }
+}
+
+export async function assignSubscriptionPackage(input: {
+  workspace_id: string;
+  package_id: string;
+  billing_cycle?: 'monthly' | 'yearly';
+  expires_at?: string | null;
+}): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  if (!input.workspace_id || !input.package_id) {
+    return { ok: false, error: { message: 'Workspace dan paket wajib dipilih.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoAssignSubscription(input) };
+  } catch (error) {
+    return subscriptionError(error, 'Paket tidak dapat di-assign.');
+  }
+}
+
+export async function changeSubscriptionPackage(input: {
+  subscription_id: string;
+  package_id: string;
+  billing_cycle?: 'monthly' | 'yearly';
+  expires_at?: string | null;
+}): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  try {
+    return { ok: true, data: await repoChangeSubscription(input) };
+  } catch (error) {
+    return subscriptionError(error, 'Paket subscription tidak dapat diubah.');
+  }
+}
+
+export async function expireSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  try {
+    return { ok: true, data: await repoTransitionSubscription(id, 'expire') };
+  } catch (error) {
+    return subscriptionError(error, 'Subscription tidak dapat di-expire.');
+  }
+}
+
+export async function cancelSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {
+  try {
+    return { ok: true, data: await repoTransitionSubscription(id, 'cancel') };
+  } catch (error) {
+    return subscriptionError(error, 'Subscription tidak dapat dibatalkan.');
+  }
+}
+
+export function getSubscriptionHistory(): Promise<SubscriptionHistoryEntryAdmin[]> {
+  return repoListSubscriptionHistory();
+}
+
+export function getSubscriptionAudit(): Promise<SubscriptionAuditEntry[]> {
+  return repoListSubscriptionAudit();
 }
 
 export interface WorkspaceMemberRemovalPreflight {

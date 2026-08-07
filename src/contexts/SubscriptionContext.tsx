@@ -14,10 +14,8 @@
 
 import { useState, useEffect } from 'react';
 import { useWorkspace } from './WorkspaceContext';
-import {
-  repoGetWorkspaceSubscription,
-  type DbWorkspaceSubscription,
-} from '../repositories/workspaceSubscriptionRepository';
+import { getWorkspaceSubscription } from '../services/workspaceService';
+import type { SubscriptionRecordAdmin } from '../types/subscriptionAdmin';
 import { hasFeature as gateHasFeature } from '../data/workspaceSubscriptionData';
 import type { WorkspacePlan } from '../types/workspace';
 import type { WorkspaceSubscriptionStatus, FeatureKey } from '../types/subscription';
@@ -80,7 +78,7 @@ export function useSubscription(): SubscriptionState {
     (activeWorkspace?.workspace_plan as WorkspacePlan) ?? 'Free';
 
   // Async subscription record from Supabase (status + dates).
-  const [dbSub, setDbSub]     = useState<DbWorkspaceSubscription | null>(null);
+  const [dbSub, setDbSub]     = useState<SubscriptionRecordAdmin | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -91,7 +89,7 @@ export function useSubscription(): SubscriptionState {
     }
 
     setIsLoading(true);
-    repoGetWorkspaceSubscription(workspaceUuid)
+    getWorkspaceSubscription(workspaceUuid)
       .then((sub) => {
         setDbSub(sub);
       })

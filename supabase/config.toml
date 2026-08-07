@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.ownership-transfers]
 verify_jwt = false
+
+[functions.workspace-subscriptions]
+verify_jwt = false
