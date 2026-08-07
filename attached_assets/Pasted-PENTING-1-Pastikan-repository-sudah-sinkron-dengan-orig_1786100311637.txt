@@ -1,0 +1,104 @@
+PENTING
+
+1. Pastikan repository sudah sinkron dengan origin/main terlebih dahulu (git pull / sync bila diperlukan).
+2. Lanjutkan setelah Prompt 4 (Workspace Roles).
+3. JANGAN mengubah Prompt 1, Prompt 2, Prompt 3, maupun Prompt 4.
+4. JANGAN membuat Express.
+5. JANGAN membuat Node API.
+6. Semua backend hanya melalui Supabase Edge Functions.
+7. Tetap gunakan pola:
+   UI
+   → WorkspaceService
+   → WorkspaceRelationshipRepository
+   → Supabase Edge Function
+8. Jangan membuat service/repository/route ganda.
+
+==================================================
+
+TARGET
+
+Kerjakan Dashboard Admin
+
+User & Workspace
+→ Workspace Relationship
+→ Semua Hubungan
+→ Aktif
+→ Menunggu
+
+Targetnya END TO END.
+
+Audit terlebih dahulu.
+
+Jika ada duplicate:
+- hapus.
+
+Jika ada route mati:
+- hapus.
+
+Jika ada repository/service lama:
+- migrasikan lalu hapus.
+
+Jika masih dummy:
+- hubungkan ke Supabase.
+
+Jika modul tujuan belum selesai:
+- siapkan route dan kontraknya saja, jangan membuat dummy baru.
+
+Relationship harus mendukung:
+
+• List Relationship
+• Detail Relationship
+• Tambah Relationship
+• Approve
+• Reject
+• Suspend
+• Reactivate
+• Delete (dependency pre-check)
+• Filter Aktif
+• Filter Menunggu
+
+Semua operasi hanya melalui:
+
+UI
+→ WorkspaceService
+→ WorkspaceRelationshipRepository
+→ Supabase Edge Function
+
+Jangan mengakses tabel Supabase langsung dari UI.
+
+Gunakan repository sebagai satu-satunya adapter.
+
+Hubungkan jika sudah tersedia dengan:
+
+- Workspace Members
+- Workspace Roles
+- Workspace Core
+
+Jangan mengerjakan:
+
+- Ownership Transfer
+- Subscription
+- Trust & Verification
+- Platform Health
+
+WAJIB sebelum selesai:
+
+- npm run type-check LULUS
+- npm run build LULUS
+- Preview LULUS
+- Tidak ada duplicate fetch
+- Tidak ada duplicate repository
+- Tidak ada Express
+- Tidak ada Node API
+
+Jika quota habis sebelum selesai:
+
+Commit dengan:
+
+WIP: workspace relationship end-to-end integration
+
+Jika seluruh target selesai dan validasi lulus:
+
+Commit dengan:
+
+Implement end-to-end workspace relationship management

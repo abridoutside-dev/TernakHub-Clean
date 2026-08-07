@@ -232,8 +232,8 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Workspace Relationships',
         icon: '🤝',
         path: '/admin/relationships',
-        syncStatus: 'dummy',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
         children: [
           { key: 'rel-all',     label: 'Semua Hubungan', path: '/admin/relationships',         icon: '📋' },
           { key: 'rel-active',  label: 'Aktif',           path: '/admin/relationships/active',  icon: '✅' },

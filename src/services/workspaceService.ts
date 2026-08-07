@@ -77,6 +77,21 @@ import type {
   PermissionModule,
 } from '../types/workspacePermissions';
 import type {
+  RelationshipCreateInput,
+  RelationshipDeletePreflight,
+  RelationshipListResponse,
+  WorkspaceRelationship,
+} from '../types/workspaceRelationship';
+import {
+  repoCreateWorkspaceRelationship,
+  repoDeleteWorkspaceRelationship,
+  repoGetWorkspaceRelationship,
+  repoGetWorkspaceRelationshipDeletePreflight,
+  repoListWorkspaceRelationships,
+  repoUpdateWorkspaceRelationshipStatus,
+  WorkspaceRelationshipRepoError,
+} from '../repositories/workspaceRelationshipRepository';
+import type {
   CustomRoleCreateInput,
   CustomRoleRecord,
   CustomRoleResult,
@@ -414,6 +429,87 @@ export async function removeWorkspaceRole(
       : { ok: false, error: { code: 'NOT_FOUND', message: 'Role tidak ditemukan.' } };
   } catch (error) {
     return roleError(error, 'Gagal menghapus role.');
+  }
+}
+
+// ─── Workspace Relationships ─────────────────────────────────────────────────
+// UI → WorkspaceService → WorkspaceRelationshipRepository →
+// workspace-relationships Edge Function.
+
+export type WorkspaceRelationshipResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { message: string; code?: string } };
+
+function relationshipError(error: unknown, fallback: string): WorkspaceRelationshipResult<never> {
+  return {
+    ok: false,
+    error: {
+      message: error instanceof WorkspaceRelationshipRepoError
+        ? error.message
+        : error instanceof Error ? error.message : fallback,
+      code: error instanceof WorkspaceRelationshipRepoError ? error.code : undefined,
+    },
+  };
+}
+
+export async function getWorkspaceRelationships(): Promise<RelationshipListResponse> {
+  return repoListWorkspaceRelationships();
+}
+
+export async function getWorkspaceRelationship(id: string): Promise<WorkspaceRelationship | null> {
+  return repoGetWorkspaceRelationship(id);
+}
+
+export async function addWorkspaceRelationship(
+  input: RelationshipCreateInput,
+): Promise<WorkspaceRelationshipResult<WorkspaceRelationship>> {
+  if (!input.workspace_id_a || !input.workspace_id_b) {
+    return { ok: false, error: { message: 'Workspace A dan Workspace B wajib dipilih.', code: 'VALIDATION' } };
+  }
+  if (input.workspace_id_a === input.workspace_id_b) {
+    return { ok: false, error: { message: 'Workspace A dan Workspace B harus berbeda.', code: 'VALIDATION' } };
+  }
+  if (!input.relationship_type) {
+    return { ok: false, error: { message: 'Tipe relationship wajib dipilih.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoCreateWorkspaceRelationship(input) };
+  } catch (error) {
+    return relationshipError(error, 'Gagal menambahkan relationship.');
+  }
+}
+
+export async function updateWorkspaceRelationshipStatus(
+  id: string,
+  operation: 'approve' | 'reject' | 'suspend' | 'reactivate',
+): Promise<WorkspaceRelationshipResult<WorkspaceRelationship>> {
+  try {
+    return { ok: true, data: await repoUpdateWorkspaceRelationshipStatus(id, operation) };
+  } catch (error) {
+    return relationshipError(error, 'Gagal mengubah status relationship.');
+  }
+}
+
+export async function getWorkspaceRelationshipDeletePreflight(
+  id: string,
+): Promise<RelationshipDeletePreflight | null> {
+  return repoGetWorkspaceRelationshipDeletePreflight(id);
+}
+
+export async function removeWorkspaceRelationship(
+  id: string,
+  preflight: RelationshipDeletePreflight,
+): Promise<WorkspaceRelationshipResult<{ removed: boolean }>> {
+  if (preflight.relationship.relationship_id !== id) {
+    return { ok: false, error: { message: 'Pre-check relationship tidak cocok.', code: 'VALIDATION' } };
+  }
+  if (preflight.dependencies.some((dependency) => dependency.blocksDelete && dependency.count > 0)) {
+    return { ok: false, error: { message: 'Relationship masih memiliki dependency.', code: 'DEPENDENCY' } };
+  }
+  try {
+    return { ok: true, data: await repoDeleteWorkspaceRelationship(id, preflight) };
+  } catch (error) {
+    return relationshipError(error, 'Gagal menghapus relationship.');
   }
 }
 
