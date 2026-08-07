@@ -9,3 +9,4 @@
 - [Supabase CLI config compatibility](supabase-cli-config-compatibility.md) — the older workspace CLI needs a temporary legacy config when deploying an individual Edge Function.
 - [Admin user error and pagination handling](admin-user-error-pagination.md) — parse Edge Function response bodies in the browser; Auth pagination headers are hints, not authoritative totals.
 - [Supabase admin session revocation](supabase-admin-session-revocation.md) — Auth has no admin logout-by-user-ID route; revoke via a target-user JWT and global logout.
+- [Public route provider boundaries](public-route-provider-boundaries.md) — public pages may still need narrowly scoped WorkspaceProvider context without entering auth guards.

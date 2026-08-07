@@ -381,6 +381,13 @@ export default function App() {
 
         {/* ── Public workspace profiles — visible to guests ──────────── */}
         <Route path="/workspace/:id/profile"     element={<WorkspacePublicProfile />} />
+
+        {/* ── Public browsing — guests may explore without an account ── */}
+        <Route element={<WorkspaceProviderLayout />}>
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/news-event" element={<NewsEvent />} />
+          <Route path="/news-event/:id" element={<NewsEventDetail />} />
+        </Route>
       </Route>
 
       {/* ── AUTH-001: All other routes — only accessible when initialized ─── */}
@@ -413,7 +420,6 @@ export default function App() {
       <Route path="/dashboard/alert" element={<DashboardAlertReminder />} />
       <Route path="/dashboard/recent-activity" element={<DashboardRecentActivity />} />
       <Route path="/livestock"         element={<Livestock />} />
-      <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/marketplace/escrow-info" element={<MarketplaceEscrowInfo />} />
       <Route
         path="/marketplace/escrow-info/:providerId"
@@ -421,9 +427,7 @@ export default function App() {
           <Route
             path="/marketplace/:kategoriSlug/:slug"
               element={<MarketplaceDetailListing />} 
-              />
-              <Route path="/news-event" element={<NewsEvent />} />
-              <Route path="/news-event/:id" element={<NewsEventDetail />} />
+               />
       <Route path="/livestock/add"     element={<AddLivestock />} />
       <Route path="/catat-bobot"       element={<CatatBobot />} />
       <Route path="/stok-pakan"         element={<StokPakan />} />
