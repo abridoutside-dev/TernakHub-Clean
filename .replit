@@ -1,23 +1,10 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "python-base-3.13"]
 
 [nix]
 channel = "stable-25_05"
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "API Server"
+runButton = "Start application"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -31,25 +18,9 @@ task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
 
-[[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run server:dev"
-waitForPort = 5001
-
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 5001
-externalPort = 3000
 
 [userenv]
 
@@ -61,5 +32,5 @@ SUPABASE_URL = "https://wujofkqwksyoulmfgquc.supabase.co"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["npm", "run", "server:prod"]
+run = ["npm", "run", "preview"]
 build = ["npm", "run", "build"]

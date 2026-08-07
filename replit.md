@@ -1,23 +1,19 @@
 # TernakHub
 
-An Indonesian livestock management platform ("platform operasional peternakan"). React SPA frontend + Express API backend, backed by Supabase (PostgreSQL + Auth) and Cloudflare R2 for image storage.
+An Indonesian livestock management platform ("platform operasional peternakan"). React SPA frontend backed by Supabase (PostgreSQL + Auth) and Cloudflare R2 for image storage.
 
 ## Stack
 - **Frontend**: React 18, React Router 6, Vite — served on port 5000
-- **Backend**: Express 5 (TypeScript via tsx) — served on port 5001
-- **Database / Auth**: Supabase (PostgreSQL + Row Level Security)
+- **Database / Auth**: Supabase (PostgreSQL + Row Level Security), with privileged admin operations in Supabase Edge Functions
 - **Image storage**: Cloudflare R2 (S3-compatible)
 
 ## How to run
 
-Two workflows must be running simultaneously:
+The application runs with one workflow:
 
 | Workflow | Command | Port |
 |---|---|---|
 | Start application | `npm run dev` | 5000 |
-| API Server | `npm run server:dev` | 5001 |
-
-The Vite dev server proxies `/api/*` to the Express server (port 5001).
 
 ## Environment variables / secrets
 
@@ -35,17 +31,15 @@ Still needed for image uploads (Cloudflare R2):
 - `CLOUDFLARE_R2_API_TOKEN` — Cloudflare API Token with R2 Storage Edit permission (**secret**)
 - `CLOUDFLARE_R2_PUBLIC_URL` — optional public base URL for served objects
 
-## Admin auth integrity
-The Dashboard Admin uses the same-origin Express route `/api/admin/platform-health`
-for `auth-health` and `auth-integrity`. Express verifies the current caller is a
-`system_admin`, then calls the `platform-health` Edge Function with internal
-service authorization. The user's access token is not forwarded to the Edge
-Function and is never used for the service-role database reads.
+## Admin operations
+Admin user operations are dispatched through the dedicated `admin-users`
+Supabase Edge Function. The browser does not use a legacy `/api` or Node backend
+route for User operations.
 
 ## Build & deploy
 ```bash
 npm run build          # tsc + vite build → dist/
-npm run server:prod    # production Express server (serves built dist/)
+npm run preview        # serve the production build on port 5000
 ```
 
 ## User preferences
