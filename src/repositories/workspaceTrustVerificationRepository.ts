@@ -9,7 +9,9 @@ import type {
   TrustVerificationAuditEntry,
   TrustVerificationListQuery,
   TrustVerificationListResponse,
+  TrustVerificationPreflight,
   TrustVerificationRecord,
+  TrustVerificationType,
 } from '../types/workspaceTrustVerification';
 
 export class WorkspaceTrustVerificationRepoError extends Error {
@@ -53,6 +55,22 @@ export function repoGetTrustVerification(
   verificationId: string,
 ): Promise<TrustVerificationRecord | null> {
   return invoke('detail', { verification_id: verificationId });
+}
+
+export function repoGetTrustVerificationPreflight(
+  verificationId: string,
+): Promise<TrustVerificationPreflight> {
+  return invoke('preflight', { verification_id: verificationId });
+}
+
+export function repoSubmitTrustVerification(
+  workspaceId: string,
+  verificationType: TrustVerificationType,
+): Promise<TrustVerificationRecord> {
+  return invoke('submit', {
+    workspace_id: workspaceId,
+    verification_type: verificationType,
+  });
 }
 
 export function repoTransitionTrustVerification(

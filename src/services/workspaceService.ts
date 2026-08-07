@@ -153,8 +153,10 @@ import type {
 } from '../types/subscriptionAdmin';
 import {
   repoGetTrustVerification,
+  repoGetTrustVerificationPreflight,
   repoListTrustVerificationAudit,
   repoListTrustVerifications,
+  repoSubmitTrustVerification,
   repoTransitionTrustVerification,
   WorkspaceTrustVerificationRepoError,
 } from '../repositories/workspaceTrustVerificationRepository';
@@ -164,6 +166,8 @@ import type {
   TrustVerificationListQuery,
   TrustVerificationListResponse,
   TrustVerificationRecord,
+  TrustVerificationPreflight,
+  TrustVerificationType,
 } from '../types/workspaceTrustVerification';
 
 // ─── Re-export slug utilities (consumers import from the service, not the repo)
@@ -683,6 +687,24 @@ export function getTrustVerifications(
 
 export function getTrustVerification(id: string): Promise<TrustVerificationRecord | null> {
   return repoGetTrustVerification(id);
+}
+
+export function getTrustVerificationPreflight(id: string): Promise<TrustVerificationPreflight> {
+  return repoGetTrustVerificationPreflight(id);
+}
+
+export async function submitTrustVerification(
+  workspaceId: string,
+  verificationType: TrustVerificationType,
+): Promise<TrustVerificationServiceResult<TrustVerificationRecord>> {
+  if (!workspaceId || !verificationType) {
+    return { ok: false, error: { message: 'Workspace dan tipe verifikasi wajib diisi.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoSubmitTrustVerification(workspaceId, verificationType) };
+  } catch (error) {
+    return trustVerificationError(error, 'Pengajuan verifikasi tidak dapat dikirim.');
+  }
 }
 
 export async function transitionTrustVerification(

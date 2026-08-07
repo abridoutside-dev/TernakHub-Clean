@@ -27,7 +27,7 @@ type VerificationRow = Record<string, unknown> & {
   verification_type: VerificationType;
   status: Status;
 };
-type WorkspaceRow = { id: string; name: string; type?: string | null; owner_id?: string | null };
+type WorkspaceRow = { id: string; name: string; type?: string | null; owner_id?: string | null; trust_score?: number | null };
 type ProfileRow = { id: string; full_name?: string | null; display_name?: string | null };
 type EvidenceRow = {
   id: string;
@@ -107,7 +107,7 @@ async function readUsers(admin: ReturnType<typeof createClient>): Promise<User[]
 async function readContext(url: string, key: string, admin: ReturnType<typeof createClient>) {
   const [verificationResult, workspaceResult, profileResult, evidenceResult, auditResult, users] = await Promise.all([
     restFetch(url, '/trust_verifications?select=*&order=created_at.desc', key),
-    restFetch(url, '/workspaces?select=id,name,type,owner_id&order=name.asc', key),
+    restFetch(url, '/workspaces?select=id,name,type,owner_id,trust_score&order=name.asc', key),
     restFetch(url, '/user_profiles?select=id,full_name,display_name', key),
     restFetch(url, '/trust_verification_evidence?select=*&order=uploaded_at.asc', key),
     restFetch(url, '/global_audit_trail?entity_type=eq.trust_verification&select=*&order=created_at.asc', key),
@@ -170,10 +170,12 @@ function mapRecord(
     rejection_reason: (row.rejection_reason as string | null) ?? null,
     expires_at: (row.expires_at as string | null) ?? null,
     notes: (row.notes as string | null) ?? null,
-    // `trust_verifications` has no authoritative score column yet. Do not
-    // invent a score from status/evidence counts; the UI renders an explicit
-    // empty value until the scoring backend contract is available.
-    trust_score: null,
+    // Trust is owned by the workspace and is read only from the backend.
+    // Never derive a score from status, evidence count, or local seed data.
+    trust_score: typeof workspace?.trust_score === 'number'
+      && Number.isFinite(workspace.trust_score)
+      ? workspace.trust_score
+      : null,
     evidence: rowEvidence.map((item) => ({
       id: item.id,
       file_name: item.file_name,
@@ -205,10 +207,10 @@ async function main(request: Request): Promise<Response> {
   const authResult = await anon.auth.getUser(token);
   if (authResult.error || !authResult.data.user) return fail('Sesi autentikasi tidak valid.', 'UNAUTHENTICATED', 401);
   const actor = authResult.data.user as User;
-  if (!isAdmin(actor)) return fail('Akses admin diperlukan.', 'FORBIDDEN', 403);
   const body = await request.json() as Record<string, unknown>;
   if (body.action !== 'workspace-trust-verification') return fail('Action tidak dikenal.');
   const operation = body.operation;
+  const actorIsAdmin = isAdmin(actor);
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
   const context = await readContext(url, serviceKey, admin);
   const records = context.verifications.map((row) => mapRecord(row, context));
@@ -218,8 +220,26 @@ async function main(request: Request): Promise<Response> {
     const pageSize = Math.min(100, Math.max(1, Number(body.page_size) || 20));
     const status = body.status;
     const verificationType = body.verification_type;
+    const requestedWorkspaceId = body.workspace_id;
+    if (!actorIsAdmin && !isUuid(requestedWorkspaceId)) {
+      return fail('Workspace wajib dipilih.', 'WORKSPACE_REQUIRED');
+    }
+    if (requestedWorkspaceId && !isUuid(requestedWorkspaceId)) {
+      return fail('Workspace ID tidak valid.', 'BAD_WORKSPACE_ID');
+    }
+    if (!actorIsAdmin) {
+      const membership = await restFetch(
+        url,
+        `/workspace_members?select=id&workspace_id=eq.${encodeURIComponent(String(requestedWorkspaceId))}&user_id=eq.${encodeURIComponent(actor.id)}&status=eq.Aktif`,
+        serviceKey,
+      );
+      if (!membership.ok) return fail(await bodyMessage(membership, 'Keanggotaan workspace tidak dapat diverifikasi.'), 'DATABASE', membership.status);
+      const memberRows = await membership.json() as unknown[];
+      if (!memberRows.length) return fail('Anda bukan anggota workspace ini.', 'FORBIDDEN', 403);
+    }
     const filtered = records.filter((record) =>
-      (status === undefined || status === 'All' || record.status === status)
+      (requestedWorkspaceId === undefined || record.workspace_id === requestedWorkspaceId)
+      && (status === undefined || status === 'All' || record.status === status)
       && (verificationType === undefined || verificationType === 'All' || record.verification_type === verificationType)
       && matchesSearch(record, typeof body.search === 'string' ? body.search.trim() : ''),
     );
@@ -230,6 +250,9 @@ async function main(request: Request): Promise<Response> {
       ok: true,
       data: {
         records: pageRecords,
+        workspace_trust_score: requestedWorkspaceId
+          ? (context.workspaces.get(String(requestedWorkspaceId))?.trust_score ?? null)
+          : null,
         stats: {
           total: records.length,
           pending: records.filter((record) => ['Submitted', 'Pending', 'UnderReview'].includes(record.status)).length,
@@ -246,11 +269,80 @@ async function main(request: Request): Promise<Response> {
       },
     });
   }
+  if (operation === 'submit') {
+    if (actorIsAdmin) return fail('Admin tidak dapat mengajukan verifikasi sebagai workspace.', 'FORBIDDEN', 403);
+    const workspaceId = body.workspace_id;
+    const verificationType = body.verification_type;
+    if (!isUuid(workspaceId) || !TYPES.includes(verificationType as VerificationType)) {
+      return fail('Workspace atau tipe verifikasi tidak valid.', 'VALIDATION');
+    }
+    const membership = await restFetch(
+      url,
+      `/workspace_members?select=id&workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(actor.id)}&status=eq.Aktif`,
+      serviceKey,
+    );
+    if (!membership.ok) return fail(await bodyMessage(membership, 'Keanggotaan workspace tidak dapat diverifikasi.'), 'DATABASE', membership.status);
+    const memberRows = await membership.json() as unknown[];
+    if (!memberRows.length) return fail('Anda bukan anggota workspace ini.', 'FORBIDDEN', 403);
+    const insertResult = await restFetch(url, '/trust_verifications', serviceKey, {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        verification_type: verificationType,
+        status: 'Submitted',
+        submitted_at: new Date().toISOString(),
+      }),
+    });
+    if (!insertResult.ok) return fail(await bodyMessage(insertResult, 'Pengajuan verifikasi tidak dapat disimpan.'), 'DATABASE', insertResult.status);
+    const inserted = await insertResult.json() as VerificationRow[];
+    const insertedId = inserted[0]?.id;
+    if (!insertedId) return fail('Pengajuan verifikasi tidak mengembalikan ID.', 'DATABASE', 500);
+    const auditResult = await restFetch(url, '/global_audit_trail', serviceKey, {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        user_id: actor.id,
+        action: 'trust_verification.submit',
+        entity_type: 'trust_verification',
+        entity_id: insertedId,
+        old_data: { status: null },
+        new_data: { status: 'Submitted', verification_type: verificationType },
+      }),
+    });
+    if (!auditResult.ok) return fail(await bodyMessage(auditResult, 'Audit trail tidak dapat disimpan.'), 'AUDIT_FAILED', 500);
+    const refreshed = await readContext(url, serviceKey, admin);
+    const submitted = refreshed.verifications.find((row) => row.id === insertedId);
+    return response({ ok: true, data: submitted ? mapRecord(submitted, refreshed) : null });
+  }
   const verificationId = body.verification_id;
   if (!isUuid(verificationId)) return fail('Verification ID tidak valid.');
   const existing = context.verifications.find((row) => row.id === verificationId);
   if (!existing) return fail('Verifikasi tidak ditemukan.', 'NOT_FOUND', 404);
+  if (!actorIsAdmin) {
+    const membership = await restFetch(
+      url,
+      `/workspace_members?select=id&workspace_id=eq.${encodeURIComponent(existing.workspace_id)}&user_id=eq.${encodeURIComponent(actor.id)}&status=eq.Aktif`,
+      serviceKey,
+    );
+    if (!membership.ok) return fail(await bodyMessage(membership, 'Keanggotaan workspace tidak dapat diverifikasi.'), 'DATABASE', membership.status);
+    const memberRows = await membership.json() as unknown[];
+    if (!memberRows.length) return fail('Anda bukan anggota workspace ini.', 'FORBIDDEN', 403);
+  }
   if (operation === 'detail') return response({ ok: true, data: mapRecord(existing, context) });
+  if (operation === 'preflight') {
+    const evidenceCount = context.evidence.filter((item) => item.verification_id === verificationId).length;
+    const blockers = evidenceCount > 0 ? [] : ['Evidence verifikasi belum tersedia.'];
+    return response({
+      ok: true,
+      data: {
+        verification_id: verificationId,
+        workspace_id: existing.workspace_id,
+        evidence_count: evidenceCount,
+        blockers,
+        checked_at: new Date().toISOString(),
+      },
+    });
+  }
   if (operation === 'audit') {
     return response({ ok: true, data: context.audits.filter((item) => item.entity_id === verificationId).map((item) => ({
       id: item.id, action: item.action, actor_id: item.user_id, entity_id: item.entity_id,
@@ -258,6 +350,7 @@ async function main(request: Request): Promise<Response> {
     })) });
   }
   if (operation !== 'transition') return fail('Operasi trust dan verifikasi tidak dikenal.');
+  if (!actorIsAdmin) return fail('Akses admin diperlukan.', 'FORBIDDEN', 403);
   const transition = body.transition;
   if (!['approve', 'reject', 'suspend', 'reactivate'].includes(String(transition))) return fail('Transisi status tidak valid.');
   const reason = typeof body.reason === 'string' ? body.reason.trim() : '';

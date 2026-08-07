@@ -78,15 +78,25 @@ export interface TrustVerificationStats {
 export interface TrustVerificationListResponse {
   records: TrustVerificationRecord[];
   stats: TrustVerificationStats;
+  workspace_trust_score: number | null;
   page: number;
   page_size: number;
   total: number;
   total_pages: number;
 }
 
+export interface TrustVerificationPreflight {
+  verification_id: string;
+  workspace_id: string;
+  evidence_count: number;
+  blockers: string[];
+  checked_at: string;
+}
+
 export interface TrustVerificationListQuery {
   page?: number;
   page_size?: number;
+  workspace_id?: string;
   search?: string;
   status?: TrustVerificationStatus | 'All';
   verification_type?: TrustVerificationType | 'All';

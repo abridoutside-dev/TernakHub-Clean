@@ -798,54 +798,6 @@ export async function repoGetActivityLogByWorkspace(
   return (data ?? []) as MarketplaceActivityLogDbRow[];
 }
 
-// ─── Trust Verifications reads ─────────────────────────────────────────────────
-
-export interface MarketplaceTrustVerifikasiDbRow {
-  id: string;
-  workspace_id: string;
-  verification_type: string;   // 'KTP'|'NPWP'|'SIUP'|'Sertifikat'|'LokasiUsaha'|'Rekening'|'Lainnya'
-  status: string;              // 'Draft'|'Submitted'|'UnderReview'|'Approved'|'Rejected'|...
-  submitted_at: string | null;
-  reviewed_at: string | null;
-  rejection_reason: string | null;
-  expires_at: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Semua pengajuan verifikasi untuk workspace tertentu. */
-export async function repoGetTrustVerifikasiByWorkspace(
-  workspaceId: string,
-): Promise<MarketplaceTrustVerifikasiDbRow[]> {
-  const { data, error } = await supabase
-    .from('trust_verifications')
-    .select('id,workspace_id,verification_type,status,submitted_at,reviewed_at,rejection_reason,expires_at,notes,created_at,updated_at')
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false });
-  if (error) throw new MarketplaceRepoError(error.message);
-  return (data ?? []) as MarketplaceTrustVerifikasiDbRow[];
-}
-
-export async function repoInsertTrustVerifikasi(
-  workspaceId: string,
-  verificationType: string,
-): Promise<{ data: { id: string } | null; error: string | null }> {
-  await requireAuthSession();
-  const { data, error } = await supabase
-    .from('trust_verifications')
-    .insert({
-      workspace_id:      workspaceId,
-      verification_type: verificationType,
-      status:            'Submitted',
-      submitted_at:      new Date().toISOString(),
-    })
-    .select('id')
-    .single();
-  if (error) return { data: null, error: error.message };
-  return { data, error: null };
-}
-
 // ─── Moderation writes ─────────────────────────────────────────────────────────
 
 export interface MarketplaceModerasiInsert {

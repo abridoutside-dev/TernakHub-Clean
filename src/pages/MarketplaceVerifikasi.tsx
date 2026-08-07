@@ -5,30 +5,14 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
-import {
-  getVerifikasiBadge,
-  type StatusVerifikasiWorkspace,
-} from '../data/marketplaceWorkspaceVerifikasiData';
-import {
-  computeTrustScore,
-  getTrustLevelBadge,
-  getRiwayatVerifikasiWorkspace,
-  getWorkspaceBergabungSejak,
-  formatBergabungSejak,
-  TRUST_LEVEL_ORDER,
-  type FaktorPenilaian,
-  type RiwayatVerifikasiEvent,
-  type TipeRiwayatVerifikasi,
-} from '../data/marketplaceTrustData';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
+import type {
+  TrustVerificationRecord,
+  TrustVerificationStatus,
+} from '../types/workspaceTrustVerification';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function pct(skor: number, skorMaks: number): number {
-  if (skorMaks === 0) return 0;
-  return Math.round((skor / skorMaks) * 100);
-}
 
 function barColor(p: number): string {
   if (p >= 80) return '#1b7a43';
@@ -37,29 +21,17 @@ function barColor(p: number): string {
   return '#e65100';
 }
 
-function riwayatIcon(tipe: TipeRiwayatVerifikasi): string {
-  switch (tipe) {
-    case 'Pengajuan':   return '📤';
-    case 'Disetujui':   return '✅';
-    case 'Ditolak':     return '❌';
-    case 'Ditangguhkan': return '🚫';
+function statusView(status: TrustVerificationStatus | null) {
+  if (status === 'Verified' || status === 'Approved') {
+    return { label: 'Terverifikasi', icon: '✅', color: '#1b7a43', bg: '#e8f5ee' };
   }
-}
-
-function riwayatColor(tipe: TipeRiwayatVerifikasi): { color: string; bg: string } {
-  switch (tipe) {
-    case 'Pengajuan':    return { color: '#0277bd', bg: '#e1f5fe' };
-    case 'Disetujui':    return { color: '#1b7a43', bg: '#e8f5ee' };
-    case 'Ditolak':      return { color: '#c62828', bg: '#ffebee' };
-    case 'Ditangguhkan': return { color: '#c62828', bg: '#ffebee' };
+  if (status === 'Rejected' || status === 'Suspended' || status === 'Expired') {
+    return { label: status === 'Rejected' ? 'Ditolak' : 'Ditangguhkan', icon: '🚫', color: '#c62828', bg: '#ffebee' };
   }
-}
-
-function formatTanggalEvent(iso: string): string {
-  const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  return `${d} ${BULAN[m - 1]} ${y}`;
+  if (status === 'Submitted' || status === 'Pending' || status === 'UnderReview') {
+    return { label: 'Dalam Proses', icon: '⏳', color: '#7b5e2a', bg: '#fff8e1' };
+  }
+  return { label: 'Belum Diverifikasi', icon: '⚪', color: '#616161', bg: '#f5f5f5' };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -94,14 +66,14 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function ScoreMeter({ skor }: { skor: number }) {
-  const p = Math.min(100, Math.max(0, skor));
+function ScoreMeter({ skor }: { skor: number | null }) {
+  const p = skor === null ? 0 : Math.min(100, Math.max(0, skor));
   const color = barColor(p);
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
         <span style={{ color: 'var(--color-muted)' }}>Skor Kepercayaan</span>
-        <span style={{ fontWeight: 800, color, fontSize: 16 }}>{p}</span>
+        <span style={{ fontWeight: 800, color, fontSize: 16 }}>{skor ?? '—'}</span>
       </div>
       <div style={{
         height: 10, borderRadius: 99, background: 'var(--color-border)',
@@ -120,47 +92,22 @@ function ScoreMeter({ skor }: { skor: number }) {
   );
 }
 
-function FaktorBar({ faktor }: { faktor: FaktorPenilaian }) {
-  const p = pct(faktor.skor, faktor.skorMaks);
-  const color = barColor(p);
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 13 }}>{faktor.icon}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-text)' }}>{faktor.nama}</span>
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 800, color, whiteSpace: 'nowrap', marginLeft: 8 }}>
-          {faktor.skor}/{faktor.skorMaks}
-        </span>
-      </div>
-      <div style={{
-        height: 6, borderRadius: 99, background: 'var(--color-border)', overflow: 'hidden', marginBottom: 3,
-      }}>
-        <div style={{
-          height: '100%', width: `${p}%`, background: color, borderRadius: 99,
-        }} />
-      </div>
-      <div style={{ fontSize: 10.5, color: 'var(--color-muted)', lineHeight: 1.4 }}>
-        {faktor.deskripsi}
-      </div>
-    </div>
-  );
-}
-
-function RiwayatItem({ event, isLast }: { event: RiwayatVerifikasiEvent; isLast: boolean }) {
-  const c = riwayatColor(event.tipe);
+function RiwayatItem({ event, isLast }: { event: TrustVerificationRecord['timeline'][number]; isLast: boolean }) {
+  const positive = event.next_status === 'Verified' || event.next_status === 'Approved';
+  const negative = event.next_status === 'Rejected' || event.next_status === 'Suspended';
+  const color = positive ? '#1b7a43' : negative ? '#c62828' : '#0277bd';
+  const bg = positive ? '#e8f5ee' : negative ? '#ffebee' : '#e1f5fe';
   return (
     <div style={{ display: 'flex', gap: 10, paddingBottom: isLast ? 0 : 12 }}>
       {/* Timeline dot + line */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
         <div style={{
           width: 28, height: 28, borderRadius: '50%',
-          background: c.bg, border: `1.5px solid ${c.color}44`,
+          background: bg, border: `1.5px solid ${color}44`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 13, flexShrink: 0,
         }}>
-          {riwayatIcon(event.tipe)}
+          {positive ? '✅' : negative ? '🚫' : '📤'}
         </div>
         {!isLast && (
           <div style={{ width: 2, flex: 1, background: 'var(--color-border)', marginTop: 4 }} />
@@ -170,17 +117,18 @@ function RiwayatItem({ event, isLast }: { event: RiwayatVerifikasiEvent; isLast:
       <div style={{ flex: 1, minWidth: 0, paddingBottom: isLast ? 0 : 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
           <span style={{
-            fontSize: 10.5, fontWeight: 700, color: c.color, background: c.bg,
+            fontSize: 10.5, fontWeight: 700, color, background: bg,
             borderRadius: 20, padding: '2px 8px',
           }}>
-            {event.tipe}
+            {event.action}
           </span>
           <span style={{ fontSize: 10.5, color: 'var(--color-muted)' }}>
-            {formatTanggalEvent(event.tanggal)}
+            {new Date(event.created_at).toLocaleDateString('id-ID')}
           </span>
         </div>
         <div style={{ fontSize: 11.5, color: 'var(--color-text)', lineHeight: 1.5 }}>
-          {event.keterangan}
+          {event.actor_name} · {new Date(event.created_at).toLocaleDateString('id-ID')}
+          {event.reason ? ` · ${event.reason}` : ''}
         </div>
       </div>
     </div>
@@ -203,41 +151,6 @@ function InfoBox({ icon, title, body }: { icon: string; title: string; body: str
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-
-/** Build a RiwayatVerifikasiEvent from a DB trust_verifications row. */
-function dbRowToRiwayatEvent(row: {
-  verification_type: string;
-  status: string;
-  submitted_at: string | null;
-  reviewed_at: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-}): RiwayatVerifikasiEvent[] {
-  const events: RiwayatVerifikasiEvent[] = [];
-  const submitDate = (row.submitted_at ?? row.created_at).slice(0, 10);
-  events.push({
-    tanggal: submitDate,
-    tipe: 'Pengajuan',
-    keterangan: `Pengajuan verifikasi (${row.verification_type}) dikirim.`,
-  });
-  if (row.reviewed_at) {
-    const reviewDate = row.reviewed_at.slice(0, 10);
-    const isApproved = row.status === 'Approved' || row.status === 'Verified';
-    const isRejected = row.status === 'Rejected';
-    if (isApproved) {
-      events.push({ tanggal: reviewDate, tipe: 'Disetujui', keterangan: `Verifikasi (${row.verification_type}) disetujui.` });
-    } else if (isRejected) {
-      events.push({
-        tanggal: reviewDate,
-        tipe: 'Ditolak',
-        keterangan: row.rejection_reason ?? `Verifikasi (${row.verification_type}) ditolak.`,
-      });
-    } else if (row.status === 'Suspended') {
-      events.push({ tanggal: reviewDate, tipe: 'Ditangguhkan', keterangan: `Workspace ditangguhkan.` });
-    }
-  }
-  return events;
-}
 
 export default function MarketplaceVerifikasi() {
   const navigate = useNavigate();
