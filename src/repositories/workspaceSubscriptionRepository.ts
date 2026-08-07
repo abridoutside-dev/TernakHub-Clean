@@ -66,18 +66,6 @@ export function repoGetWorkspaceSubscription(workspaceId: string): Promise<Subsc
   return invoke('workspace-detail', { workspace_id: workspaceId });
 }
 
-export function repoListSubscriptionPlans(): Promise<SubscriptionPackage[]> {
-  return invoke('packages');
-}
-
-export function repoGetSubscriptionPlanByKey(planKey: string): Promise<SubscriptionPackage | null> {
-  return invoke('package-detail', { package_id: planKey });
-}
-
-export function repoGetSubscriptionPackage(id: string): Promise<SubscriptionPackage | null> {
-  return invoke('package-detail', { package_id: id });
-}
-
 export function repoCreateSubscriptionPackage(input: SubscriptionPackageInput): Promise<SubscriptionPackage> {
   return invoke('create-package', input as unknown as Record<string, unknown>);
 }

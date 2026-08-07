@@ -339,32 +339,46 @@ export default function SubscriptionModule() {
   const [history, setHistory] = useState<SubscriptionHistoryEntryAdmin[]>([]);
   const [audit, setAudit] = useState<SubscriptionAuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsLoaded, setLogsLoaded] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [tab, setTab] = useState<'subscriptions' | 'packages' | 'logs'>('subscriptions');
   const [editing, setEditing] = useState<SubscriptionPackage | undefined>();
   const [showEditor, setShowEditor] = useState(false);
   const [detail, setDetail] = useState<SubscriptionPackage | null>(null);
-  const load = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [nextData, logs] = await Promise.all([
-        getSubscriptionAdmin(),
-        tab === 'logs'
-          ? Promise.all([getSubscriptionHistory(), getSubscriptionAudit()])
-          : Promise.resolve(null),
-      ]);
-      setData(nextData);
-      if (logs) {
-        setHistory(logs[0]);
-        setAudit(logs[1]);
-      }
+      setData(await getSubscriptionAdmin());
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Subscription tidak dapat dimuat.'); }
     finally { setLoading(false); }
-  }, [tab]);
-  useEffect(() => { void load(); }, [load]);
-  const refresh = () => { void load(); };
+  }, []);
+  const loadLogs = useCallback(async () => {
+    setLogsLoading(true); setError('');
+    try {
+      const [nextHistory, nextAudit] = await Promise.all([
+        getSubscriptionHistory(),
+        getSubscriptionAudit(),
+      ]);
+      setHistory(nextHistory);
+      setAudit(nextAudit);
+      setLogsLoaded(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Riwayat subscription tidak dapat dimuat.');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => {
+    if (tab === 'logs' && !logsLoaded) void loadLogs();
+  }, [loadLogs, logsLoaded, tab]);
+  const refresh = () => {
+    void loadData();
+    if (tab === 'logs') void loadLogs();
+  };
   return <AdminLayout><div style={{ maxWidth: 1440, margin: '0 auto' }}>
     <div style={{ marginBottom: 22 }}><div style={{ color: muted, fontSize: 12 }}>Admin › Subscription</div><h1 style={{ margin: '7px 0 0', fontSize: 24 }}>Manajemen Subscription</h1><p style={{ color: muted, fontSize: 13 }}>Paket, lifecycle workspace, riwayat, dan audit log melalui Supabase Edge Function.</p></div>
      {error && <div style={errorBox}>{error}</div>}
@@ -372,7 +386,7 @@ export default function SubscriptionModule() {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>{data && <><Card label="Total Paket" value={data.stats.total_packages} /><Card label="Paket Aktif" value={data.stats.active_packages} /><Card label="Total Subscription" value={data.stats.total_subscriptions} /><Card label="Aktif" value={data.stats.active_subscriptions} /><Card label="Trial" value={data.stats.trial_subscriptions} /><Card label="Kadaluarsa" value={data.stats.expired_subscriptions} /></>}</div>
     <div style={{ ...panel, padding: 0 }}><div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${border}`, padding: '0 16px' }}>{[['subscriptions', 'Subscription'], ['packages', 'Paket'], ['logs', 'Riwayat & Audit']].map(([key, label]) => <button type="button" key={key} onClick={() => setTab(key as typeof tab)} style={{ padding: '13px 14px', border: 0, borderBottom: tab === key ? `2px solid ${blue}` : '2px solid transparent', background: 'transparent', color: tab === key ? '#0f172a' : muted, fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div>
         <div style={{ padding: 18 }}>
-          {loading ? (
+          {loading || (tab === 'logs' && (logsLoading || !logsLoaded)) ? (
             <div style={{ padding: 50, textAlign: 'center', color: muted }}>Memuat data subscription…</div>
           ) : tab === 'subscriptions' && data ? (
             <SubscriptionsTable

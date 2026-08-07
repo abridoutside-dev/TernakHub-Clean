@@ -261,11 +261,6 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         path: '/admin/subscription',
         syncStatus: 'synced',
         health: 'healthy',
-        children: [
-          { key: 'sub-plans',    label: 'Paket',         path: '/admin/subscription',          icon: '📋' },
-          { key: 'sub-billing',  label: 'Tagihan',       path: '/admin/subscription/billing',  icon: '💳' },
-          { key: 'sub-features', label: 'Matriks Fitur', path: '/admin/subscription/features', icon: '🔧' },
-        ],
       },
       {
         key: 'uw-trust',

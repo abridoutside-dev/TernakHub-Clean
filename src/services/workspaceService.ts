@@ -132,13 +132,11 @@ import {
   repoCreateSubscriptionPackage,
   repoDeleteSubscriptionPackage,
   repoGetPackageDeletePreflight,
-  repoGetSubscriptionPackage,
   repoGetWorkspaceSubscription,
   repoListSubscriptionAdmin,
   repoListSubscriptionAudit,
   repoListSubscriptionHistory,
   repoListWorkspaceSubscriptionHistory,
-  repoListSubscriptionPlans,
   repoSetSubscriptionPackageStatus,
   repoTransitionSubscription,
   repoUpdateSubscriptionPackage,
@@ -642,14 +640,6 @@ function subscriptionError(error: unknown, fallback: string): SubscriptionServic
 
 export function getSubscriptionAdmin(): Promise<SubscriptionAdminData> {
   return repoListSubscriptionAdmin();
-}
-
-export function getSubscriptionPackages(): Promise<SubscriptionPackage[]> {
-  return repoListSubscriptionPlans();
-}
-
-export function getSubscriptionPackage(id: string): Promise<SubscriptionPackage | null> {
-  return repoGetSubscriptionPackage(id);
 }
 
 export function getWorkspaceSubscription(workspaceId: string): Promise<SubscriptionRecordAdmin | null> {

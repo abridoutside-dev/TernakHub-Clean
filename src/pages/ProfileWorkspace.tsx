@@ -13,10 +13,10 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
   WORKSPACE_TYPE_LABEL,
-  WORKSPACE_PLAN_LABEL,
   type WorkspaceRecord,
   type WorkspaceUpdateInput,
 } from '../types/workspace';
+import { PLAN_CONFIG } from '../data/workspaceSubscriptionData';
 // LEGACY — scheduled removal after production migration.
 // workspace_members is not yet in Supabase; member data served from in-memory store.
 import { getMembersByWorkspace } from '../data/workspaceMembersData';
@@ -42,12 +42,6 @@ const STATUS_CONFIG = {
   Inactive: { label: '○ Nonaktif',   color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
   Archived: { label: '📦 Diarsipkan', color: '#6b7280', bg: '#f1f5f9', border: '#cbd5e1' },
 } as const;
-
-const PLAN_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  Free:       { label: 'Free',       color: '#374151', bg: '#f3f4f6', border: '#d1d5db' },
-  Pro:        { label: '⭐ Pro',      color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' },
-  Enterprise: { label: '🏆 Enterprise', color: '#7e22ce', bg: '#ede9fe', border: '#c4b5fd' },
-};
 
 // ─── Empty State ───────────────────────────────────────────────────────────────
 
@@ -712,7 +706,7 @@ export default function ProfileWorkspace() {
         {Object.entries(PLAN_CONFIG).map(([key, cfg]) => (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, borderRadius: 8, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{cfg.label}</span>
-            <span style={{ fontSize: 11 }}>{(WORKSPACE_PLAN_LABEL as Record<string, string>)[key] ?? key}</span>
+            <span style={{ fontSize: 11 }}>{cfg.description}</span>
           </div>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 
 export const LIST_PAGE_SIZE = 8;
 
@@ -11,7 +11,7 @@ export interface PaginatedListResult<T> {
    * Attach to a sentinel <div> at the bottom of the list.
    * When it enters the viewport, the next page is loaded automatically.
    */
-  sentinelRef: React.RefObject<HTMLDivElement>;
+  sentinelRef: RefObject<HTMLDivElement>;
   /** Total item count before slicing (after filter/search/sort). */
   total: number;
 }
@@ -35,6 +35,8 @@ export function usePaginatedList<T>(
 
   // Reset to first page whenever the source array changes.
   useEffect(() => {
+    // The reset is intentional: pagination is derived from the current list identity.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisibleCount(pageSize);
   }, [items, pageSize]);
 

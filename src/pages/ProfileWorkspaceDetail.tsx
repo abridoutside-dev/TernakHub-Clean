@@ -20,6 +20,7 @@ import {
   type WorkspaceRecord,
   type WorkspaceUpdateInput,
 } from '../types/workspace';
+import { PLAN_CONFIG } from '../data/workspaceSubscriptionData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -323,12 +324,7 @@ export default function ProfileWorkspaceDetail() {
     Archived: { color: '#6b7280', bg: '#f1f5f9', border: '#cbd5e1' },
   };
   const sc = statusColors[ws.workspace_status] ?? statusColors.Active;
-  const planColors: Record<string, { color: string; bg: string; border: string }> = {
-    Free:       { color: '#374151', bg: '#f3f4f6', border: '#d1d5db' },
-    Pro:        { color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' },
-    Enterprise: { color: '#7e22ce', bg: '#ede9fe', border: '#c4b5fd' },
-  };
-  const pc = planColors[ws.workspace_plan] ?? planColors.Free;
+  const pc = PLAN_CONFIG[ws.workspace_plan] ?? PLAN_CONFIG.Free;
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 

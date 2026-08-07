@@ -730,9 +730,6 @@ export default function App() {
         {/* Medicine */}
         <Route path="/admin/medicine/stock" element={<MedicineStockPage />} />
         <Route path="/admin/medicine/usage" element={<MedicineUsagePage />} />
-        {/* Subscription */}
-        <Route path="/admin/subscription/billing"  element={<SubscriptionModule />} />
-        <Route path="/admin/subscription/features" element={<SubscriptionModule />} />
         {/* Trust & Verification */}
         <Route path="/admin/trust/approved" element={<TrustModule />} />
         <Route path="/admin/trust/rejected" element={<TrustModule />} />
