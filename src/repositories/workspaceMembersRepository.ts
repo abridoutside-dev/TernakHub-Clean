@@ -49,7 +49,7 @@ export function repoGetMembersByWorkspace(
 
 export function repoGetMemberByUuid(
   memberUuid: string,
-  workspaceUuid?: string,
+  workspaceUuid: string,
 ): Promise<WorkspaceMemberRecord | null> {
   return invoke('detail', {
     workspace_id: workspaceUuid,
@@ -96,11 +96,11 @@ export async function repoDeleteMember(
   memberUuid: string,
   workspaceUuid: string,
 ): Promise<boolean> {
-  await invoke<{ removed: boolean }>('remove', {
+  const result = await invoke<{ removed: boolean }>('remove', {
     workspace_id: workspaceUuid,
     workspace_member_id: memberUuid,
   });
-  return true;
+  return result.removed;
 }
 
 export function repoBatchGetMembersByWorkspaces(

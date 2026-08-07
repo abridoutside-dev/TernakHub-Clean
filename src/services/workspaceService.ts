@@ -57,12 +57,18 @@ import {
   repoUpdateMemberRole,
   repoUpdateMemberStatus,
   repoDeleteMember,
+  repoBatchGetMembersByWorkspaces,
 } from '../repositories/workspaceMembersRepository';
 import type {
   WorkspaceMemberRecord,
   MemberCreateInput,
 } from '../data/workspaceMembersData';
-import { replaceMembersCache } from '../data/workspaceMembersData';
+import {
+  replaceMembersCache,
+  getMemberByUuid,
+  upsertWorkspaceMemberCache,
+  removeWorkspaceMemberCache,
+} from '../data/workspaceMembersData';
 import type { MemberRole, MemberStatus } from '../types/workspacePermissions';
 import { supabase } from '../lib/supabase';
 
@@ -137,7 +143,7 @@ export async function getWorkspaceMembersForWorkspaces(
 
 export async function getWorkspaceMember(
   memberUuid: string,
-  workspaceUuid?: string,
+  workspaceUuid: string,
 ): Promise<WorkspaceMemberRecord | null> {
   return repoGetMemberByUuid(memberUuid, workspaceUuid);
 }
@@ -145,15 +151,17 @@ export async function getWorkspaceMember(
 export async function addWorkspaceMember(
   input: MemberCreateInput,
 ): Promise<ServiceResult<WorkspaceMemberRecord>> {
-  if (!input.workspace_uuid || !input.user_id) {
+  if (!input.workspace_uuid || (!input.user_id && !input.email)) {
     return {
       ok: false,
-      errors: [{ field: 'general', message: 'Workspace dan user wajib dipilih.' }],
+      errors: [{ field: 'general', message: 'Workspace dan email atau user wajib dipilih.' }],
     };
   }
 
   try {
-    return { ok: true, data: await repoInsertMember(input) };
+    const created = await repoInsertMember(input);
+    upsertWorkspaceMemberCache(created);
+    return { ok: true, data: created };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Gagal menambahkan member.';
     return { ok: false, errors: [{ field: 'general', message }] };
@@ -165,8 +173,7 @@ export async function updateWorkspaceMemberRole(
   newRole: MemberRole,
   workspaceUuid: string,
 ): Promise<ServiceResult<WorkspaceMemberRecord>> {
-  const member = (await getWorkspaceMembers(workspaceUuid))
-    .find((item) => item.member_uuid === memberUuid) ?? null;
+  const member = getMemberByUuid(memberUuid) ?? null;
   if (!member) {
     return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
   }
@@ -176,6 +183,7 @@ export async function updateWorkspaceMemberRole(
 
   try {
     const updated = await repoUpdateMemberRole(memberUuid, newRole, workspaceUuid);
+    if (updated) upsertWorkspaceMemberCache(updated);
     return updated
       ? { ok: true, data: updated }
       : { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
@@ -190,8 +198,7 @@ export async function updateWorkspaceMemberStatus(
   status: MemberStatus,
   workspaceUuid: string,
 ): Promise<ServiceResult<WorkspaceMemberRecord>> {
-  const member = (await getWorkspaceMembers(workspaceUuid))
-    .find((item) => item.member_uuid === memberUuid) ?? null;
+  const member = getMemberByUuid(memberUuid) ?? null;
   if (!member) {
     return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
   }
@@ -201,6 +208,7 @@ export async function updateWorkspaceMemberStatus(
 
   try {
     const updated = await repoUpdateMemberStatus(memberUuid, status, workspaceUuid);
+    if (updated) upsertWorkspaceMemberCache(updated);
     return updated
       ? { ok: true, data: updated }
       : { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
@@ -213,9 +221,9 @@ export async function updateWorkspaceMemberStatus(
 export async function removeWorkspaceMember(
   memberUuid: string,
   workspaceUuid: string,
+  preflight?: WorkspaceMemberRemovalPreflight,
 ): Promise<ServiceResult<{ removed: boolean }>> {
-  const member = (await getWorkspaceMembers(workspaceUuid))
-    .find((item) => item.member_uuid === memberUuid) ?? null;
+  const member = preflight?.member ?? getMemberByUuid(memberUuid) ?? null;
   if (!member) {
     return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
   }
@@ -224,11 +232,22 @@ export async function removeWorkspaceMember(
   }
 
   try {
-    return { ok: true, data: { removed: await repoDeleteMember(memberUuid, workspaceUuid) } };
+    if (preflight && preflight.member.member_uuid !== memberUuid) {
+      return { ok: false, errors: [{ field: 'general', message: 'Preflight member tidak cocok.' }] };
+    }
+    const removed = await repoDeleteMember(memberUuid, workspaceUuid);
+    if (removed) removeWorkspaceMemberCache(memberUuid);
+    return { ok: true, data: { removed } };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Gagal menghapus membership.';
     return { ok: false, errors: [{ field: 'general', message }] };
   }
+}
+
+export interface WorkspaceMemberRemovalPreflight {
+  member: WorkspaceMemberRecord;
+  /** Membership is the only relation removed; user and workspace remain intact. */
+  relatedRecords: readonly [];
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────

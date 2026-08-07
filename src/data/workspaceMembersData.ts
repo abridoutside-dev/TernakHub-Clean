@@ -70,3 +70,14 @@ export function getMemberByUserId(
 export function getMemberByUuid(memberUuid: string): WorkspaceMemberRecord | undefined {
   return MEMBERS_DB.find((member) => member.member_uuid === memberUuid);
 }
+
+export function upsertWorkspaceMemberCache(record: WorkspaceMemberRecord): void {
+  MEMBERS_DB = [
+    ...MEMBERS_DB.filter((member) => member.member_uuid !== record.member_uuid),
+    record,
+  ];
+}
+
+export function removeWorkspaceMemberCache(memberUuid: string): void {
+  MEMBERS_DB = MEMBERS_DB.filter((member) => member.member_uuid !== memberUuid);
+}

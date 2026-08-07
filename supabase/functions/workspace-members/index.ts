@@ -42,6 +42,15 @@ function dbStatus(status: unknown): MemberStatus | null {
     || status === 'Diundang' || status === 'Ditangguhkan' ? status : null;
 }
 
+function isSystemAdmin(user: { user_metadata?: Record<string, unknown> | null; app_metadata?: Record<string, unknown> | null }): boolean {
+  const metadata = user.user_metadata ?? {};
+  const appMetadata = user.app_metadata ?? {};
+  return metadata.is_admin === true
+    || metadata.role === 'admin'
+    || metadata.role === 'system_admin'
+    || appMetadata.role === 'system_admin';
+}
+
 function profileName(profile: Record<string, unknown> | undefined, userId: string): string {
   return (typeof profile?.full_name === 'string' && profile.full_name)
     || (typeof profile?.display_name === 'string' && profile.display_name)
@@ -106,7 +115,7 @@ async function main(request: Request): Promise<Response> {
       && (member.role === 'Owner' || member.role === 'Admin'),
   );
   const authorizedWorkspaceIds = new Set(callerMemberships.map((member) => member.workspace_id));
-  if (ids.some((id) => !authorizedWorkspaceIds.has(id))) {
+  if (!isSystemAdmin(authData.user) && ids.some((id) => !authorizedWorkspaceIds.has(id))) {
     return errorResponse('Anda tidak memiliki izin mengelola member workspace ini.', 403);
   }
 
@@ -145,19 +154,6 @@ async function main(request: Request): Promise<Response> {
       .map((member) => mapMember(member)) });
   }
 
-  const memberId = payload.workspace_member_id;
-  if (!uuid(memberId)) return errorResponse('Workspace membership ID tidak valid.');
-  const target = (memberships ?? []).find(
-    (member) => member.id === memberId && member.workspace_id === workspaceId,
-  );
-  if (!target) return errorResponse('Member tidak ditemukan.', 404);
-  if (target.role === 'Owner') {
-    if (operation === 'remove') return errorResponse('Owner tidak dapat dihapus dari workspace.', 409);
-    return errorResponse('Owner tidak dapat diubah.', 409);
-  }
-
-  if (operation === 'detail') return response({ ok: true, data: mapMember(target) });
-
   if (operation === 'add') {
     const role = dbRole(payload.role);
     if (!role || role === 'Owner' || role === 'Guest') return errorResponse('Role member tidak valid.');
@@ -176,6 +172,19 @@ async function main(request: Request): Promise<Response> {
     return response({ ok: true, data: mapMember(inserted.data) });
   }
 
+  const memberId = payload.workspace_member_id;
+  if (!uuid(memberId)) return errorResponse('Workspace membership ID tidak valid.');
+  const target = (memberships ?? []).find(
+    (member) => member.id === memberId && member.workspace_id === workspaceId,
+  );
+  if (!target) return errorResponse('Member tidak ditemukan.', 404);
+  if (target.role === 'Owner') {
+    if (operation === 'remove') return errorResponse('Owner tidak dapat dihapus dari workspace.', 409);
+    return errorResponse('Owner tidak dapat diubah.', 409);
+  }
+
+  if (operation === 'detail') return response({ ok: true, data: mapMember(target) });
+
   if (operation === 'update') {
     const body: Record<string, string> = {};
     const role = payload.role === undefined ? null : dbRole(payload.role);
@@ -193,6 +202,8 @@ async function main(request: Request): Promise<Response> {
   }
 
   if (operation === 'remove') {
+    // This operation intentionally deletes only the membership relation.
+    // The user and workspace are never touched; FK rules protect both.
     const removed = await admin.from('workspace_members').delete()
       .eq('id', memberId).eq('workspace_id', workspaceId);
     if (removed.error) return errorResponse('Member tidak dapat dihapus.', 500);
