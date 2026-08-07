@@ -668,7 +668,7 @@ export default function ProfileWorkspace() {
                 memberCount={getMembersByWorkspace(ws.workspace_uuid).length}
                 onDetail={() => navigate(`/profile/workspace/${ws.workspace_uuid}`)}
                 onEdit={(allowed) => { if (allowed) setEditTarget({ workspace: ws, allowed }); }}
-                onMembers={() => navigate(`/profile/workspace/${ws.workspace_uuid}/members`)}
+                onMembers={() => navigate('/workspace/settings/members')}
                 onArchive={(allowed) => { if (allowed) setArchiveTarget({ workspace: ws, allowed }); }}
                 onRestore={(allowed) => { void handleRestore(ws, allowed); }}
               />
@@ -692,7 +692,7 @@ export default function ProfileWorkspace() {
                 memberCount={getMembersByWorkspace(ws.workspace_uuid).length}
                 onDetail={() => navigate(`/profile/workspace/${ws.workspace_uuid}`)}
                 onEdit={(allowed) => { if (allowed) setEditTarget({ workspace: ws, allowed }); }}
-                onMembers={() => navigate(`/profile/workspace/${ws.workspace_uuid}/members`)}
+                onMembers={() => navigate('/workspace/settings/members')}
                 onArchive={(allowed) => { if (allowed) setArchiveTarget({ workspace: ws, allowed }); }}
                 onRestore={(allowed) => { void handleRestore(ws, allowed); }}
               />

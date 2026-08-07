@@ -57,6 +57,19 @@ export function repoGetMemberByUuid(
   });
 }
 
+export function repoGetMemberRemovalPreflight(
+  memberUuid: string,
+  workspaceUuid: string,
+): Promise<{
+  member: WorkspaceMemberRecord;
+  relatedRecords: readonly [];
+} | null> {
+  return invoke('preflight-remove', {
+    workspace_id: workspaceUuid,
+    workspace_member_id: memberUuid,
+  });
+}
+
 export function repoInsertMember(
   input: MemberCreateInput,
 ): Promise<WorkspaceMemberRecord> {

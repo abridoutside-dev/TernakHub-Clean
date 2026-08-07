@@ -158,7 +158,6 @@ const Profile = lazy(() => import('./routeBundles/profile').then(m => ({ default
 const ProfileAccount = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileAccount })));
 const ProfileWorkspace = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileWorkspace })));
 const ProfileWorkspaceDetail = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileWorkspaceDetail })));
-const ProfileWorkspaceMembers = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileWorkspaceMembers })));
 const ProfileBusinessInsight = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileBusinessInsight })));
 const ProfileSubscription = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileSubscription })));
 const ProfileSecurity = lazy(() => import('./routeBundles/profile').then(m => ({ default: m.ProfileSecurity })));
@@ -616,11 +615,7 @@ export default function App() {
           <ProfileWorkspaceDetail />
         </WorkspacePermissionGuard>
       } />
-      <Route path="/profile/workspace/:id/members" element={
-        <WorkspacePermissionGuard module="memberManagement" action="view">
-          <ProfileWorkspaceMembers />
-        </WorkspacePermissionGuard>
-      } />
+      <Route path="/profile/workspace/:id/members" element={<Navigate to="/workspace/settings/members" replace />} />
       <Route path="/profile/business-insight"               element={<ProfileBusinessInsight />} />
       <Route path="/profile/subscription"                   element={<ProfileSubscription />} />
       <Route path="/profile/security"                       element={<ProfileSecurity />} />

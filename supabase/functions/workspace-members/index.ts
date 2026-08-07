@@ -111,10 +111,16 @@ async function main(request: Request): Promise<Response> {
 
   const callerMemberships = (memberships ?? []).filter(
     (member) => member.user_id === authData.user.id
-      && member.status === 'Aktif'
-      && (member.role === 'Owner' || member.role === 'Admin'),
+      && member.status === 'Aktif',
   );
-  const authorizedWorkspaceIds = new Set(callerMemberships.map((member) => member.workspace_id));
+  const readableWorkspaceIds = new Set(callerMemberships.map((member) => member.workspace_id));
+  const manageableWorkspaceIds = new Set(
+    callerMemberships
+      .filter((member) => member.role === 'Owner' || member.role === 'Admin')
+      .map((member) => member.workspace_id),
+  );
+  const readOperation = operation === 'list' || operation === 'list-many' || operation === 'detail';
+  const authorizedWorkspaceIds = readOperation ? readableWorkspaceIds : manageableWorkspaceIds;
   if (!isSystemAdmin(authData.user) && ids.some((id) => !authorizedWorkspaceIds.has(id))) {
     return errorResponse('Anda tidak memiliki izin mengelola member workspace ini.', 403);
   }
@@ -164,6 +170,16 @@ async function main(request: Request): Promise<Response> {
       userId = found?.id ?? '';
     }
     if (!uuid(userId)) return errorResponse('User dengan email tersebut tidak ditemukan.', 404);
+    const [userResult, profileResult] = await Promise.all([
+      admin.auth.admin.getUserById(userId),
+      admin.from('user_profiles')
+        .select('id, full_name, display_name, phone_number, whatsapp_number, avatar_url')
+        .eq('id', userId)
+        .maybeSingle(),
+    ]);
+    if (userResult.error || profileResult.error) return errorResponse('Profil member tidak dapat dimuat.', 500);
+    if (userResult.data.user) users.set(userId, userResult.data.user);
+    if (profileResult.data) profiles.set(userId, profileResult.data);
     const inserted = await admin.from('workspace_members')
       .insert({ workspace_id: workspaceId, user_id: userId, role, status: 'Aktif' })
       .select('id, workspace_id, user_id, role, status, joined_at, created_at')
@@ -184,6 +200,16 @@ async function main(request: Request): Promise<Response> {
   }
 
   if (operation === 'detail') return response({ ok: true, data: mapMember(target) });
+
+  if (operation === 'preflight-remove') {
+    return response({
+      ok: true,
+      data: {
+        member: mapMember(target),
+        relatedRecords: [],
+      },
+    });
+  }
 
   if (operation === 'update') {
     const body: Record<string, string> = {};

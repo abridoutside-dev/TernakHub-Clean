@@ -486,7 +486,7 @@ export default function ProfileWorkspaceDetail() {
 
       {/* Actions */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {canViewMembers && <button onClick={() => navigate(`/profile/workspace/${ws.workspace_uuid}/members`)} style={{ width: '100%', padding: '13px', background: 'var(--color-surface)', color: 'var(--color-text)', border: '1.5px solid var(--color-border)', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        {canViewMembers && <button onClick={() => navigate('/workspace/settings/members')} style={{ width: '100%', padding: '13px', background: 'var(--color-surface)', color: 'var(--color-text)', border: '1.5px solid var(--color-border)', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           👥 Kelola Anggota
         </button>}
         {canUpdate && <button onClick={() => setEditOpen(true)} style={{ width: '100%', padding: '13px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>

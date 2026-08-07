@@ -53,6 +53,7 @@ import {
 import {
   repoGetMembersByWorkspace,
   repoGetMemberByUuid,
+  repoGetMemberRemovalPreflight,
   repoInsertMember,
   repoUpdateMemberRole,
   repoUpdateMemberStatus,
@@ -64,7 +65,7 @@ import type {
   MemberCreateInput,
 } from '../data/workspaceMembersData';
 import {
-  replaceMembersCache,
+  upsertWorkspaceMembersCache,
   getMemberByUuid,
   upsertWorkspaceMemberCache,
   removeWorkspaceMemberCache,
@@ -129,7 +130,7 @@ export async function getWorkspaceMembers(
   workspaceUuid: string,
 ): Promise<WorkspaceMemberRecord[]> {
   const records = await repoGetMembersByWorkspace(workspaceUuid);
-  replaceMembersCache(records);
+  upsertWorkspaceMembersCache(workspaceUuid, records);
   return records;
 }
 
@@ -137,7 +138,10 @@ export async function getWorkspaceMembersForWorkspaces(
   workspaceUuids: string[],
 ): Promise<WorkspaceMemberRecord[]> {
   const records = await repoBatchGetMembersByWorkspaces(workspaceUuids);
-  replaceMembersCache(records);
+  upsertWorkspaceMembersCache(
+    workspaceUuids.length === 1 ? workspaceUuids[0] : '',
+    records,
+  );
   return records;
 }
 
@@ -146,6 +150,16 @@ export async function getWorkspaceMember(
   workspaceUuid: string,
 ): Promise<WorkspaceMemberRecord | null> {
   return repoGetMemberByUuid(memberUuid, workspaceUuid);
+}
+
+export async function getWorkspaceMemberRemovalPreflight(
+  memberUuid: string,
+  workspaceUuid: string,
+): Promise<WorkspaceMemberRemovalPreflight | null> {
+  const result = await repoGetMemberRemovalPreflight(memberUuid, workspaceUuid);
+  return result
+    ? { member: result.member, relatedRecords: result.relatedRecords }
+    : null;
 }
 
 export async function addWorkspaceMember(
@@ -221,9 +235,9 @@ export async function updateWorkspaceMemberStatus(
 export async function removeWorkspaceMember(
   memberUuid: string,
   workspaceUuid: string,
-  preflight?: WorkspaceMemberRemovalPreflight,
+  preflight: WorkspaceMemberRemovalPreflight,
 ): Promise<ServiceResult<{ removed: boolean }>> {
-  const member = preflight?.member ?? getMemberByUuid(memberUuid) ?? null;
+  const member = preflight.member;
   if (!member) {
     return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
   }
@@ -232,7 +246,7 @@ export async function removeWorkspaceMember(
   }
 
   try {
-    if (preflight && preflight.member.member_uuid !== memberUuid) {
+    if (preflight.member.member_uuid !== memberUuid || preflight.member.workspace_uuid !== workspaceUuid) {
       return { ok: false, errors: [{ field: 'general', message: 'Preflight member tidak cocok.' }] };
     }
     const removed = await repoDeleteMember(memberUuid, workspaceUuid);

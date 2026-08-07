@@ -3,7 +3,6 @@ import Profile from '../pages/Profile';
 import ProfileAccount from '../pages/ProfileAccount';
 import ProfileWorkspace from '../pages/ProfileWorkspace';
 import ProfileWorkspaceDetail from '../pages/ProfileWorkspaceDetail';
-import ProfileWorkspaceMembers from '../pages/ProfileWorkspaceMembers';
 import ProfileBusinessInsight from '../pages/ProfileBusinessInsight';
 import ProfileSubscription from '../pages/ProfileSubscription';
 import ProfileSecurity from '../pages/ProfileSecurity';
@@ -30,7 +29,6 @@ export {
   ProfileAccount,
   ProfileWorkspace,
   ProfileWorkspaceDetail,
-  ProfileWorkspaceMembers,
   ProfileBusinessInsight,
   ProfileSubscription,
   ProfileSecurity,

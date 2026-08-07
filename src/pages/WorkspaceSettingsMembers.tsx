@@ -21,6 +21,9 @@ import { useWorkspacePermission } from '../hooks/useWorkspacePermission';
 import type { WorkspaceMemberRecord } from '../data/workspaceMembersData';
 import {
   getWorkspaceMembers,
+  getWorkspaceMember,
+  addWorkspaceMember,
+  getWorkspaceMemberRemovalPreflight,
   updateWorkspaceMemberRole,
   updateWorkspaceMemberStatus,
   removeWorkspaceMember,
@@ -230,6 +233,104 @@ function RoleChangeModal({
         >
           Save Role
         </button>
+      </div>
+    </div>
+  );
+}
+
+function AddMemberSheet({
+  workspaceId,
+  onAdded,
+  onCancel,
+}: {
+  workspaceId: string;
+  onAdded: () => void;
+  onCancel: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<MemberRole>('Staff');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit() {
+    setError('');
+    if (!email.trim()) {
+      setError('Email wajib diisi.');
+      return;
+    }
+    setSaving(true);
+    const result = await addWorkspaceMember({
+      workspace_uuid: workspaceId,
+      email: email.trim(),
+      role,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.errors[0]?.message ?? 'Member tidak dapat ditambahkan.');
+      return;
+    }
+    onAdded();
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 450, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--color-surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', width: '100%', maxWidth: 520, boxShadow: '0 -8px 32px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--color-text)' }}>Tambah Anggota</h3>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--color-muted)' }}>User harus sudah terdaftar dengan email ini.</p>
+          </div>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--color-muted)', cursor: 'pointer' }}>✕</button>
+        </div>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--color-muted)', marginBottom: 6 }}>EMAIL</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(event) => { setEmail(event.target.value); setError(''); }}
+          placeholder="nama@email.com"
+          style={{ width: '100%', boxSizing: 'border-box', padding: '11px 12px', borderRadius: 10, border: `1.5px solid ${error ? '#dc2626' : 'var(--color-border)'}`, background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: 14, outline: 'none' }}
+        />
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--color-muted)', margin: '16px 0 6px' }}>ROLE</label>
+        <select value={role} onChange={(event) => setRole(event.target.value as MemberRole)} style={{ width: '100%', boxSizing: 'border-box', padding: '11px 12px', borderRadius: 10, border: '1.5px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: 14 }}>
+          {MEMBER_ROLES.filter((item) => item !== 'Owner').map((item) => <option key={item} value={item}>{ROLE_LABEL[item]}</option>)}
+        </select>
+        {error && <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626' }}>{error}</p>}
+        <button
+          onClick={() => void handleSubmit()}
+          disabled={saving}
+          style={{ width: '100%', height: 46, marginTop: 20, border: 'none', borderRadius: 12, background: saving ? 'var(--color-border)' : 'var(--color-primary)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
+        >
+          {saving ? 'Menambahkan…' : 'Tambah Anggota'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MemberDetailsModal({
+  member,
+  onCancel,
+}: {
+  member: WorkspaceMemberRecord;
+  onCancel: () => void;
+}) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 420, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <MemberAvatar name={member.name} size={48} />
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ margin: 0, fontSize: 17, color: 'var(--color-text)' }}>{member.name}</h3>
+            <div style={{ fontSize: 12, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.email ?? 'Email tidak tersedia'}</div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: 10, fontSize: 13, color: 'var(--color-text)' }}>
+          <div><strong>Role:</strong> {ROLE_LABEL[member.role]}</div>
+          <div><strong>Status:</strong> {member.status}</div>
+          {member.phone && <div><strong>Telepon:</strong> {member.phone}</div>}
+          <div><strong>Bergabung:</strong> {new Date(member.joined_at).toLocaleDateString('id-ID')}</div>
+        </div>
+        <button onClick={onCancel} style={{ width: '100%', height: 42, marginTop: 22, border: '1.5px solid var(--color-border)', borderRadius: 10, background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Tutup</button>
       </div>
     </div>
   );
@@ -696,6 +797,8 @@ export default function WorkspaceSettingsMembers() {
   // ── Modal state ────────────────────────────────────────────────────────────
   const [openMenuId,    setOpenMenuId]    = useState<string | null>(null);
   const [roleModalId,   setRoleModalId]   = useState<string | null>(null);
+  const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
+  const [showAddMember, setShowAddMember] = useState(false);
   const [confirmState,  setConfirmState]  = useState<
     | { action: 'remove' | 'deactivate'; memberId: string }
     | null
@@ -728,7 +831,7 @@ export default function WorkspaceSettingsMembers() {
       showToast('success', `Role updated to ${ROLE_LABEL[newRole]}.`);
       await loadMembers();
     } else {
-      showToast('error', result.error.message);
+      showToast('error', result.errors[0]?.message ?? 'Gagal mengubah role member.');
     }
   }
 
@@ -767,9 +870,19 @@ export default function WorkspaceSettingsMembers() {
       if (result.ok) { showToast('success', `${member.name} has been deactivated.`); await loadMembers(); }
       else           { showToast('error', result.errors[0]?.message ?? 'Gagal menonaktifkan anggota.'); }
     } else {
-      const result = await removeWorkspaceMember(memberId, activeWorkspace?.workspace_uuid ?? '');
-      if (result.ok) { showToast('success', `${member.name} has been removed.`); await loadMembers(); }
-      else           { showToast('error', result.errors[0]?.message ?? 'Gagal menghapus anggota.'); }
+      const workspaceId = activeWorkspace?.workspace_uuid ?? '';
+      try {
+        const preflight = await getWorkspaceMemberRemovalPreflight(memberId, workspaceId);
+        if (!preflight) {
+          showToast('error', 'Member tidak ditemukan saat preflight.');
+          return;
+        }
+        const result = await removeWorkspaceMember(memberId, workspaceId, preflight);
+        if (result.ok) { showToast('success', `${member.name} has been removed.`); await loadMembers(); }
+        else           { showToast('error', result.errors[0]?.message ?? 'Gagal menghapus anggota.'); }
+      } catch (error) {
+        showToast('error', error instanceof Error ? error.message : 'Preflight penghapusan gagal.');
+      }
     }
   }
 
@@ -777,6 +890,7 @@ export default function WorkspaceSettingsMembers() {
 
   const roleModalMember = roleModalId ? allMembers.find((m) => m.member_uuid === roleModalId) ?? null : null;
   const confirmMember   = confirmState ? allMembers.find((m) => m.member_uuid === confirmState.memberId) ?? null : null;
+  const detailMember    = detailMemberId ? allMembers.find((m) => m.member_uuid === detailMemberId) ?? null : null;
 
   const inp: React.CSSProperties = {
     width: '100%', padding: '10px 12px 10px 38px', borderRadius: 10,
@@ -807,6 +921,23 @@ export default function WorkspaceSettingsMembers() {
           onCancel={() => setRoleModalId(null)}
         />
       )}
+      {detailMember && (
+        <MemberDetailsModal
+          member={detailMember}
+          onCancel={() => setDetailMemberId(null)}
+        />
+      )}
+      {showAddMember && activeWorkspace && (
+        <AddMemberSheet
+          workspaceId={activeWorkspace.workspace_uuid}
+          onCancel={() => setShowAddMember(false)}
+          onAdded={() => {
+            setShowAddMember(false);
+            showToast('success', 'Member berhasil ditambahkan.');
+            void loadMembers();
+          }}
+        />
+      )}
 
       {/* Confirm dialog */}
       {confirmState && confirmMember && (
@@ -833,9 +964,9 @@ export default function WorkspaceSettingsMembers() {
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeWorkspace.workspace_name}</div>
             <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{allMembers.length} member{allMembers.length !== 1 ? 's' : ''}</div>
           </div>
-          {canInvite && (
+           {canInvite && (
             <button
-              onClick={() => setShowInviteSheet(true)}
+               onClick={() => setShowAddMember(true)}
               style={{
                 flexShrink: 0, height: 34, padding: '0 12px', borderRadius: 10,
                 background: 'var(--color-primary)', color: '#fff',
@@ -843,7 +974,7 @@ export default function WorkspaceSettingsMembers() {
                 whiteSpace: 'nowrap',
               }}
             >
-              + Undang
+               + Tambah
             </button>
           )}
         </div>
@@ -1023,6 +1154,16 @@ export default function WorkspaceSettingsMembers() {
                         />
                       )}
                     </div>}
+                    <button
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        setDetailMemberId(member.member_uuid);
+                      }}
+                      style={{ width: 32, height: 32, borderRadius: 8, background: 'none', border: '1px solid var(--color-border)', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 14 }}
+                      aria-label="View member details"
+                    >
+                      ⓘ
+                    </button>
                   </div>
                 </div>
               );
