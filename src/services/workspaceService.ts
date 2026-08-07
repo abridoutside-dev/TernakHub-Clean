@@ -151,6 +151,20 @@ import type {
   SubscriptionPreflight,
   SubscriptionRecordAdmin,
 } from '../types/subscriptionAdmin';
+import {
+  repoGetTrustVerification,
+  repoListTrustVerificationAudit,
+  repoListTrustVerifications,
+  repoTransitionTrustVerification,
+  WorkspaceTrustVerificationRepoError,
+} from '../repositories/workspaceTrustVerificationRepository';
+import type {
+  TrustVerificationAction,
+  TrustVerificationAuditEntry,
+  TrustVerificationListQuery,
+  TrustVerificationListResponse,
+  TrustVerificationRecord,
+} from '../types/workspaceTrustVerification';
 
 // ─── Re-export slug utilities (consumers import from the service, not the repo)
 
@@ -640,6 +654,55 @@ function subscriptionError(error: unknown, fallback: string): SubscriptionServic
 
 export function getSubscriptionAdmin(): Promise<SubscriptionAdminData> {
   return repoListSubscriptionAdmin();
+}
+
+// ─── Trust & Verification ────────────────────────────────────────────────────
+// UI → WorkspaceService → WorkspaceTrustVerificationRepository → Edge Function.
+
+export type TrustVerificationServiceResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { message: string; code?: string } };
+
+function trustVerificationError(error: unknown, fallback: string): TrustVerificationServiceResult<never> {
+  return {
+    ok: false,
+    error: {
+      message: error instanceof WorkspaceTrustVerificationRepoError
+        ? error.message
+        : error instanceof Error ? error.message : fallback,
+      code: error instanceof WorkspaceTrustVerificationRepoError ? error.code : undefined,
+    },
+  };
+}
+
+export function getTrustVerifications(
+  query?: TrustVerificationListQuery,
+): Promise<TrustVerificationListResponse> {
+  return repoListTrustVerifications(query);
+}
+
+export function getTrustVerification(id: string): Promise<TrustVerificationRecord | null> {
+  return repoGetTrustVerification(id);
+}
+
+export async function transitionTrustVerification(
+  id: string,
+  action: TrustVerificationAction,
+  reason?: string,
+): Promise<TrustVerificationServiceResult<TrustVerificationRecord>> {
+  if (!id) return { ok: false, error: { message: 'Verification ID wajib diisi.', code: 'VALIDATION' } };
+  if (['reject', 'suspend'].includes(action) && !reason?.trim()) {
+    return { ok: false, error: { message: 'Alasan wajib diisi.', code: 'REASON_REQUIRED' } };
+  }
+  try {
+    return { ok: true, data: await repoTransitionTrustVerification(id, action, reason) };
+  } catch (error) {
+    return trustVerificationError(error, 'Status verifikasi tidak dapat diperbarui.');
+  }
+}
+
+export function getTrustVerificationAudit(id?: string): Promise<TrustVerificationAuditEntry[]> {
+  return repoListTrustVerificationAudit(id);
 }
 
 export function getWorkspaceSubscription(workspaceId: string): Promise<SubscriptionRecordAdmin | null> {
