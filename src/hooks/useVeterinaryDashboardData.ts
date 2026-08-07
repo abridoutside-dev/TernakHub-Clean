@@ -12,7 +12,7 @@
 //   - activity_log            → Aktivitas workspace
 
 import { useState, useEffect, useCallback } from 'react';
-import { repoGetWorkspaceByUuid } from '../repositories/workspaceRepository';
+import { getWorkspaceByUuid } from '../services/workspaceService';
 import {
   repoGetCheckupsByWorkspace,
   repoGetTreatmentsByWorkspace,
@@ -156,7 +156,7 @@ export function useVeterinaryDashboardData(
 
     try {
       const [workspace, checkups, treatments, schedules, activities] = await Promise.all([
-        repoGetWorkspaceByUuid(workspaceId).catch(() => null),
+        getWorkspaceByUuid(workspaceId).catch(() => null),
         repoGetCheckupsByWorkspace(workspaceId).catch(() => []),
         repoGetTreatmentsByWorkspace(workspaceId).catch(() => []),
         repoGetControlSchedulesByWorkspace(workspaceId).catch(() => []),

@@ -520,7 +520,7 @@ type WorkspaceActionTarget = {
 export default function ProfileWorkspace() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { workspaces, activeWorkspace, saveWorkspace, refreshWorkspaces } = useWorkspace();
+  const { workspaces, activeWorkspace, saveWorkspace } = useWorkspace();
 
   const currentUserId = currentUser?.id ?? '';
 
@@ -559,7 +559,6 @@ export default function ProfileWorkspace() {
     setSaving(false);
     if (result.ok) {
       setEditTarget(null);
-      refreshWorkspaces();
       showToast('Workspace berhasil diperbarui.', true);
     } else {
       const msg = result.errors.map((e) => e.message).join(' · ');
@@ -588,7 +587,6 @@ export default function ProfileWorkspace() {
     setSaving(false);
     setArchiveTarget(null);
     if (result.ok) {
-      refreshWorkspaces();
       showToast(`"${ws.workspace_name}" berhasil diarsipkan.`, true);
     } else {
       const msg = result.errors.map((e) => e.message).join(' · ');
@@ -608,7 +606,6 @@ export default function ProfileWorkspace() {
     }
     const result = await saveWorkspace(ws.workspace_uuid, { workspace_status: 'Active' });
     if (result.ok) {
-      refreshWorkspaces();
       showToast(`"${ws.workspace_name}" berhasil dipulihkan.`, true);
     } else {
       const msg = result.errors.map((e) => e.message).join(' · ');

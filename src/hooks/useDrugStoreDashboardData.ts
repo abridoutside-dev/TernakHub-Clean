@@ -15,7 +15,7 @@
 //   - drug_store_sales       → catatan penjualan
 
 import { useState, useEffect, useCallback } from 'react';
-import { repoGetWorkspaceByUuid } from '../repositories/workspaceRepository';
+import { getWorkspaceByUuid } from '../services/workspaceService';
 import {
   repoGetStokObatByWorkspace,
   repoGetStokMasukByWorkspace,
@@ -223,7 +223,7 @@ export function useDrugStoreDashboardData(
         yesterdayTotal,
         sales,
       ] = await Promise.all([
-        repoGetWorkspaceByUuid(workspaceId).catch(() => null),
+        getWorkspaceByUuid(workspaceId).catch(() => null),
         repoGetStokObatByWorkspace(workspaceId).catch(() => []),
         repoGetStokMasukByWorkspace(workspaceId, 50).catch(() => []),
         repoGetStokKeluarByWorkspace(workspaceId, 50).catch(() => []),

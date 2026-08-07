@@ -77,6 +77,7 @@ const DEPENDENCY_QUERIES: DependencyQuery[] = [
   { key: 'members', label: 'Anggota workspace', description: 'Anggota yang masih terdaftar di workspace.', table: 'workspace_members', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'invitations', label: 'Undangan workspace', description: 'Undangan yang masih tersimpan untuk workspace.', table: 'workspace_invitations', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'relationships', label: 'Relasi workspace', description: 'Relasi dengan workspace lain.', table: 'workspace_relationships', columns: ['workspace_id_a', 'workspace_id_b'], blocksDelete: true, blocksArchive: false },
+  { key: 'relationships', label: 'Inisiator relasi workspace', description: 'Relasi yang diinisiasi oleh workspace.', table: 'workspace_relationships', columns: ['initiated_by'], blocksDelete: true, blocksArchive: false },
   { key: 'ownershipTransfers', label: 'Transfer kepemilikan', description: 'Riwayat atau proses transfer kepemilikan.', table: 'ownership_transfers', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'subscription', label: 'Subscription workspace', description: 'Subscription yang terpasang pada workspace.', table: 'workspace_subscriptions', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'livestock', label: 'Data ternak', description: 'Ternak dan riwayat pemilikannya.', table: 'livestock', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
@@ -106,6 +107,7 @@ const DEPENDENCY_QUERIES: DependencyQuery[] = [
   { key: 'feed', label: 'Pencatatan pemberian pakan', description: 'Pencatatan pemberian pakan workspace.', table: 'pemberian_pakan', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'marketplace', label: 'Listing marketplace', description: 'Listing yang dibuat oleh workspace.', table: 'marketplace_listings', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'marketplace', label: 'Chat marketplace', description: 'Chat marketplace sebagai pembeli atau penjual.', table: 'marketplace_chat_rooms', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
+  { key: 'marketplace', label: 'Pesan chat marketplace', description: 'Pesan marketplace yang dikirim workspace.', table: 'marketplace_chat_messages', columns: ['sender_workspace_id'], blocksDelete: true, blocksArchive: true },
   { key: 'marketplace', label: 'Negosiasi marketplace', description: 'Negosiasi marketplace sebagai pembeli atau penjual.', table: 'marketplace_negotiations', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
   { key: 'marketplace', label: 'Transaksi marketplace', description: 'Transaksi marketplace sebagai pembeli atau penjual.', table: 'marketplace_transactions', columns: ['buyer_workspace_id', 'seller_workspace_id'], blocksDelete: true, blocksArchive: true },
   { key: 'marketplace', label: 'Moderasi marketplace', description: 'Laporan moderasi yang dibuat workspace.', table: 'marketplace_moderations', columns: ['reported_by_workspace_id'], blocksDelete: true, blocksArchive: false },
@@ -128,6 +130,8 @@ const DEPENDENCY_QUERIES: DependencyQuery[] = [
   { key: 'audit', label: 'Audit workspace', description: 'Audit platform untuk workspace.', table: 'global_audit_trail', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'audit', label: 'Search index workspace', description: 'Index pencarian workspace.', table: 'search_index', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'audit', label: 'Activity log workspace', description: 'Log aktivitas workspace.', table: 'activity_log', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'roles', label: 'Custom role workspace', description: 'Custom role yang dikonfigurasi untuk workspace.', table: 'workspace_custom_roles', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
+  { key: 'aiInsights', label: 'AI insight workspace', description: 'Insight AI yang tersimpan untuk workspace.', table: 'ai_insights', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
 ];
 
 // ─── Enum translators ─────────────────────────────────────────────────────────
@@ -184,7 +188,7 @@ type DbRow = Record<string, unknown>;
 // ─── Adapters ─────────────────────────────────────────────────────────────────
 
 /** DB row → WorkspaceRecord (app shape) */
-function fromDbRow(row: DbRow): WorkspaceRecord {
+export function repoMapWorkspaceRow(row: DbRow): WorkspaceRecord {
   const meta = (row.metadata as Record<string, unknown>) ?? {};
   return {
     workspace_uuid:   String(row.id ?? ''),
@@ -324,7 +328,7 @@ export async function repoGetAllWorkspaces(): Promise<WorkspaceRecord[]> {
     .order('created_at', { ascending: true });
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
-  return (data ?? []).map((row) => fromDbRow(row as DbRow));
+  return (data ?? []).map((row) => repoMapWorkspaceRow(row as DbRow));
 }
 
 /** Returns workspaces filtered by app-level status. */
@@ -339,7 +343,7 @@ export async function repoGetWorkspacesByStatus(
     .order('created_at', { ascending: true });
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
-  return (data ?? []).map((row) => fromDbRow(row as DbRow));
+  return (data ?? []).map((row) => repoMapWorkspaceRow(row as DbRow));
 }
 
 /** Returns workspaces filtered by app-level type. */
@@ -354,7 +358,7 @@ export async function repoGetWorkspacesByType(
     .order('created_at', { ascending: true });
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
-  return (data ?? []).map((row) => fromDbRow(row as DbRow));
+  return (data ?? []).map((row) => repoMapWorkspaceRow(row as DbRow));
 }
 
 /** Returns workspaces owned by a specific user UUID. */
@@ -369,7 +373,7 @@ export async function repoGetWorkspacesByOwner(
     .order('created_at', { ascending: true });
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
-  return (data ?? []).map((row) => fromDbRow(row as DbRow));
+  return (data ?? []).map((row) => repoMapWorkspaceRow(row as DbRow));
 }
 
 /** Finds a workspace by its UUID (DB `id`). Returns null if not found. */
@@ -384,7 +388,7 @@ export async function repoGetWorkspaceByUuid(
     .maybeSingle();
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
-  return data ? fromDbRow(data as DbRow) : null;
+  return data ? repoMapWorkspaceRow(data as DbRow) : null;
 }
 
 /**
@@ -402,7 +406,7 @@ export async function repoGetWorkspaceBySlug(
     .maybeSingle();
 
   if (error) throw new WorkspaceRepoError(error.message, error.code);
-  return data ? fromDbRow(data as DbRow) : null;
+  return data ? repoMapWorkspaceRow(data as DbRow) : null;
 }
 
 /**
@@ -500,7 +504,7 @@ export async function repoInsertWorkspace(
     throw new WorkspaceRepoError(error.message, error.code);
   }
 
-  return fromDbRow(data as DbRow);
+  return repoMapWorkspaceRow(data as DbRow);
 }
 
 /**
@@ -549,7 +553,7 @@ export async function repoPatchWorkspace(
     throw new WorkspaceRepoError(error.message, error.code);
   }
 
-  return data ? fromDbRow(data as DbRow) : null;
+  return data ? repoMapWorkspaceRow(data as DbRow) : null;
 }
 
 /**

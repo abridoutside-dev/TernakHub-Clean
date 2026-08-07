@@ -16,6 +16,7 @@ import {
   WORKSPACE_TYPE_LABEL,
   WORKSPACE_PLAN_LABEL,
   WORKSPACE_STATUS_LABEL,
+  type WorkspaceDependencies,
   type WorkspaceRecord,
   type WorkspaceUpdateInput,
 } from '../types/workspace';
@@ -174,6 +175,80 @@ function ArchiveConfirmDialog({ wsName, onConfirm, onClose }: { wsName: string; 
   );
 }
 
+// ─── Delete preflight dialog ─────────────────────────────────────────────────
+
+function DeleteWorkspaceDialog({
+  workspace,
+  dependencies,
+  loading,
+  onConfirm,
+  onClose,
+}: {
+  workspace: WorkspaceRecord;
+  dependencies: WorkspaceDependencies | null;
+  loading: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const [typed, setTyped] = useState('');
+  const matches = typed.trim() === workspace.workspace_name;
+  const blocked = dependencies?.hasDeleteBlockers ?? true;
+  const dependencyCount = dependencies?.items.reduce((total, item) => total + item.count, 0) ?? 0;
+
+  return (
+    <>
+      <div onClick={loading ? undefined : onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 500 }} />
+      <div role="dialog" aria-modal="true" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg, 16px)', padding: '24px 20px', zIndex: 501, width: 'min(440px, 92vw)', maxHeight: '86vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+        <div style={{ fontSize: 38, textAlign: 'center', marginBottom: 10 }}>🗑️</div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--color-text)', textAlign: 'center' }}>Hapus Workspace?</div>
+        <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.5, marginTop: 8, textAlign: 'center' }}>
+          Penghapusan bersifat permanen dan tidak menghapus child data secara otomatis.
+        </div>
+
+        {dependencies === null ? (
+          <div style={{ marginTop: 18, padding: 14, borderRadius: 10, background: 'var(--color-bg)', color: 'var(--color-muted)', textAlign: 'center', fontSize: 13 }}>
+            Memeriksa dependency workspace…
+          </div>
+        ) : (
+          <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: blocked ? '#fef2f2' : '#f0fdf4', border: `1px solid ${blocked ? '#fca5a5' : '#86efac'}`, color: blocked ? '#991b1b' : '#166534', fontSize: 13, lineHeight: 1.45 }}>
+              {blocked
+                ? `Delete diblokir. Ditemukan ${dependencyCount} dependency yang masih terkait.`
+                : 'Tidak ada dependency yang menghalangi penghapusan.'}
+            </div>
+            {dependencies.items.length > 0 && (
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 10, overflow: 'hidden' }}>
+                {dependencies.items.map((item) => (
+                  <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '9px 12px', borderBottom: '1px solid var(--color-border)', fontSize: 12 }}>
+                    <span style={{ color: 'var(--color-text)' }}>{item.label}</span>
+                    <strong style={{ color: item.blocksDelete ? '#dc2626' : 'var(--color-text)', flexShrink: 0 }}>{item.count}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!blocked && dependencies && (
+          <div style={{ marginTop: 18 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 6 }}>
+              Ketik <code style={{ background: 'var(--color-bg)', padding: '1px 5px', borderRadius: 4 }}>{workspace.workspace_name}</code> untuk konfirmasi:
+            </label>
+            <input autoFocus value={typed} onChange={(event) => setTyped(event.target.value)} disabled={loading} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${matches ? '#86efac' : 'var(--color-border)'}`, background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: 14 }} />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button onClick={onClose} disabled={loading} style={{ flex: 1, padding: 11, background: 'var(--color-bg)', border: '1.5px solid var(--color-border)', borderRadius: 10, color: 'var(--color-text)', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>Batal</button>
+          <button onClick={onConfirm} disabled={loading || !dependencies || blocked || !matches} style={{ flex: 1, padding: 11, background: !loading && dependencies && !blocked && matches ? '#dc2626' : '#fca5a5', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, cursor: !loading && dependencies && !blocked && matches ? 'pointer' : 'not-allowed' }}>
+            {loading ? 'Memproses…' : 'Hapus Permanen'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────────
 
 function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
@@ -205,10 +280,19 @@ function NotFound({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
 export default function ProfileWorkspaceDetail() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { workspaces, activeWorkspace, saveWorkspace, refreshWorkspaces } = useWorkspace();
+  const {
+    workspaces,
+    activeWorkspace,
+    saveWorkspace,
+    deleteWorkspace,
+    getWorkspaceDependencies,
+  } = useWorkspace();
 
   const [editOpen,       setEditOpen]       = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [deleteOpen,     setDeleteOpen]     = useState(false);
+  const [dependencies,   setDependencies]   = useState<WorkspaceDependencies | null>(null);
+  const [deleteLoading,  setDeleteLoading]  = useState(false);
   const [saving,         setSaving]         = useState(false);
   const [toast,          setToast]          = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -258,7 +342,6 @@ export default function ProfileWorkspaceDetail() {
     setSaving(false);
     if (result.ok) {
       setEditOpen(false);
-      refreshWorkspaces();
       showToast('Workspace berhasil diperbarui.', true);
     } else {
       const msg = result.errors.map((e) => e.message).join(' · ');
@@ -278,7 +361,7 @@ export default function ProfileWorkspaceDetail() {
       return;
     }
     const result = await saveWorkspace(ws.workspace_uuid, { workspace_status: 'Archived' });
-    if (result.ok) { refreshWorkspaces(); showToast(`"${ws.workspace_name}" diarsipkan.`, true); }
+    if (result.ok) { setArchiveConfirm(false); showToast(`"${ws.workspace_name}" diarsipkan.`, true); }
     else showToast('Gagal mengarsipkan workspace.', false);
   }
 
@@ -288,8 +371,37 @@ export default function ProfileWorkspaceDetail() {
       return;
     }
     const result = await saveWorkspace(ws.workspace_uuid, { workspace_status: 'Active' });
-    if (result.ok) { refreshWorkspaces(); showToast(`"${ws.workspace_name}" dipulihkan.`, true); }
+    if (result.ok) { showToast(`"${ws.workspace_name}" dipulihkan.`, true); }
     else showToast('Gagal memulihkan workspace.', false);
+  }
+
+  async function openDeleteDialog() {
+    if (!can('workspaceSettings', 'delete')) {
+      showToast('Anda tidak memiliki izin untuk menghapus workspace.', false);
+      return;
+    }
+    setDeleteOpen(true);
+    setDependencies(null);
+    try {
+      setDependencies(await getWorkspaceDependencies(ws.workspace_uuid));
+    } catch (error) {
+      setDeleteOpen(false);
+      showToast(error instanceof Error ? error.message : 'Gagal membaca dependency workspace.', false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!dependencies || dependencies.hasDeleteBlockers) return;
+    setDeleteLoading(true);
+    const result = await deleteWorkspace(ws.workspace_uuid, dependencies);
+    setDeleteLoading(false);
+    if (result.ok && result.data.deleted) {
+      setDeleteOpen(false);
+      navigate('/profile/workspace');
+      return;
+    }
+    if (!result.ok && result.dependencies) setDependencies(result.dependencies);
+    showToast(result.ok ? 'Workspace tidak ditemukan.' : result.errors.map((error) => error.message).join(' · '), false);
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -389,6 +501,11 @@ export default function ProfileWorkspaceDetail() {
             📦 Arsipkan Workspace
           </button>
         )}
+        {can('workspaceSettings', 'delete') && (
+          <button onClick={() => void openDeleteDialog()} style={{ width: '100%', padding: '13px', background: 'transparent', color: '#dc2626', border: '1.5px solid #dc2626', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            🗑️ Hapus Workspace
+          </button>
+        )}
       </div>
 
       {isActive && (
@@ -402,6 +519,15 @@ export default function ProfileWorkspaceDetail() {
       )}
       {archiveConfirm && (
         <ArchiveConfirmDialog wsName={ws.workspace_name} onConfirm={handleArchive} onClose={() => setArchiveConfirm(false)} />
+      )}
+      {deleteOpen && (
+        <DeleteWorkspaceDialog
+          workspace={ws}
+          dependencies={dependencies}
+          loading={deleteLoading}
+          onConfirm={() => void handleDelete()}
+          onClose={() => setDeleteOpen(false)}
+        />
       )}
     </div>
   );

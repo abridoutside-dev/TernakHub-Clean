@@ -293,7 +293,7 @@ function InfoCardHeader({ title, icon }: { title: string; icon: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WorkspaceSettingsArchive() {
-  const { activeWorkspace, saveWorkspace, refreshWorkspaces } = useWorkspace();
+  const { activeWorkspace, saveWorkspace } = useWorkspace();
   const { canArchive, role } = useWorkspacePermission();
   const navigate = useNavigate();
 
@@ -333,7 +333,6 @@ export default function WorkspaceSettingsArchive() {
         setShowArchiveDialog(false);
         // Remove from recent workspaces since it's now inaccessible for switching
         removeRecentWorkspace(activeWorkspace.workspace_uuid);
-        refreshWorkspaces();
         showToast('success', `"${activeWorkspace.workspace_name}" berhasil diarsipkan.`);
       } else {
         setShowArchiveDialog(false);
@@ -362,7 +361,6 @@ export default function WorkspaceSettingsArchive() {
 
       if (result.ok) {
         setShowRestoreDialog(false);
-        refreshWorkspaces();
         showToast('success', `"${activeWorkspace.workspace_name}" berhasil dipulihkan dan kini Aktif.`);
       } else {
         setShowRestoreDialog(false);

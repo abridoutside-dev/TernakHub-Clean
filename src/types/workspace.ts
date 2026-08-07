@@ -101,7 +101,9 @@ export type WorkspaceDependencyKey =
   | 'notifications'
   | 'trust'
   | 'media'
-  | 'audit';
+  | 'audit'
+  | 'roles'
+  | 'aiInsights';
 
 export interface WorkspaceDependencyItem {
   key: WorkspaceDependencyKey;

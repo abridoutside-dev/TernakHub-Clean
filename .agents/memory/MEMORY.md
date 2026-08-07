@@ -10,3 +10,4 @@
 - [Admin user error and pagination handling](admin-user-error-pagination.md) — parse Edge Function response bodies in the browser; Auth pagination headers are hints, not authoritative totals.
 - [Supabase admin session revocation](supabase-admin-session-revocation.md) — Auth has no admin logout-by-user-ID route; revoke via a target-user JWT and global logout.
 - [Public route provider boundaries](public-route-provider-boundaries.md) — public pages may still need narrowly scoped WorkspaceProvider context without entering auth guards.
+- [Workspace lifecycle preflight](workspace-lifecycle-preflight.md) — dependency counts must come from schema-verified references and be reused by delete to avoid duplicate reads.

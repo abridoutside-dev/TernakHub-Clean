@@ -14,7 +14,7 @@
 //   - feed_store_sales              → catatan penjualan
 
 import { useState, useEffect, useCallback } from 'react';
-import { repoGetWorkspaceByUuid } from '../repositories/workspaceRepository';
+import { getWorkspaceByUuid } from '../services/workspaceService';
 import {
   repoGetStokInventarisByWorkspace,
   repoGetTransactionsByWorkspace,
@@ -140,7 +140,7 @@ export function useFeedStoreDashboardData(
         yesterdayTotal,
         monthSales,
       ] = await Promise.all([
-        repoGetWorkspaceByUuid(workspaceId).catch(() => null),
+        getWorkspaceByUuid(workspaceId).catch(() => null),
         repoGetStokInventarisByWorkspace(workspaceId).catch(() => []),
         repoGetTransactionsByWorkspace(workspaceId).catch(() => []),
         repoGetActivityLogByWorkspace(workspaceId, 20).catch(() => []),

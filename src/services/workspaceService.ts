@@ -45,6 +45,7 @@ import {
   repoGetWorkspaceByUuid,
   repoGetWorkspaceBySlug,
   repoGetWorkspaceDependencies,
+  repoMapWorkspaceRow,
   repoPatchWorkspace,
   repoDeleteWorkspace as repoHardDelete,
   WorkspaceRepoError,
@@ -238,7 +239,7 @@ export function validateUpdate(
 
 export type ServiceResult<T> =
   | { ok: true;  data: T }
-  | { ok: false; errors: WorkspaceValidationError[] };
+  | { ok: false; errors: WorkspaceValidationError[]; dependencies?: WorkspaceDependencies };
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
 
@@ -305,10 +306,8 @@ export async function createWorkspace(
       return { ok: false, errors: [{ field: 'general', message: 'Workspace creation returned no data.' }] };
     }
 
-    // Map the raw DB row returned by the RPC into a WorkspaceRecord.
-    // The RPC returns a `workspaces` row (DB shape), not the app WorkspaceRecord shape.
-    // We reuse repoInsertWorkspace's fromDbRow logic indirectly by loading the
-    // newly created workspace via repoGetWorkspaceByUuid.
+    // Keep the DB-to-domain mapping in the repository so every Workspace read
+    // uses the same adapter.
     const row = wsRow as Record<string, unknown>;
     const meta = (row.metadata as Record<string, unknown>) ?? {};
     const record = {
@@ -349,7 +348,7 @@ export async function createWorkspace(
       archived_at: (row.archived_at as string | null) ?? null,
     };
 
-    return { ok: true, data: record };
+    return { ok: true, data: repoMapWorkspaceRow(wsRow as Record<string, unknown>) };
   } catch (err) {
     if (err instanceof WorkspaceRepoError && err.code === 'SLUG_TAKEN') {
       return {
@@ -419,9 +418,13 @@ export async function updateWorkspace(
  */
 export async function deleteWorkspace(
   uuid: string,
-): Promise<ServiceResult<{ deleted: boolean }>> {
+  preflight?: WorkspaceDependencies,
+): Promise<ServiceResult<{ deleted: boolean; dependencies: WorkspaceDependencies }>> {
   try {
-    const dependencies = await repoGetWorkspaceDependencies(uuid);
+    // The UI may pass the dependency preflight it already displayed. This
+    // keeps the delete workflow to one dependency read while the repository
+    // remains the only source of dependency counts.
+    const dependencies = preflight ?? await repoGetWorkspaceDependencies(uuid);
     if (dependencies.hasDeleteBlockers) {
       const blockers = dependencies.items
         .filter((item) => item.blocksDelete && item.count > 0)
@@ -433,11 +436,12 @@ export async function deleteWorkspace(
           field: 'general',
           message: `Workspace belum dapat dihapus. Selesaikan dependency berikut terlebih dahulu: ${blockers}.`,
         }],
+        dependencies,
       };
     }
 
     const deleted = await repoHardDelete(uuid);
-    return { ok: true, data: { deleted } };
+    return { ok: true, data: { deleted, dependencies } };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Failed to delete workspace.';

@@ -23,9 +23,13 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { WorkspaceRecord } from '../types/workspace';
-import { deleteWorkspace as deleteWorkspaceService, updateWorkspace } from '../services/workspaceService';
-import { repoGetAllWorkspaces } from '../repositories/workspaceRepository';
+import type { WorkspaceDependencies, WorkspaceRecord } from '../types/workspace';
+import {
+  deleteWorkspace as deleteWorkspaceService,
+  getWorkspaceDependencies as getWorkspaceDependenciesService,
+  updateWorkspace,
+} from '../services/workspaceService';
+import { getAllWorkspaces } from '../services/workspaceService';
 import type { WorkspaceUpdateInput } from '../types/workspace';
 import type { ServiceResult } from '../services/workspaceService';
 import { trackRecentWorkspace } from '../utils/recentWorkspaces';
@@ -105,7 +109,11 @@ export interface WorkspaceContextValue {
   /** Deletes a workspace only after the service dependency preflight passes. */
   deleteWorkspace: (
     uuid: string,
-  ) => Promise<ServiceResult<{ deleted: boolean }>>;
+    preflight?: WorkspaceDependencies,
+  ) => Promise<ServiceResult<{ deleted: boolean; dependencies: WorkspaceDependencies }>>;
+
+  /** Reads the single dependency preflight used by destructive actions. */
+  getWorkspaceDependencies: (uuid: string) => Promise<WorkspaceDependencies>;
 
   /** Re-fetches the workspace list from Supabase (fire-and-forget). */
   refreshWorkspaces: () => void;
@@ -145,7 +153,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const fetchWorkspaces = useCallback(async (): Promise<WorkspaceRecord[] | null> => {
     setWsError(null);
     try {
-      const all = await repoGetAllWorkspaces();
+      const all = await getAllWorkspaces();
       setWorkspaces(all);
       setWsError(null);
       return all;
@@ -267,8 +275,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteWorkspace = useCallback(
-    async (uuid: string): Promise<ServiceResult<{ deleted: boolean }>> => {
-      const result = await deleteWorkspaceService(uuid);
+    async (
+      uuid: string,
+      preflight?: WorkspaceDependencies,
+    ): Promise<ServiceResult<{ deleted: boolean; dependencies: WorkspaceDependencies }>> => {
+      const result = await deleteWorkspaceService(uuid, preflight);
       if (result.ok) {
         if (activeUuid === uuid) {
           setActiveUuid(null);
@@ -281,6 +292,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [activeUuid, fetchWorkspaces],
   );
 
+  const getWorkspaceDependencies = useCallback(
+    (uuid: string) => getWorkspaceDependenciesService(uuid),
+    [],
+  );
+
   const value: WorkspaceContextValue = {
     workspaces,
     activeWorkspaces,
@@ -290,6 +306,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setActiveWorkspaceUuid,
     saveWorkspace,
     deleteWorkspace,
+    getWorkspaceDependencies,
     refreshWorkspaces,
     addWorkspaceLocally,
   };
