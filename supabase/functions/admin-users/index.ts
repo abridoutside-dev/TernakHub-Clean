@@ -434,6 +434,7 @@ async function handleAdminUsers(
     'verify-email', 'delete', 'sign-out', 'reset-password', 'resend-verification',
     'get-workspaces', 'get-dependencies', 'transfer-ownership', 'delete-workspace',
     'remove-role', 'remove-invitation', 'add-workspace', 'update-workspace', 'remove-workspace',
+    'list-workspaces', 'list-workspace-members',
   ]);
   if (!supportedOperations.has(operation)) return errorResponse('Operasi pengguna tidak dikenali', 400);
 
@@ -510,6 +511,59 @@ async function handleAdminUsers(
         pages: Math.max(1, Math.ceil(total / limit)),
       },
     });
+  }
+
+  if (operation === 'list-workspaces') {
+    const response = await restFetch(
+      url,
+      '/workspaces?select=*&order=created_at.desc',
+      serviceRole,
+    );
+    if (!response.ok) {
+      return errorResponse(await responseMessage(response, 'Daftar workspace tidak dapat dimuat'), response.status);
+    }
+    const workspaces = await response.json();
+    return jsonResponse({ ok: true, data: Array.isArray(workspaces) ? workspaces : [] });
+  }
+
+  if (operation === 'list-workspace-members') {
+    const workspaceId = typeof payload.workspace_id === 'string' ? payload.workspace_id : '';
+    const invalidWorkspaceId = requireUuid(workspaceId, 'Workspace ID');
+    if (invalidWorkspaceId) return errorResponse(invalidWorkspaceId, 400);
+
+    const [membersResponse, profiles, fetchedUsers] = await Promise.all([
+      restFetch(
+        url,
+        `/workspace_members?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=*`,
+        serviceRole,
+      ),
+      readProfiles(url, serviceRole),
+      fetchAllUsers(url, serviceRole),
+    ]);
+    if (!membersResponse.ok) {
+      return errorResponse(await responseMessage(membersResponse, 'Daftar member workspace tidak dapat dimuat'), membersResponse.status);
+    }
+
+    const members = await membersResponse.json() as Array<Record<string, unknown>>;
+    const users = new Map(fetchedUsers.users.map(user => [user.id, user]));
+    const data = (Array.isArray(members) ? members : []).map(member => {
+      const userId = typeof member.user_id === 'string' ? member.user_id : '';
+      const user = users.get(userId);
+      const profile = profiles.get(userId);
+      return {
+        member_uuid: typeof member.id === 'string' ? member.id : '',
+        workspace_uuid: workspaceId,
+        user_id: userId,
+        name: profile?.full_name ?? profile?.display_name ?? `User ${userId.slice(0, 8)}`,
+        email: user?.email ?? null,
+        phone: profile?.phone_number ?? user?.phone ?? null,
+        avatar_url: profile?.avatar_url ?? null,
+        role: member.role,
+        status: member.status === 'Aktif' ? 'Active' : 'Inactive',
+        joined_at: (member.joined_at ?? member.created_at ?? '') as string,
+      };
+    });
+    return jsonResponse({ ok: true, data });
   }
 
   if (!id) return errorResponse('User ID diperlukan', 400);

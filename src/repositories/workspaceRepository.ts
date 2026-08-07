@@ -26,6 +26,7 @@
 
 import { supabase } from '../lib/supabase';
 import { requireAuthSession } from '../lib/authSession';
+import { invokeAdminUsers } from './adminUserRepository';
 import type {
   WorkspaceRecord,
   WorkspaceCreateInput,
@@ -320,7 +321,11 @@ function applyMetaPatch(
  * Returns all workspaces visible to the current authenticated user.
  * RLS restricts results to workspaces the caller owns or is a member of.
  */
-export async function repoGetAllWorkspaces(): Promise<WorkspaceRecord[]> {
+export async function repoGetAllWorkspaces(options?: { admin?: boolean }): Promise<WorkspaceRecord[]> {
+  if (options?.admin) {
+    const rows = await invokeAdminUsers<DbRow[]>('list-workspaces');
+    return rows.map((row) => repoMapWorkspaceRow(row));
+  }
   await requireAuthSession();
   const { data, error } = await supabase
     .from('workspaces')

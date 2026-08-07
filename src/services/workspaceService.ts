@@ -50,6 +50,19 @@ import {
   repoDeleteWorkspace as repoHardDelete,
   WorkspaceRepoError,
 } from '../repositories/workspaceRepository';
+import {
+  repoGetMembersByWorkspace,
+  repoGetMemberByUuid,
+  repoInsertMember,
+  repoUpdateMemberRole,
+  repoUpdateMemberStatus,
+  repoDeleteMember,
+} from '../repositories/workspaceMembersRepository';
+import type {
+  WorkspaceMemberRecord,
+  MemberCreateInput,
+} from '../data/workspaceMembersData';
+import type { MemberRole, MemberStatus } from '../types/workspacePermissions';
 import { supabase } from '../lib/supabase';
 
 // ─── Re-export slug utilities (consumers import from the service, not the repo)
@@ -61,8 +74,8 @@ export { deriveSlug };
 // The WorkspaceContext loads all workspaces on mount; within the React tree
 // prefer using context.workspaces.find(...) over calling these directly.
 
-export async function getAllWorkspaces(): Promise<WorkspaceRecord[]> {
-  return repoGetAllWorkspaces();
+export async function getAllWorkspaces(options?: { admin?: boolean }): Promise<WorkspaceRecord[]> {
+  return repoGetAllWorkspaces(options);
 }
 
 export async function getWorkspacesByStatus(
@@ -99,6 +112,119 @@ export async function getWorkspaceDependencies(
   uuid: string,
 ): Promise<WorkspaceDependencies> {
   return repoGetWorkspaceDependencies(uuid);
+}
+
+// ─── Workspace Members ────────────────────────────────────────────────────────
+// Membership operations intentionally live in the Workspace service. Pages and
+// hooks must not call workspaceMembersRepository or Supabase directly.
+
+export async function getWorkspaceMembers(
+  workspaceUuid: string,
+  options?: { admin?: boolean },
+): Promise<WorkspaceMemberRecord[]> {
+  return repoGetMembersByWorkspace(workspaceUuid, options);
+}
+
+export async function getWorkspaceMember(
+  memberUuid: string,
+): Promise<WorkspaceMemberRecord | null> {
+  return repoGetMemberByUuid(memberUuid);
+}
+
+export async function addWorkspaceMember(
+  input: MemberCreateInput,
+  options?: { admin?: boolean },
+): Promise<ServiceResult<WorkspaceMemberRecord>> {
+  if (!input.workspace_uuid || !input.user_id) {
+    return {
+      ok: false,
+      errors: [{ field: 'general', message: 'Workspace dan user wajib dipilih.' }],
+    };
+  }
+
+  try {
+    return { ok: true, data: await repoInsertMember(input, options) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Gagal menambahkan member.';
+    return { ok: false, errors: [{ field: 'general', message }] };
+  }
+}
+
+export async function updateWorkspaceMemberRole(
+  memberUuid: string,
+  newRole: MemberRole,
+  workspaceUuid?: string,
+  options?: { admin?: boolean },
+): Promise<ServiceResult<WorkspaceMemberRecord>> {
+  const member = options?.admin && workspaceUuid
+    ? (await getWorkspaceMembers(workspaceUuid, options)).find((item) => item.member_uuid === memberUuid) ?? null
+    : await repoGetMemberByUuid(memberUuid);
+  if (!member) {
+    return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+  }
+  if (member.role === 'Owner') {
+    return { ok: false, errors: [{ field: 'general', message: 'Role Owner tidak dapat diubah.' }] };
+  }
+
+  try {
+    const updated = await repoUpdateMemberRole(memberUuid, newRole, workspaceUuid, options);
+    return updated
+      ? { ok: true, data: updated }
+      : { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Gagal mengubah role member.';
+    return { ok: false, errors: [{ field: 'general', message }] };
+  }
+}
+
+export async function updateWorkspaceMemberStatus(
+  memberUuid: string,
+  status: MemberStatus,
+  workspaceUuid?: string,
+  options?: { admin?: boolean },
+): Promise<ServiceResult<WorkspaceMemberRecord>> {
+  const member = options?.admin && workspaceUuid
+    ? (await getWorkspaceMembers(workspaceUuid, options)).find((item) => item.member_uuid === memberUuid) ?? null
+    : await repoGetMemberByUuid(memberUuid);
+  if (!member) {
+    return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+  }
+  if (member.role === 'Owner') {
+    return { ok: false, errors: [{ field: 'general', message: 'Status Owner tidak dapat diubah.' }] };
+  }
+
+  try {
+    const updated = await repoUpdateMemberStatus(memberUuid, status, workspaceUuid, options);
+    return updated
+      ? { ok: true, data: updated }
+      : { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Gagal mengubah status member.';
+    return { ok: false, errors: [{ field: 'general', message }] };
+  }
+}
+
+export async function removeWorkspaceMember(
+  memberUuid: string,
+  workspaceUuid?: string,
+  options?: { admin?: boolean },
+): Promise<ServiceResult<{ removed: boolean }>> {
+  const member = options?.admin && workspaceUuid
+    ? (await getWorkspaceMembers(workspaceUuid, options)).find((item) => item.member_uuid === memberUuid) ?? null
+    : await repoGetMemberByUuid(memberUuid);
+  if (!member) {
+    return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+  }
+  if (member.role === 'Owner') {
+    return { ok: false, errors: [{ field: 'general', message: 'Owner tidak dapat dihapus dari workspace.' }] };
+  }
+
+  try {
+    return { ok: true, data: { removed: await repoDeleteMember(memberUuid, workspaceUuid, options) } };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Gagal menghapus membership.';
+    return { ok: false, errors: [{ field: 'general', message }] };
+  }
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────

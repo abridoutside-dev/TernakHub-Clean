@@ -24,6 +24,7 @@
 
 import { supabase } from '../lib/supabase';
 import { requireAuthSession } from '../lib/authSession';
+import { invokeAdminUsers } from './adminUserRepository';
 import type { MemberRole, MemberStatus } from '../types/workspacePermissions';
 import type {
   WorkspaceMemberRecord,
@@ -123,7 +124,13 @@ function mergeMemberWithProfile(
  */
 export async function repoGetMembersByWorkspace(
   workspaceUuid: string,
+  options?: { admin?: boolean },
 ): Promise<WorkspaceMemberRecord[]> {
+  if (options?.admin) {
+    return invokeAdminUsers<WorkspaceMemberRecord[]>('list-workspace-members', {
+      workspace_id: workspaceUuid,
+    });
+  }
   await requireAuthSession();
   const { data: members, error } = await supabase
     .from('workspace_members')
@@ -210,6 +217,31 @@ export async function repoGetMemberByUserId(
   );
 }
 
+/**
+ * Returns one membership by its membership UUID, with profile data merged in.
+ */
+export async function repoGetMemberByUuid(
+  memberUuid: string,
+): Promise<WorkspaceMemberRecord | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('workspace_members')
+    .select('*')
+    .eq('id', memberUuid)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const row = data as DbMemberRow;
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('id, full_name, display_name, phone_number, whatsapp_number, avatar_url')
+    .eq('id', row.user_id)
+    .maybeSingle();
+
+  return mergeMemberWithProfile(row, (profile as DbProfileRow | null) ?? null);
+}
+
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
 /**
@@ -218,7 +250,15 @@ export async function repoGetMemberByUserId(
  */
 export async function repoInsertMember(
   input: MemberCreateInput,
+  options?: { admin?: boolean },
 ): Promise<WorkspaceMemberRecord> {
+  if (options?.admin) {
+    return invokeAdminUsers<WorkspaceMemberRecord>('add-workspace-member', {
+      workspace_id: input.workspace_uuid,
+      user_id: input.user_id,
+      role: input.role === 'Manager' ? 'Admin' : input.role,
+    });
+  }
   await requireAuthSession();
   const { data, error } = await supabase
     .from('workspace_members')
@@ -256,7 +296,19 @@ export async function repoInsertMember(
 export async function repoUpdateMemberRole(
   memberUuid: string,
   newRole: MemberRole,
+  workspaceUuid?: string,
+  options?: { admin?: boolean },
 ): Promise<WorkspaceMemberRecord | null> {
+  if (options?.admin) {
+    if (!workspaceUuid) throw new WorkspaceMembersRepoError('Workspace ID diperlukan.', 'WORKSPACE_REQUIRED');
+    await invokeAdminUsers<unknown>('update-workspace-member', {
+      workspace_id: workspaceUuid,
+      workspace_member_id: memberUuid,
+      role: newRole === 'Manager' ? 'Admin' : newRole,
+    });
+    return (await repoGetMembersByWorkspace(workspaceUuid, { admin: true }))
+      .find((member) => member.member_uuid === memberUuid) ?? null;
+  }
   await requireAuthSession();
   const { data, error } = await supabase
     .from('workspace_members')
@@ -284,7 +336,19 @@ export async function repoUpdateMemberRole(
 export async function repoUpdateMemberStatus(
   memberUuid: string,
   status: MemberStatus,
+  workspaceUuid?: string,
+  options?: { admin?: boolean },
 ): Promise<WorkspaceMemberRecord | null> {
+  if (options?.admin) {
+    if (!workspaceUuid) throw new WorkspaceMembersRepoError('Workspace ID diperlukan.', 'WORKSPACE_REQUIRED');
+    await invokeAdminUsers<unknown>('update-workspace-member', {
+      workspace_id: workspaceUuid,
+      workspace_member_id: memberUuid,
+      status,
+    });
+    return (await repoGetMembersByWorkspace(workspaceUuid, { admin: true }))
+      .find((member) => member.member_uuid === memberUuid) ?? null;
+  }
   await requireAuthSession();
   const { data, error } = await supabase
     .from('workspace_members')
@@ -310,7 +374,19 @@ export async function repoUpdateMemberStatus(
  * Hard-deletes a workspace_members row.
  * Returns true if a row was removed.
  */
-export async function repoDeleteMember(memberUuid: string): Promise<boolean> {
+export async function repoDeleteMember(
+  memberUuid: string,
+  workspaceUuid?: string,
+  options?: { admin?: boolean },
+): Promise<boolean> {
+  if (options?.admin) {
+    if (!workspaceUuid) throw new WorkspaceMembersRepoError('Workspace ID diperlukan.', 'WORKSPACE_REQUIRED');
+    await invokeAdminUsers<unknown>('remove-workspace-member', {
+      workspace_id: workspaceUuid,
+      workspace_member_id: memberUuid,
+    });
+    return true;
+  }
   await requireAuthSession();
   const { error, count } = await supabase
     .from('workspace_members')

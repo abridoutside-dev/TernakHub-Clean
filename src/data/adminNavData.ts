@@ -216,8 +216,8 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'Workspace Members',
         icon: '👥',
         path: '/admin/workspaces/members',
-        syncStatus: 'not_implemented',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
       },
       {
         key: 'ws-roles',
