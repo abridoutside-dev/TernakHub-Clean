@@ -22,6 +22,19 @@ function errorResponse(message: string, status = 400): Response {
   return jsonResponse({ ok: false, error: message }, status);
 }
 
+const OWNER_WORKSPACE_MESSAGE = 'User masih menjadi owner pada workspace.';
+const OWNER_WORKSPACE_GUIDANCE = 'Pindahkan owner atau hapus workspace terlebih dahulu.';
+
+function sanitizeErrorMessage(message: string, fallback: string): string {
+  if (/workspaces_owner_id_fkey|violates foreign key constraint.*workspaces/i.test(message)) {
+    return `${OWNER_WORKSPACE_MESSAGE} ${OWNER_WORKSPACE_GUIDANCE}`;
+  }
+  if (/violates foreign key constraint/i.test(message)) {
+    return `${fallback}. Data user masih memiliki relasi yang harus diselesaikan terlebih dahulu.`;
+  }
+  return message || fallback;
+}
+
 interface AuthUser {
   id: string;
   email?: string | null;
@@ -88,7 +101,7 @@ async function responseMessage(response: Response, fallback: string): Promise<st
     try {
       body = JSON.parse(raw) as Record<string, unknown>;
     } catch {
-      return raw.slice(0, 500);
+      return sanitizeErrorMessage(raw.slice(0, 500), fallback);
     }
 
     const candidates = [
@@ -101,7 +114,10 @@ async function responseMessage(response: Response, fallback: string): Promise<st
     ];
     const message = candidates.find(value => typeof value === 'string' && value.trim());
     return typeof message === 'string'
-      ? `${message}${body.code && typeof body.code === 'string' ? ` [${body.code}]` : ''}`
+      ? sanitizeErrorMessage(
+        `${message}${body.code && typeof body.code === 'string' ? ` [${body.code}]` : ''}`,
+        fallback,
+      )
       : `${fallback} (HTTP ${response.status})`;
   } catch {
     return `${fallback} (HTTP ${response.status})`;
@@ -218,6 +234,18 @@ async function readMemberships(url: string, key: string, userId: string): Promis
   const memberships = await response.json();
   if (!Array.isArray(memberships)) throw new Error('Response workspace pengguna tidak valid');
   return memberships;
+}
+
+async function readOwnedWorkspaces(url: string, key: string, userId: string): Promise<Array<{ id?: string; name?: string }>> {
+  const response = await restFetch(
+    url,
+    `/workspaces?owner_id=eq.${encodeURIComponent(userId)}&select=id,name`,
+    key,
+  );
+  if (!response.ok) throw new Error(await responseMessage(response, 'Gagal memeriksa kepemilikan workspace'));
+  const workspaces = await response.json();
+  if (!Array.isArray(workspaces)) throw new Error('Response kepemilikan workspace tidak valid');
+  return workspaces as Array<{ id?: string; name?: string }>;
 }
 
 async function handleAdminUsers(
@@ -375,11 +403,27 @@ async function handleAdminUsers(
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
+  if (operation === 'delete') {
+    const ownedWorkspaces = await readOwnedWorkspaces(url, serviceRole, id);
+    if (ownedWorkspaces.length > 0) {
+      const workspaceNames = ownedWorkspaces
+        .map(workspace => workspace.name)
+        .filter((name): name is string => Boolean(name?.trim()))
+        .slice(0, 3);
+      const suffix = workspaceNames.length > 0
+        ? ` (${workspaceNames.join(', ')}${ownedWorkspaces.length > workspaceNames.length ? ', dan lainnya' : ''})`
+        : '';
+      return errorResponse(
+        `${OWNER_WORKSPACE_MESSAGE.replace(/\.$/, '')}${suffix}. ${OWNER_WORKSPACE_GUIDANCE}`,
+        409,
+      );
+    }
+  }
+
   const authOperations: Record<string, { method: string; path: string; body?: Record<string, unknown> }> = {
     suspend: { method: 'PUT', path: `/users/${id}`, body: { ban_duration: '876600h' } },
     unsuspend: { method: 'PUT', path: `/users/${id}`, body: { ban_duration: 'none' } },
     'verify-email': { method: 'PUT', path: `/users/${id}`, body: { email_confirm: true } },
-    'sign-out': { method: 'POST', path: `/users/${id}/logout`, body: { scope: 'global' } },
     delete: { method: 'DELETE', path: `/users/${id}` },
   };
   if (authOperations[operation]) {
@@ -388,8 +432,51 @@ async function handleAdminUsers(
       method: action.method,
       ...(action.body ? { body: JSON.stringify(action.body) } : {}),
     });
-    if (!response.ok && !(operation === 'sign-out' && response.status === 204)) {
+    if (!response.ok) {
       return errorResponse(await responseMessage(response, 'Operasi user gagal'), response.status);
+    }
+    return jsonResponse({ ok: true, data: { ok: true } });
+  }
+
+  if (operation === 'sign-out') {
+    const user = await readUser(url, serviceRole, id);
+    if (!user.email) return errorResponse('User tidak memiliki email; sesi tidak dapat dicabut melalui Auth API.', 400);
+
+    // GoTrue has no admin endpoint that accepts a user ID for logout. Create
+    // a short-lived, server-only magic-link token for the target user, exchange
+    // it for that user's JWT, then use the supported global logout endpoint.
+    const linkResponse = await authFetch(url, '/generate_link', serviceRole, {
+      method: 'POST',
+      body: JSON.stringify({ type: 'magiclink', email: user.email }),
+    });
+    if (!linkResponse.ok) {
+      return errorResponse(await responseMessage(linkResponse, 'Gagal menyiapkan pencabutan sesi user'), linkResponse.status);
+    }
+    const linkBody = await linkResponse.json() as {
+      hashed_token?: string;
+      verification_type?: string;
+      properties?: { hashed_token?: string; verification_type?: string };
+    };
+    const hashedToken = linkBody.hashed_token ?? linkBody.properties?.hashed_token;
+    const verificationType = linkBody.verification_type ?? linkBody.properties?.verification_type ?? 'magiclink';
+    if (!hashedToken) return errorResponse('Auth API tidak mengembalikan token sesi sementara', 502);
+
+    const verifyResponse = await authPublicFetch(url, '/verify', anonKey, {
+      method: 'POST',
+      body: JSON.stringify({ type: verificationType, token_hash: hashedToken }),
+    });
+    if (!verifyResponse.ok) {
+      return errorResponse(await responseMessage(verifyResponse, 'Gagal memvalidasi token sesi sementara'), verifyResponse.status);
+    }
+    const verifyBody = await verifyResponse.json() as { access_token?: string };
+    if (!verifyBody.access_token) return errorResponse('Auth API tidak mengembalikan access token sesi sementara', 502);
+
+    const logoutResponse = await authPublicFetch(url, '/logout?scope=global', anonKey, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${verifyBody.access_token}` },
+    });
+    if (!logoutResponse.ok && logoutResponse.status !== 204) {
+      return errorResponse(await responseMessage(logoutResponse, 'Gagal sign out semua sesi user'), logoutResponse.status);
     }
     return jsonResponse({ ok: true, data: { ok: true } });
   }
@@ -489,6 +576,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
   try {
     return await handleAdminUsers(payload, url, serviceRole, anonKey);
   } catch (cause) {
-    return errorResponse(cause instanceof Error ? cause.message : 'Operasi admin user gagal', 500);
+    return errorResponse(
+      sanitizeErrorMessage(cause instanceof Error ? cause.message : '', 'Operasi admin user gagal'),
+      500,
+    );
   }
 });
