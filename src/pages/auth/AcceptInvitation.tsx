@@ -19,7 +19,7 @@ import {
   rejectInvitation,
   type InvitationDetails,
 } from '../../services/invitationService';
-import { loadMembersFromSupabase } from '../../data/workspaceMembersData';
+import { getWorkspaceMembers } from '../../services/workspaceService';
 import {
   ROLE_LABEL,
   ROLE_COLOR,
@@ -115,7 +115,7 @@ export default function AcceptInvitation() {
       return;
     }
     // Refresh local members cache so the new membership is visible immediately.
-    await loadMembersFromSupabase([result.data.workspace_id]);
+    await getWorkspaceMembers(result.data.workspace_id);
     setPhase('accepted');
   }
 

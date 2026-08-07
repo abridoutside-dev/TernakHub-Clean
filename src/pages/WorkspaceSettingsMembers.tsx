@@ -18,15 +18,13 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspacePermission } from '../hooks/useWorkspacePermission';
-// LEGACY — scheduled removal after production migration.
-// workspace_members is not yet in Supabase; member data served from in-memory store.
+import type { WorkspaceMemberRecord } from '../data/workspaceMembersData';
 import {
-  getMembersByWorkspace,
-  updateMemberRole,
-  updateMemberStatus,
-  removeMember,
-  type WorkspaceMemberRecord,
-} from '../data/workspaceMembersData';
+  getWorkspaceMembers,
+  updateWorkspaceMemberRole,
+  updateWorkspaceMemberStatus,
+  removeWorkspaceMember,
+} from '../services/workspaceService';
 import {
   MEMBER_ROLES,
   ROLE_LABEL,
@@ -615,8 +613,24 @@ export default function WorkspaceSettingsMembers() {
   const currentUserId = currentUser?.id ?? '';
 
   // ── Reactive member list ───────────────────────────────────────────────────
-  const [tick, setTick] = useState(0);
-  const refresh = () => setTick((t) => t + 1);
+  const [allMembers, setAllMembers] = useState<WorkspaceMemberRecord[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
+  const loadMembers = useCallback(async () => {
+    if (!activeWorkspace) return;
+    setMembersLoading(true);
+    setMembersError(null);
+    try {
+      setAllMembers(await getWorkspaceMembers(activeWorkspace.workspace_uuid));
+    } catch (error) {
+      setMembersError(error instanceof Error ? error.message : 'Gagal memuat anggota workspace.');
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [activeWorkspace?.workspace_uuid]);
+
+  useEffect(() => { void loadMembers(); }, [loadMembers]);
 
   // ── Invite state ───────────────────────────────────────────────────────────
   const [showInviteSheet,  setShowInviteSheet]  = useState(false);
@@ -633,12 +647,6 @@ export default function WorkspaceSettingsMembers() {
   }, [activeWorkspace, canInvite]);
 
   useEffect(() => { loadPendingInvites(); }, [loadPendingInvites]);
-
-  const allMembers = useMemo(() => {
-    if (!activeWorkspace) return [];
-    return getMembersByWorkspace(activeWorkspace.workspace_uuid);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWorkspace?.workspace_uuid, tick]);
 
   // ── Search / filter / sort ────────────────────────────────────────────────
   const [query,        setQuery]       = useState('');
@@ -705,22 +713,26 @@ export default function WorkspaceSettingsMembers() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  function handleRoleSave(memberId: string, newRole: MemberRole) {
+  async function handleRoleSave(memberId: string, newRole: MemberRole) {
     if (!canUpdate) {
       showToast('error', 'Anda tidak memiliki izin untuk mengubah peran.');
       return;
     }
-    const result = updateMemberRole(memberId, newRole);
+    const result = await updateWorkspaceMemberRole(
+      memberId,
+      newRole,
+      activeWorkspace?.workspace_uuid ?? '',
+    );
     setRoleModalId(null);
     if (result.ok) {
       showToast('success', `Role updated to ${ROLE_LABEL[newRole]}.`);
-      refresh();
+      await loadMembers();
     } else {
       showToast('error', result.error.message);
     }
   }
 
-  function handleToggleStatus(member: WorkspaceMemberRecord) {
+  async function handleToggleStatus(member: WorkspaceMemberRecord) {
     if (!canUpdate) {
       showToast('error', 'Anda tidak memiliki izin untuk mengubah status anggota.');
       return;
@@ -729,9 +741,9 @@ export default function WorkspaceSettingsMembers() {
     if (next === 'Inactive') {
       setConfirmState({ action: 'deactivate', memberId: member.member_uuid });
     } else {
-      const result = updateMemberStatus(member.member_uuid, 'Active');
-      if (result.ok) { showToast('success', `${member.name} has been activated.`); refresh(); }
-      else           { showToast('error', result.error.message); }
+      const result = await updateWorkspaceMemberStatus(member.member_uuid, 'Active', activeWorkspace?.workspace_uuid ?? '');
+      if (result.ok) { showToast('success', `${member.name} has been activated.`); await loadMembers(); }
+      else           { showToast('error', result.errors[0]?.message ?? 'Gagal mengaktifkan anggota.'); }
     }
   }
 
@@ -743,7 +755,7 @@ export default function WorkspaceSettingsMembers() {
     setConfirmState({ action: 'remove', memberId: member.member_uuid });
   }
 
-  function executeConfirm() {
+  async function executeConfirm() {
     if (!confirmState) return;
     const { action, memberId } = confirmState;
     const member = allMembers.find((m) => m.member_uuid === memberId);
@@ -751,13 +763,13 @@ export default function WorkspaceSettingsMembers() {
     if (!member) return;
 
     if (action === 'deactivate') {
-      const result = updateMemberStatus(memberId, 'Inactive');
-      if (result.ok) { showToast('success', `${member.name} has been deactivated.`); refresh(); }
-      else           { showToast('error', result.error.message); }
+      const result = await updateWorkspaceMemberStatus(memberId, 'Inactive', activeWorkspace?.workspace_uuid ?? '');
+      if (result.ok) { showToast('success', `${member.name} has been deactivated.`); await loadMembers(); }
+      else           { showToast('error', result.errors[0]?.message ?? 'Gagal menonaktifkan anggota.'); }
     } else {
-      const result = removeMember(memberId, currentUserId);
-      if (result.ok) { showToast('success', `${member.name} has been removed.`); refresh(); }
-      else           { showToast('error', result.error.message); }
+      const result = await removeWorkspaceMember(memberId, activeWorkspace?.workspace_uuid ?? '');
+      if (result.ok) { showToast('success', `${member.name} has been removed.`); await loadMembers(); }
+      else           { showToast('error', result.errors[0]?.message ?? 'Gagal menghapus anggota.'); }
     }
   }
 

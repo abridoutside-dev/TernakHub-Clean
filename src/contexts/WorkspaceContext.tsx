@@ -35,7 +35,7 @@ import type { ServiceResult } from '../services/workspaceService';
 import { trackRecentWorkspace } from '../utils/recentWorkspaces';
 import { normalizeStoredWorkspaceUuid } from '../utils/workspaceSafety';
 import { useAuth } from './AuthContext';
-import { loadMembersFromSupabase } from '../data/workspaceMembersData';
+import { getWorkspaceMembersForWorkspaces } from '../services/workspaceService';
 
 // ─── Session Storage Key ──────────────────────────────────────────────────────
 
@@ -213,7 +213,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // Load members for all workspaces from Supabase (fire-and-forget after
       // workspace list is ready; pages read from the populated sync cache).
       if (all.length > 0) {
-        void loadMembersFromSupabase(all.map((w) => w.workspace_uuid));
+      void getWorkspaceMembersForWorkspaces(all.map((w) => w.workspace_uuid));
       }
 
       setIsLoading(false);
