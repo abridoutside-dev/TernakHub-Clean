@@ -70,7 +70,12 @@ import {
   upsertWorkspaceMemberCache,
   removeWorkspaceMemberCache,
 } from '../data/workspaceMembersData';
-import type { MemberRole, MemberStatus } from '../types/workspacePermissions';
+import type {
+  MemberRole,
+  MemberStatus,
+  PermissionAction,
+  PermissionModule,
+} from '../types/workspacePermissions';
 import type {
   CustomRoleCreateInput,
   CustomRoleRecord,
@@ -78,6 +83,7 @@ import type {
   CustomRoleUpdateInput,
   WorkspaceRoleRecord,
   WorkspaceRoleRemovalPreflight,
+  CustomRoleErrorCode,
 } from '../types/customRole';
 import {
   repoListWorkspaceRoles,
@@ -87,6 +93,7 @@ import {
   repoUpdateWorkspaceRoleStatus,
   repoGetWorkspaceRoleRemovalPreflight,
   repoDeleteWorkspaceRole,
+  WorkspaceRolesRepoError,
 } from '../repositories/workspaceRolesRepository';
 import { supabase } from '../lib/supabase';
 
@@ -301,6 +308,43 @@ export async function getWorkspaceRole(
   return repoGetWorkspaceRole(roleId, workspaceUuid, roleKind);
 }
 
+/** Expand the sparse permission payload returned by Supabase into a stable UI map. */
+export function resolveWorkspaceRolePermissions(
+  role: WorkspaceRoleRecord,
+): Record<PermissionModule, Record<PermissionAction, boolean>> {
+  const modules: PermissionModule[] = [
+    'dashboard', 'livestock', 'feed', 'medicine', 'marketplace',
+    'workspaceSettings', 'memberManagement', 'reports', 'ai', 'adminFeatures',
+  ];
+  const actions: PermissionAction[] = ['view', 'create', 'update', 'delete'];
+  const result = {} as Record<PermissionModule, Record<PermissionAction, boolean>>;
+
+  for (const module of modules) {
+    result[module] = {} as Record<PermissionAction, boolean>;
+    for (const action of actions) {
+      result[module][action] = role.permissions[module]?.[action] === true;
+    }
+  }
+  return result;
+}
+
+function roleError<T>(error: unknown, fallback: string): CustomRoleResult<T> {
+  const message = error instanceof Error ? error.message : fallback;
+  const code = error instanceof WorkspaceRolesRepoError ? error.code : undefined;
+  const supportedCodes: CustomRoleErrorCode[] = [
+    'DUPLICATE_NAME', 'NOT_FOUND', 'NAME_REQUIRED', 'NAME_TOO_LONG', 'FORBIDDEN',
+  ];
+  return {
+    ok: false,
+    error: {
+      code: supportedCodes.includes(code as CustomRoleErrorCode)
+        ? code as CustomRoleErrorCode
+        : 'NOT_FOUND',
+      message,
+    },
+  };
+}
+
 export async function addWorkspaceRole(
   input: CustomRoleCreateInput,
 ): Promise<CustomRoleResult<CustomRoleRecord>> {
@@ -313,8 +357,7 @@ export async function addWorkspaceRole(
     }
     return { ok: true, data: await repoCreateWorkspaceRole(input) };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Gagal membuat role.';
-    return { ok: false, error: { code: 'NOT_FOUND', message } };
+    return roleError(error, 'Gagal membuat role.');
   }
 }
 
@@ -330,8 +373,7 @@ export async function editWorkspaceRole(
   try {
     return { ok: true, data: await repoUpdateWorkspaceRole(roleId, workspaceUuid, patch) };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Gagal memperbarui role.';
-    return { ok: false, error: { code: 'NOT_FOUND', message } };
+    return roleError(error, 'Gagal memperbarui role.');
   }
 }
 
@@ -343,8 +385,7 @@ export async function updateWorkspaceRoleStatus(
   try {
     return { ok: true, data: await repoUpdateWorkspaceRoleStatus(roleId, workspaceUuid, status) };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Gagal mengubah status role.';
-    return { ok: false, error: { code: 'NOT_FOUND', message } };
+    return roleError(error, 'Gagal mengubah status role.');
   }
 }
 
@@ -372,8 +413,7 @@ export async function removeWorkspaceRole(
       ? { ok: true, data: true }
       : { ok: false, error: { code: 'NOT_FOUND', message: 'Role tidak ditemukan.' } };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Gagal menghapus role.';
-    return { ok: false, error: { code: 'NOT_FOUND', message } };
+    return roleError(error, 'Gagal menghapus role.');
   }
 }
 

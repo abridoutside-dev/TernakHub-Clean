@@ -10,17 +10,24 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../contexts/WorkspaceContext';
-import { useAuth } from '../contexts/AuthContext';
 import { useWorkspacePermission } from '../hooks/useWorkspacePermission';
 import {
-  listCustomRoles,
-  createCustomRole,
-  updateCustomRole,
-  deleteCustomRole,
-} from '../services/customRoleService';
-import type { CustomRoleRecord, CustomRolePermissions } from '../types/customRole';
+  getWorkspaceRoles,
+  getWorkspaceRole,
+  addWorkspaceRole,
+  editWorkspaceRole,
+  updateWorkspaceRoleStatus,
+  getWorkspaceRoleRemovalPreflight,
+  removeWorkspaceRole,
+  resolveWorkspaceRolePermissions,
+} from '../services/workspaceService';
+import type {
+  BuiltinRoleRecord,
+  CustomRoleRecord,
+  CustomRolePermissions,
+  WorkspaceRoleRemovalPreflight,
+} from '../types/customRole';
 import {
-  ROLE_PERMISSION_MATRIX,
   MEMBER_ROLES,
   ROLE_LABEL,
   ROLE_COLOR,
@@ -69,7 +76,10 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 // ─── Built-in Roles Tab ───────────────────────────────────────────────────────
 
-function BuiltinRolesTab() {
+function BuiltinRolesTab({ roles, loading }: {
+  roles: BuiltinRoleRecord[];
+  loading: boolean;
+}) {
   const [expandedRole, setExpandedRole] = useState<MemberRole | null>(null);
 
   return (
@@ -83,6 +93,10 @@ function BuiltinRolesTab() {
         {MEMBER_ROLES.map((role) => {
           const c = ROLE_COLOR[role];
           const isExpanded = expandedRole === role;
+          const roleRecord = roles.find((candidate) => candidate.name === role);
+          const permissions = roleRecord
+            ? resolveWorkspaceRolePermissions(roleRecord)
+            : null;
           return (
             <div
               key={role}
@@ -115,7 +129,19 @@ function BuiltinRolesTab() {
                 </span>
               </button>
 
-              {isExpanded && (
+              {isExpanded && loading && (
+                <p style={{ padding: '12px 14px 14px', margin: 0, fontSize: 13, color: 'var(--color-muted)' }}>
+                  Memuat permission dari Supabase…
+                </p>
+              )}
+
+              {isExpanded && !loading && !permissions && (
+                <p style={{ padding: '12px 14px 14px', margin: 0, fontSize: 13, color: '#991b1b' }}>
+                  Permission role tidak dapat dimuat.
+                </p>
+              )}
+
+              {isExpanded && permissions && (
                 <div style={{ overflowX: 'auto', padding: '0 14px 14px' }}>
                   <table style={{ borderCollapse: 'collapse', minWidth: 420, fontSize: 12 }}>
                     <thead>
@@ -139,7 +165,7 @@ function BuiltinRolesTab() {
                           {ACTIONS.map((action) => (
                             <PermCell
                               key={action}
-                              allowed={ROLE_PERMISSION_MATRIX[role][mod][action] === true}
+                               allowed={permissions[mod][action] === true}
                             />
                           ))}
                         </tr>
@@ -320,36 +346,49 @@ function RoleEditor({ initial, onSave, onCancel, saving }: RoleEditorProps) {
 
 function CustomRolesTab({
   workspaceId,
+  roles,
+  loading,
+  onReload,
   canCreate,
   canUpdate,
   canDelete,
-  currentUserId,
 }: {
   workspaceId:   string;
+  roles:         CustomRoleRecord[];
+  loading:       boolean;
+  onReload:      () => Promise<void>;
   canCreate:     boolean;
   canUpdate:     boolean;
   canDelete:     boolean;
-  currentUserId: string;
 }) {
-  const [roles,   setRoles]   = useState<CustomRoleRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<CustomRoleRecord | null | 'new'>(null); // null=none, 'new'=create, record=edit
   const [saving,  setSaving]  = useState(false);
   const [toast,   setToast]   = useState<{ kind: 'success' | 'error'; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CustomRoleRecord | null>(null);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    const list = await listCustomRoles(workspaceId);
-    setRoles(list);
-    setLoading(false);
-  }, [workspaceId]);
-
-  useEffect(() => { reload(); }, [reload]);
+  const [detail, setDetail] = useState<CustomRoleRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [preflight, setPreflight] = useState<WorkspaceRoleRemovalPreflight | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
 
   function showToast(kind: 'success' | 'error', msg: string) {
     setToast({ kind, msg });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  async function openDetail(role: CustomRoleRecord) {
+    setDetailLoading(true);
+    try {
+      const result = await getWorkspaceRole(role.id, workspaceId, 'custom');
+      if (result?.role_kind === 'custom') {
+        setDetail(result);
+      } else {
+        showToast('error', 'Detail role tidak ditemukan.');
+      }
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Detail role tidak dapat dimuat.');
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   async function handleSave(name: string, description: string, permissions: CustomRolePermissions) {
@@ -363,26 +402,29 @@ function CustomRolesTab({
     }
     setSaving(true);
     if (editing === 'new') {
-      const result = await createCustomRole({
+       const result = await addWorkspaceRole({
         workspace_id: workspaceId,
         name,
         description: description || null,
         permissions,
-        created_by: currentUserId,
       });
       if (result.ok) {
         showToast('success', `Role "${name}" berhasil dibuat.`);
         setEditing(null);
-        reload();
+         await onReload();
       } else {
         showToast('error', result.error.message);
       }
     } else if (editing) {
-      const result = await updateCustomRole(editing.id, { name, description: description || null, permissions });
+      const result = await editWorkspaceRole(
+        editing.id,
+        workspaceId,
+        { name, description: description || null, permissions },
+      );
       if (result.ok) {
         showToast('success', `Role "${name}" berhasil diperbarui.`);
         setEditing(null);
-        reload();
+        await onReload();
       } else {
         showToast('error', result.error.message);
       }
@@ -390,16 +432,33 @@ function CustomRolesTab({
     setSaving(false);
   }
 
-  async function handleDelete(role: CustomRoleRecord) {
+  async function openDeletePreflight(role: CustomRoleRecord) {
     if (!canDelete) {
       showToast('error', 'Anda tidak memiliki izin untuk menghapus custom role.');
       return;
     }
-    const result = await deleteCustomRole(role.id);
+    setPreflightLoading(true);
+    const result = await getWorkspaceRoleRemovalPreflight(role.id, workspaceId);
+    setPreflightLoading(false);
+    if (!result) {
+      showToast('error', 'Role tidak ditemukan.');
+      return;
+    }
+    setPreflight(result);
+    setConfirmDelete(role);
+  }
+
+  async function handleDelete(role: CustomRoleRecord) {
+    if (!preflight || preflight.role.id !== role.id) {
+      showToast('error', 'Pre-check penghapusan wajib dilakukan.');
+      return;
+    }
+    const result = await removeWorkspaceRole(role.id, workspaceId, preflight);
     if (result.ok) {
       showToast('success', `Role "${role.name}" dihapus.`);
       setConfirmDelete(null);
-      reload();
+      setPreflight(null);
+      await onReload();
     } else {
       showToast('error', result.error.message);
       setConfirmDelete(null);
@@ -506,6 +565,19 @@ function CustomRolesTab({
 
                   {(canUpdate || canDelete) && (
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                      <button
+                        onClick={() => void openDetail(role)}
+                        disabled={detailLoading}
+                        style={{
+                          padding: '6px 12px', borderRadius: 8,
+                          background: 'var(--color-bg)',
+                          border: '1px solid var(--color-border)',
+                          fontSize: 12, fontWeight: 600, color: 'var(--color-text)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {detailLoading ? 'Memuat…' : 'Detail'}
+                      </button>
                       {canUpdate && <button
                         onClick={() => setEditing(role)}
                         style={{
@@ -518,8 +590,32 @@ function CustomRolesTab({
                       >
                         Edit
                       </button>}
+                      {canUpdate && <button
+                        onClick={() => void updateWorkspaceRoleStatus(
+                          role.id,
+                          workspaceId,
+                          role.status === 'Active' ? 'Inactive' : 'Active',
+                        ).then(async (result) => {
+                          if (result.ok) {
+                            showToast('success', `Role "${role.name}" ${role.status === 'Active' ? 'dinonaktifkan' : 'diaktifkan'}.`);
+                            await onReload();
+                          } else {
+                            showToast('error', result.error.message);
+                          }
+                        })}
+                        style={{
+                          padding: '6px 12px', borderRadius: 8,
+                          background: role.status === 'Active' ? '#fff7ed' : '#f0fdf4',
+                          border: `1px solid ${role.status === 'Active' ? '#fdba74' : '#86efac'}`,
+                          fontSize: 12, fontWeight: 600,
+                          color: role.status === 'Active' ? '#c2410c' : '#166534',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {role.status === 'Active' ? 'Nonaktifkan' : 'Aktifkan'}
+                      </button>}
                       {canDelete && <button
-                        onClick={() => setConfirmDelete(role)}
+                        onClick={() => void openDeletePreflight(role)}
                         style={{
                           padding: '6px 12px', borderRadius: 8,
                           background: '#fef2f2',
@@ -562,7 +658,8 @@ function CustomRolesTab({
           }}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Hapus Custom Role?</h3>
             <p style={{ margin: '0 0 20px', fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-              Role <strong>"{confirmDelete.name}"</strong> akan dihapus permanen. Anggota yang menggunakan role ini akan kehilangan custom permissions-nya.
+              Role <strong>"{confirmDelete.name}"</strong> akan dihapus permanen.
+              {preflightLoading ? ' Memeriksa dependency…' : ` ${preflight?.dependencies[0]?.count ?? 0} member menggunakan role ini.`}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -576,8 +673,9 @@ function CustomRolesTab({
               >
                 Batal
               </button>
-              <button
-                onClick={() => handleDelete(confirmDelete)}
+               <button
+                 onClick={() => void handleDelete(confirmDelete)}
+                 disabled={preflightLoading || !preflight}
                 style={{
                   flex: 1, height: 44, borderRadius: 10,
                   background: '#dc2626', border: 'none',
@@ -590,6 +688,54 @@ function CustomRolesTab({
           </div>
         </div>
       )}
+
+      {detail && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 550,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 16,
+            padding: 24, width: '100%', maxWidth: 420,
+            maxHeight: '82dvh', overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{detail.name}</h3>
+                <span style={{
+                  display: 'inline-block', marginTop: 6, padding: '3px 8px', borderRadius: 8,
+                  background: detail.status === 'Active' ? '#dcfce7' : '#f1f5f9',
+                  color: detail.status === 'Active' ? '#166534' : '#475569',
+                  fontSize: 11, fontWeight: 700,
+                }}>
+                  {detail.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                </span>
+              </div>
+              <button onClick={() => setDetail(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20 }}>✕</button>
+            </div>
+            {detail.description && (
+              <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.5 }}>
+                {detail.description}
+              </p>
+            )}
+            <SectionHeader>Hak Akses</SectionHeader>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {MODULES.map((module) => {
+                const allowed = ACTIONS.filter((action) => detail.permissions[module]?.[action] === true);
+                return (
+                  <div key={module} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--color-border)', paddingBottom: 7 }}>
+                    <span style={{ fontSize: 13 }}>{MODULE_LABEL[module]}</span>
+                    <span style={{ fontSize: 12, color: 'var(--color-muted)', textAlign: 'right' }}>
+                      {allowed.length ? allowed.map((action) => ACTION_LABEL[action]).join(', ') : 'Tidak ada'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -598,15 +744,38 @@ function CustomRolesTab({
 
 export default function WorkspaceSettingsRoles() {
   const { activeWorkspace }  = useWorkspace();
-  const { currentUser }      = useAuth();
   const { can }              = useWorkspacePermission();
   const canCreate = can('memberManagement', 'create');
   const canUpdate = can('memberManagement', 'update');
   const canDelete = can('memberManagement', 'delete');
   const [tab, setTab]        = useState<'builtin' | 'custom'>('builtin');
+  const [roles, setRoles] = useState<import('../types/customRole').WorkspaceRoleRecord[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState('');
 
   const workspaceId  = activeWorkspace?.workspace_uuid ?? '';
-  const currentUserId = currentUser?.id ?? '';
+
+  const reloadRoles = useCallback(async () => {
+    if (!workspaceId) return;
+    setRolesLoading(true);
+    setRolesError('');
+    try {
+      setRoles(await getWorkspaceRoles(workspaceId));
+    } catch (error) {
+      setRolesError(error instanceof Error ? error.message : 'Role tidak dapat dimuat.');
+    } finally {
+      setRolesLoading(false);
+    }
+  }, [workspaceId]);
+
+  useEffect(() => { void reloadRoles(); }, [reloadRoles]);
+
+  const builtinRoles = roles.filter(
+    (role): role is BuiltinRoleRecord => role.role_kind === 'builtin',
+  );
+  const customRoles = roles.filter(
+    (role): role is CustomRoleRecord => role.role_kind === 'custom',
+  );
 
   return (
     <div style={{
@@ -648,15 +817,24 @@ export default function WorkspaceSettingsRoles() {
           ))}
         </div>
 
-        {tab === 'builtin'
-          ? <BuiltinRolesTab />
+         {rolesError && (
+           <div style={{ padding: '12px 14px', marginBottom: 16, borderRadius: 10, background: '#fef2f2', color: '#991b1b', fontSize: 13 }}>
+             {rolesError}
+             <button onClick={() => void reloadRoles()} style={{ marginLeft: 10, cursor: 'pointer' }}>Coba lagi</button>
+           </div>
+         )}
+
+         {tab === 'builtin'
+           ? <BuiltinRolesTab roles={builtinRoles} loading={rolesLoading} />
           : (
             <CustomRolesTab
               workspaceId={workspaceId}
+               roles={customRoles}
+               loading={rolesLoading}
+               onReload={reloadRoles}
               canCreate={canCreate}
               canUpdate={canUpdate}
               canDelete={canDelete}
-              currentUserId={currentUserId}
             />
           )
         }

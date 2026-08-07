@@ -19,14 +19,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { getMemberByUserId } from '../data/workspaceMembersData';
 import {
-  hasPermission,
-  ROLE_PERMISSION_MATRIX,
   type MemberRole,
   type PermissionModule,
   type PermissionAction,
 } from '../types/workspacePermissions';
-import { getCustomRoleById, resolveCustomRolePermissions } from '../services/customRoleService';
-import type { CustomRoleRecord } from '../types/customRole';
+import {
+  getWorkspaceRoles,
+  resolveWorkspaceRolePermissions,
+} from '../services/workspaceService';
+import type { CustomRoleRecord, WorkspaceRoleRecord } from '../types/customRole';
 import type { WorkspaceMemberRecord } from '../data/workspaceMembersData';
 
 // ─── Return shape ─────────────────────────────────────────────────────────────
@@ -83,19 +84,6 @@ function buildAllFalse(): Record<PermissionModule, Record<PermissionAction, bool
   return out;
 }
 
-function buildFromMatrix(
-  role: MemberRole,
-): Record<PermissionModule, Record<PermissionAction, boolean>> {
-  const out = {} as Record<PermissionModule, Record<PermissionAction, boolean>>;
-  for (const mod of MODULES) {
-    out[mod] = {} as Record<PermissionAction, boolean>;
-    for (const a of ACTIONS) {
-      out[mod][a] = ROLE_PERMISSION_MATRIX[role][mod][a] === true;
-    }
-  }
-  return out;
-}
-
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useWorkspacePermission(workspaceId?: string): WorkspacePermissionContext {
@@ -109,15 +97,18 @@ export function useWorkspacePermission(workspaceId?: string): WorkspacePermissio
   }, [currentUser, activeWorkspace?.workspace_uuid, workspaceId]);
 
   const [customRole, setCustomRole] = useState<CustomRoleRecord | null>(null);
+  const [workspaceRoles, setWorkspaceRoles] = useState<WorkspaceRoleRecord[]>([]);
   const [loading,    setLoading]    = useState(false);
   const customRoleId = (membership as (WorkspaceMemberRecord & { custom_role_id?: string | null }) | null)?.custom_role_id;
 
-  // Fetch custom role async whenever membership.custom_role_id changes.
+  // Permissions are loaded from Supabase through the workspace roles Edge Function.
   useEffect(() => {
     let cancelled = false;
-    if (!customRoleId) {
+    const resolvedWorkspaceId = workspaceId ?? activeWorkspace?.workspace_uuid;
+    if (!resolvedWorkspaceId || !membership) {
       queueMicrotask(() => {
         if (!cancelled) {
+          setWorkspaceRoles([]);
           setCustomRole(null);
           setLoading(false);
         }
@@ -125,19 +116,25 @@ export function useWorkspacePermission(workspaceId?: string): WorkspacePermissio
       return () => { cancelled = true; };
     }
     setLoading(true);
-    getCustomRoleById(customRoleId).then((cr) => {
+    getWorkspaceRoles(resolvedWorkspaceId).then((roles) => {
       if (!cancelled) {
-        setCustomRole(cr);
+        setWorkspaceRoles(roles);
+        const assigned = customRoleId
+          ? roles.find((candidate): candidate is CustomRoleRecord =>
+            candidate.role_kind === 'custom' && candidate.id === customRoleId)
+          : null;
+        setCustomRole(assigned ?? null);
         setLoading(false);
       }
     }).catch(() => {
       if (!cancelled) {
+        setWorkspaceRoles([]);
         setCustomRole(null);
         setLoading(false);
       }
     });
     return () => { cancelled = true; };
-  }, [customRoleId]);
+  }, [activeWorkspace?.workspace_uuid, customRoleId, membership, workspaceId]);
 
   const role: MemberRole | null = membership?.role ?? null;
 
@@ -145,16 +142,20 @@ export function useWorkspacePermission(workspaceId?: string): WorkspacePermissio
     Record<PermissionModule, Record<PermissionAction, boolean>> | null
   >(() => {
     if (!role) return null;
-    if (customRole) return resolveCustomRolePermissions(customRole);
-    return buildFromMatrix(role);
-  }, [role, customRole]);
+    const sourceRole = customRole
+      ?? workspaceRoles.find((candidate) =>
+        candidate.role_kind === 'builtin' && candidate.name === role);
+    return sourceRole ? resolveWorkspaceRolePermissions(sourceRole) : buildAllFalse();
+  }, [role, customRole, workspaceRoles]);
 
   function can(module: PermissionModule, action: PermissionAction): boolean {
     if (!role) return false;
-    if (customRole) {
-      return resolveCustomRolePermissions(customRole)[module][action] === true;
-    }
-    return hasPermission(role, module, action);
+    const sourceRole = customRole
+      ?? workspaceRoles.find((candidate) =>
+        candidate.role_kind === 'builtin' && candidate.name === role);
+    return sourceRole
+      ? resolveWorkspaceRolePermissions(sourceRole)[module][action] === true
+      : false;
   }
 
   return {

@@ -158,6 +158,22 @@ async function main(request: Request): Promise<Response> {
     return response({ ok: true, data: customs.find((role) => role.id === requestedId) ?? null });
   }
 
+  if (operation === 'add') {
+    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+    if (name.length < 2 || name.length > 40) return fail('Nama role harus 2–40 karakter.', 'NAME_REQUIRED');
+    const { count } = await admin.from('workspace_custom_roles').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
+    if ((count ?? 0) >= 20) return fail('Maksimal 20 custom role per workspace.', 'FORBIDDEN', 403);
+    const inserted = await admin.from('workspace_custom_roles').insert({
+      workspace_id: workspaceId,
+      name,
+      description: typeof payload.description === 'string' ? payload.description : null,
+      permissions: payload.permissions && typeof payload.permissions === 'object' ? payload.permissions : {},
+      created_by: authData.user.id,
+    }).select('id, workspace_id, name, description, permissions, created_by, created_at, updated_at, status').single();
+    if (inserted.error) return fail(inserted.error.code === '23505' ? 'Nama role sudah digunakan.' : 'Custom role tidak dapat dibuat.', inserted.error.code === '23505' ? 'DUPLICATE_NAME' : 'DATABASE', inserted.error.code === '23505' ? 409 : 500);
+    return response({ ok: true, data: { ...inserted.data, role_kind: 'custom' } });
+  }
+
   if (requestedKind !== 'custom' || !isUuid(requestedId)) return fail('Custom role ID tidak valid.');
   const existing = customs.find((role) => role.id === requestedId);
   if (operation === 'preflight-remove') {
@@ -183,22 +199,6 @@ async function main(request: Request): Promise<Response> {
     });
   }
   if (!existing && operation !== 'add') return fail('Custom role tidak ditemukan.', 'NOT_FOUND', 404);
-
-  if (operation === 'add') {
-    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
-    if (name.length < 2 || name.length > 40) return fail('Nama role harus 2–40 karakter.', 'NAME_REQUIRED');
-    const { count } = await admin.from('workspace_custom_roles').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
-    if ((count ?? 0) >= 20) return fail('Maksimal 20 custom role per workspace.', 'FORBIDDEN', 403);
-    const inserted = await admin.from('workspace_custom_roles').insert({
-      workspace_id: workspaceId,
-      name,
-      description: typeof payload.description === 'string' ? payload.description : null,
-      permissions: payload.permissions && typeof payload.permissions === 'object' ? payload.permissions : {},
-      created_by: authData.user.id,
-    }).select('id, workspace_id, name, description, permissions, created_by, created_at, updated_at, status').single();
-    if (inserted.error) return fail(inserted.error.code === '23505' ? 'Nama role sudah digunakan.' : 'Custom role tidak dapat dibuat.', inserted.error.code === '23505' ? 'DUPLICATE_NAME' : 'DATABASE', inserted.error.code === '23505' ? 409 : 500);
-    return response({ ok: true, data: { ...inserted.data, role_kind: 'custom' } });
-  }
 
   if (operation === 'update' || operation === 'update-status') {
     const patch: Record<string, unknown> = {};
