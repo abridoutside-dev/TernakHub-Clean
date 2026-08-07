@@ -336,7 +336,7 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
 
   useEffect(() => { loadUser(); }, [loadUser]);
 
-  const runAction = async (key: string, fn: () => Promise<{ ok: boolean; link?: string }>, successMsg: string) => {
+  const runAction = async (key: string, fn: () => Promise<{ ok: boolean; link?: string }>, successMsg: string): Promise<boolean> => {
     setActionLoading(key);
     setConfirm(null);
     try {
@@ -345,9 +345,13 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
         onAction(successMsg, 'success', res.link);
         await loadUser();
         onRefreshList();
+        return true;
       }
+      onAction('Aksi tidak berhasil diproses.', 'error');
+      return false;
     } catch (e) {
       onAction(e instanceof Error ? e.message : 'Aksi gagal', 'error');
+      return false;
     } finally {
       setActionLoading(null);
     }
@@ -571,7 +575,9 @@ function UserDetailDrawer({ userId, onClose, onAction, onRefreshList }: DrawerPr
             const action = ACTIONS.find(a => a.key === confirm.key);
             if (!action) return;
             if (confirm.key === 'delete') {
-              runAction(confirm.key, action.fn, 'User berhasil dihapus').then(() => onClose());
+              runAction(confirm.key, action.fn, 'User berhasil dihapus').then(succeeded => {
+                if (succeeded) onClose();
+              });
             } else {
               runAction(confirm.key, action.fn, `${action.label} berhasil`);
             }

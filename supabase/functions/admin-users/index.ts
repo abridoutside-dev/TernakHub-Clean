@@ -22,17 +22,30 @@ function errorResponse(message: string, status = 400): Response {
   return jsonResponse({ ok: false, error: message }, status);
 }
 
-const OWNER_WORKSPACE_MESSAGE = 'User masih menjadi owner pada workspace.';
-const OWNER_WORKSPACE_GUIDANCE = 'Pindahkan owner atau hapus workspace terlebih dahulu.';
+const OWNER_WORKSPACE_MESSAGE = 'User masih menjadi Owner Workspace. Pindahkan kepemilikan atau hapus workspace terlebih dahulu.';
 
 function sanitizeErrorMessage(message: string, fallback: string): string {
-  if (/workspaces_owner_id_fkey|violates foreign key constraint.*workspaces/i.test(message)) {
-    return `${OWNER_WORKSPACE_MESSAGE} ${OWNER_WORKSPACE_GUIDANCE}`;
+  const normalized = message.replace(/\s+/g, ' ').trim();
+
+  // Never pass database diagnostics, SQLSTATE codes, stack traces, or internal
+  // constraint names to the browser. Ownership is handled first so the admin
+  // receives the actionable business rule instead of a foreign-key error.
+  if (
+    /workspaces_owner_id_fkey|owner_id.*auth\.users|violates foreign key constraint.*workspaces/i.test(normalized)
+    || /user masih menjadi owner|owner workspace/i.test(normalized)
+  ) {
+    return OWNER_WORKSPACE_MESSAGE;
   }
-  if (/violates foreign key constraint/i.test(message)) {
-    return `${fallback}. Data user masih memiliki relasi yang harus diselesaikan terlebih dahulu.`;
+  if (
+    /violates foreign key constraint|foreign key constraint|sqlstate|postgres|postgrest|database error|syntax error|relation .* does not exist|column .* does not exist|duplicate key|constraint .* failed|stack trace|at \w+\s*\(/i.test(normalized)
+  ) {
+    return fallback;
   }
-  return message || fallback;
+  if (!normalized || normalized.length > 240 || /[\r\n]/.test(message)) return fallback;
+
+  // Keep only short, user-facing Auth/API messages. Remove internal error
+  // codes because the operation contract exposes only ok/data or ok/error.
+  return normalized.replace(/\s*\[[A-Z0-9_:-]+\]\s*$/i, '').trim() || fallback;
 }
 
 interface AuthUser {

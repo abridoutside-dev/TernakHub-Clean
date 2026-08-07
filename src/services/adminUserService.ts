@@ -97,6 +97,24 @@ function isResponse(value: unknown): value is Response {
   return typeof Response !== 'undefined' && value instanceof Response;
 }
 
+function sanitizeUserFacingError(message: string, fallback: string): string {
+  const normalized = message.replace(/\s+/g, ' ').trim();
+
+  if (
+    /workspaces_owner_id_fkey|owner_id.*auth\.users|violates foreign key constraint.*workspaces/i.test(normalized)
+    || /user masih menjadi owner|owner workspace/i.test(normalized)
+  ) {
+    return 'User masih menjadi Owner Workspace. Pindahkan kepemilikan atau hapus workspace terlebih dahulu.';
+  }
+  if (
+    /violates foreign key constraint|foreign key constraint|sqlstate|postgres|postgrest|database error|syntax error|relation .* does not exist|column .* does not exist|duplicate key|constraint .* failed|stack trace|at \w+\s*\(/i.test(normalized)
+  ) {
+    return fallback;
+  }
+  if (!normalized || normalized.length > 240 || /[\r\n]/.test(message)) return fallback;
+  return normalized.replace(/\s*\[[A-Z0-9_:-]+\]\s*$/i, '').trim() || fallback;
+}
+
 async function readErrorMessage(error: unknown, fallback: string): Promise<string> {
   if (error && typeof error === 'object') {
     const candidate = error as { message?: unknown; context?: unknown };
@@ -109,17 +127,17 @@ async function readErrorMessage(error: unknown, fallback: string): Promise<strin
           const message = [body.error, body.message, body.error_description, body.msg, body.details, body.hint]
             .find(value => typeof value === 'string' && value.trim());
           if (typeof message === 'string') {
-            return `${message}${typeof body.code === 'string' ? ` [${body.code}]` : ''}`;
+            return sanitizeUserFacingError(message, fallback);
           }
         }
       } catch {
         // Fall through to the structured error below.
       }
-      if (context.status) return `${fallback} (HTTP ${context.status})`;
+      if (context.status) return fallback;
     }
     if (typeof candidate.message === 'string' && candidate.message.trim()) {
       if (!/edge function returned non-2xx|failed to send a request/i.test(candidate.message)) {
-        return candidate.message;
+        return sanitizeUserFacingError(candidate.message, fallback);
       }
     }
   }
@@ -134,8 +152,13 @@ async function invokeAdminUsers<T = unknown>(
     'admin-users',
     { body: { action: 'admin-users', operation, ...payload } },
   );
-  if (error) throw new Error(await readErrorMessage(error, 'Permintaan ke modul Admin Pengguna gagal. Periksa koneksi dan coba lagi.'));
-  if (!data?.ok) throw new Error(data?.error ?? `Operasi admin user gagal: ${operation}`);
+  const fallback = 'Permintaan ke modul Admin Pengguna gagal. Periksa koneksi dan coba lagi.';
+  if (error) throw new Error(await readErrorMessage(error, fallback));
+  if (!data?.ok) throw new Error(
+    typeof data?.error === 'string'
+      ? sanitizeUserFacingError(data.error, fallback)
+      : fallback,
+  );
   return (data.data ?? data) as T;
 }
 
