@@ -38,17 +38,6 @@ export interface AuthResult {
   error: AuthError | null;
 }
 
-export interface AtomicRegistrationInput {
-  email: string;
-  password: string;
-  fullName: string;
-  phone: string;
-  province: string;
-  regency: string;
-  district: string;
-  village: string;
-}
-
 export interface ProfileUpdateResult {
   data: UserProfile | null;
   error: string | null;
@@ -85,8 +74,6 @@ export interface AuthContextValue {
     password: string,
     options?: { data?: Record<string, unknown>; emailRedirectTo?: string },
   ) => Promise<AuthResult>;
-  /** U-002 — create auth user, profile, and default workspace atomically. */
-  registerAtomically: (input: AtomicRegistrationInput) => Promise<{ error: string | null }>;
   /** Sign out the current user. */
   signOut: () => Promise<AuthResult>;
   /**
@@ -279,25 +266,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   }, []);
 
-  const registerAtomically = useCallback(async (
-    input: AtomicRegistrationInput,
-  ): Promise<{ error: string | null }> => {
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(input),
-      });
-      if (response.ok) return { error: null };
-
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      return { error: body?.error ?? 'Registrasi gagal.' };
-    } catch {
-      return { error: 'Tidak dapat terhubung ke server.' };
-    }
-  }, []);
-
   const signOut = useCallback(async (): Promise<AuthResult> => {
     const { error } = await supabase.auth.signOut();
     // Profile and user are cleared by the onAuthStateChange listener (u=null branch).
@@ -379,7 +347,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile,
     signIn,
     signUp,
-    registerAtomically,
     signOut,
     resetPassword,
     refreshSession,

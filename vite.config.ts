@@ -15,14 +15,6 @@ export default defineConfig({
     port: 5000,
     allowedHosts: true,
     strictPort: true,
-    proxy: {
-      // Proxy /api/* to the Express API server (R2 uploads, etc.)
-      // Express server runs on port 5001 — see "API Server" workflow.
-      '/api': {
-        target: 'http://localhost:5001',
-        changeOrigin: true,
-      },
-    },
   },
   resolve: {
     alias: {

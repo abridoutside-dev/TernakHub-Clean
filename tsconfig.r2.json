@@ -12,14 +12,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": [
-    "server/index.ts",
-    "server/r2Client.ts",
-    "server/uploadPolicy.ts",
-    "server/supabaseAdmin.ts",
-    "server/middleware/**/*.ts",
-    "server/repositories/**/*.ts",
-    "server/routes/**/*.ts",
-    "server/utils/**/*.ts"
-  ]
+  "include": []
 }

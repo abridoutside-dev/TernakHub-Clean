@@ -265,8 +265,6 @@ const FarmMutasiModule = lazy(() => import('./pages/admin/modules/FarmMutasiModu
 const FarmStokPakanModule = lazy(() => import('./pages/admin/modules/FarmStokPakanModule'));
 const FarmStokObatModule = lazy(() => import('./pages/admin/modules/FarmStokObatModule'));
 const FarmMasterObatModule = lazy(() => import('./pages/admin/modules/FarmMasterObatModule'));
-const UsersRolesPage = lazy(() => import('./pages/admin/modules/UsersSubPages').then(m => ({ default: m.UsersRolesPage })));
-const UsersActivityPage = lazy(() => import('./pages/admin/modules/UsersSubPages').then(m => ({ default: m.UsersActivityPage })));
 const WorkspacesPlansPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.WorkspacesPlansPage })));
 const WorkspacesVerificationPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.WorkspacesVerificationPage })));
 const BlockedWorkspacesPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.BlockedWorkspacesPage })));
@@ -697,9 +695,6 @@ export default function App() {
         <Route path="/admin/backup"              element={<BackupModule />} />
 
         {/* ── Admin sub-pages — ADMIN-001 ──────────────────────────────── */}
-        {/* Users */}
-        <Route path="/admin/users/roles"    element={<UsersRolesPage />} />
-        <Route path="/admin/users/activity" element={<UsersActivityPage />} />
         {/* Workspaces */}
         <Route path="/admin/workspaces/plans"        element={<WorkspacesPlansPage />} />
         <Route path="/admin/workspaces/verification" element={<WorkspacesVerificationPage />} />

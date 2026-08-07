@@ -2,7 +2,7 @@
 // AUTH-006 — Full registration form with Supabase auth + auto sign-in.
 //
 // Post-registration flow:
-//   atomic register (auth + profile + default workspace) → signIn (auto)
+//   Supabase Auth sign-up (the database trigger creates the profile) → signIn
 //
 // Email verification is NOT required before first login (per spec).
 // Marketplace transaction restrictions for unverified users are enforced
@@ -238,7 +238,7 @@ function isSafeRedirect(path: string): boolean {
 
 export default function Register() {
   console.log('[Register] render');
-  const { registerAtomically, signIn } = useAuth();
+  const { signUp, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect') ?? '';
@@ -323,19 +323,19 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const { error: registrationError } = await registerAtomically({
-        email: email.trim(),
-        password,
-        fullName: fullName.trim(),
-        phone: normalisePhone(phone),
-        province: province.trim(),
-        regency: regency.trim(),
-        district: district.trim(),
-        village: village.trim(),
+      const { error: registrationError } = await signUp(email.trim(), password, {
+        data: {
+          full_name: fullName.trim(),
+          phone: normalisePhone(phone),
+          province: province.trim(),
+          regency: regency.trim(),
+          district: district.trim(),
+          village: village.trim(),
+        },
       });
 
       if (registrationError) {
-        setSubmitErr(mapSignUpError(registrationError));
+        setSubmitErr(mapSignUpError(registrationError.message));
         return;
       }
 
@@ -357,7 +357,7 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
-  }, [email, phone, password, confirm, fullName, province, regency, district, village, agreeTerms, registerAtomically, signIn, navigate]);
+  }, [email, phone, password, confirm, fullName, province, regency, district, village, agreeTerms, signUp, signIn, navigate]);
 
   const handleFormSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();

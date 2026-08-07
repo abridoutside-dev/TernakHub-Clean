@@ -551,7 +551,7 @@ async function handleAdminUsers(
     });
   }
 
-  if (operation === 'update' || operation === 'update-metadata') {
+  if (operation === 'update') {
     const user = await readUser(url, serviceRole, id);
     const metadata = { ...(user.user_metadata ?? {}) };
     const appMetadata = { ...(user.app_metadata ?? {}) };
@@ -600,7 +600,6 @@ async function handleAdminUsers(
   const authOperations: Record<string, { method: string; path: string; body?: Record<string, unknown> }> = {
     suspend: { method: 'PUT', path: `/users/${id}`, body: { ban_duration: '876600h' } },
     unsuspend: { method: 'PUT', path: `/users/${id}`, body: { ban_duration: 'none' } },
-    'verify-email': { method: 'PUT', path: `/users/${id}`, body: { email_confirm: true } },
     delete: { method: 'DELETE', path: `/users/${id}` },
   };
   if (authOperations[operation]) {
@@ -658,25 +657,16 @@ async function handleAdminUsers(
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
-  if (operation === 'reset-password' || operation === 'resend-verification') {
+  if (operation === 'reset-password') {
     const user = await readUser(url, serviceRole, id);
     if (!user.email) return errorResponse('User tidak memiliki email', 400);
-    const response = operation === 'resend-verification'
-      ? await authPublicFetch(url, '/resend', anonKey, {
-        method: 'POST',
-        body: JSON.stringify({ type: 'signup', email: user.email }),
-      })
-      : await authFetch(url, '/generate_link', serviceRole, {
+    const response = await authFetch(url, '/generate_link', serviceRole, {
       method: 'POST',
-      body: JSON.stringify({ type: operation === 'reset-password' ? 'recovery' : 'signup', email: user.email }),
+      body: JSON.stringify({ type: 'recovery', email: user.email }),
     });
     if (!response.ok) return errorResponse(await responseMessage(response, 'Gagal membuat link'), response.status);
     const body = await response.json() as { action_link?: string; properties?: { action_link?: string } };
     return jsonResponse({ ok: true, data: { ok: true, link: body.action_link ?? body.properties?.action_link ?? null } });
-  }
-
-  if (operation === 'get-workspaces') {
-    return jsonResponse({ ok: true, data: { memberships: await readMemberships(url, serviceRole, id) } });
   }
 
   if (operation === 'get-dependencies') {

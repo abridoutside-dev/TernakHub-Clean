@@ -185,9 +185,7 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         syncStatus: 'synced',
         health: 'healthy',
         children: [
-          { key: 'users-list',     label: 'Daftar Pengguna',  path: '/admin/users',          icon: '📋' },
-          { key: 'users-roles',    label: 'Peran & Izin',     path: '/admin/users/roles',    icon: '🔑' },
-          { key: 'users-activity', label: 'Log Aktivitas',    path: '/admin/users/activity', icon: '📜' },
+          { key: 'users-list', label: 'Daftar Pengguna', path: '/admin/users', icon: '📋' },
         ],
       },
       {

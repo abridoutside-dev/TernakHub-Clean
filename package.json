@@ -9,8 +9,6 @@
   },
   "scripts": {
     "dev": "vite",
-    "server:dev": "tsx watch server/index.ts",
-    "server:prod": "NODE_ENV=production tsx server/index.ts",
     "type-check": "tsc -b --pretty false",
     "type-check:r2": "tsc -p tsconfig.r2.json --pretty false",
     "db:validate": "node --test tests/db-001a-production.contract.mjs",
@@ -24,22 +22,17 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
     "@types/node": "^26.1.2",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "playwright": "^1.62.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.4",
-    "tsx": "^4.23.9",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
