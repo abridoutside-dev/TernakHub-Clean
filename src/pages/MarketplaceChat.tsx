@@ -69,7 +69,6 @@ import {
   type DealSummary,
 } from '../data/dealData';
 import { getListingByUuid, type ListingItem } from '../data/marketplaceListingData';
-import { getVerifikasiBadge } from '../data/marketplaceWorkspaceVerifikasiData';
 import {
   createInvitation,
   acceptInvitation,

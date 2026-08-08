@@ -61,6 +61,7 @@ export interface TrustVerificationRecord {
   expires_at: string | null;
   notes: string | null;
   trust_score: number | null;
+  workspace_created_at: string | null;
   evidence: TrustEvidence[];
   timeline: TrustTimelineEvent[];
 }
@@ -79,6 +80,7 @@ export interface TrustVerificationListResponse {
   records: TrustVerificationRecord[];
   stats: TrustVerificationStats;
   workspace_trust_score: number | null;
+  workspace_created_at: string | null;
   page: number;
   page_size: number;
   total: number;

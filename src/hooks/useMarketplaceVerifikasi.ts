@@ -10,6 +10,7 @@ import {
 } from '../services/workspaceService';
 import type {
   TrustVerificationRecord,
+  TrustVerificationStatus,
   TrustVerificationType,
   TrustVerificationListResponse,
 } from '../types/workspaceTrustVerification';
@@ -20,6 +21,10 @@ export interface UseMarketplaceVerifikasiResult {
   data: TrustVerificationListResponse | null;
   rows: TrustVerificationRecord[];
   trustScore: number | null;
+  status: TrustVerificationStatus | null;
+  workspaceCreatedAt: string | null;
+  workspaceName: string | null;
+  workspaceType: string | null;
   /** Submit a new verification application of the given type. */
   submitVerifikasi: (type: TrustVerificationType) => Promise<{ ok: boolean; error: string | null }>;
   refetch: () => void;
@@ -69,12 +74,18 @@ export function useMarketplaceVerifikasi(
     [workspaceId, refetch],
   );
 
+  const latestRecord = data?.records?.[0];
+
   return {
     loading,
     error,
     data,
     rows: data?.records ?? [],
     trustScore: data?.workspace_trust_score ?? null,
+    status: latestRecord?.status ?? null,
+    workspaceCreatedAt: data?.workspace_created_at ?? null,
+    workspaceName: latestRecord?.workspace_name ?? null,
+    workspaceType: latestRecord?.workspace_type ?? null,
     submitVerifikasi,
     refetch,
   };

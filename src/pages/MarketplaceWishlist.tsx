@@ -12,6 +12,7 @@ import { useDebounce } from '../utils/useDebounce';
 import { usePaginatedList } from '../utils/usePaginatedList';
 import { getActiveWorkspace } from '../components/TopAppBar';
 import { useMarketplace } from '../hooks/useMarketplace';
+import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 import {
   getWishlistByWorkspace,
   removeFromWishlist,
@@ -22,7 +23,6 @@ import {
   type ListingItem,
   type ListingStatus,
 } from '../data/marketplaceListingData';
-import { getVerifikasiBadge } from '../data/marketplaceWorkspaceVerifikasiData';
 import { getKategoriMarketplaceBySlug } from '../data/marketplaceKategoriData';
 
 // ─── Tipe gabungan (wishlist record + listing live) ───────────────────────────
@@ -85,6 +85,19 @@ function formatAddedAt(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function sellerStatusView(status: string | null | undefined) {
+  if (status === 'Verified' || status === 'Approved') {
+    return { label: 'Terverifikasi', icon: '✅', color: '#1b7a43', bg: '#e8f5ee' };
+  }
+  if (status === 'Rejected' || status === 'Suspended' || status === 'Expired') {
+    return { label: status === 'Rejected' ? 'Ditolak' : 'Ditangguhkan', icon: '🚫', color: '#c62828', bg: '#ffebee' };
+  }
+  if (status === 'Submitted' || status === 'Pending' || status === 'UnderReview') {
+    return { label: 'Dalam Proses', icon: '⏳', color: '#7b5e2a', bg: '#fff8e1' };
+  }
+  return { label: 'Belum Diverifikasi', icon: '⚪', color: '#616161', bg: '#f5f5f5' };
 }
 
 function applySort(rows: WishlistRow[], mode: SortMode): WishlistRow[] {
@@ -151,7 +164,7 @@ function WishlistCard({ row, onLihat, onHapus, onNegosiasi }: WishlistCardProps)
   const { listing } = row;
   const [menuOpen, setMenuOpen] = useState(false);
   const kategori = getKategoriMarketplaceBySlug(listing.kategoriSlug);
-  const verifikasi = getVerifikasiBadge(listing.workspaceId);
+  const sellerTrust = useMarketplaceVerifikasi(listing.workspaceId);
   const statusBadge = STATUS_BADGE[listing.status] ?? STATUS_BADGE['Ditutup'];
   const isClosed = listing.status === 'Terjual' || listing.status === 'Ditutup' || listing.status === 'Diarsipkan';
 
@@ -223,12 +236,17 @@ function WishlistCard({ row, onLihat, onHapus, onNegosiasi }: WishlistCardProps)
             <span style={{ fontSize: 11, color: 'var(--color-text)', fontWeight: 600 }}>
               🏪 {listing.workspaceNama}
             </span>
-            <span style={{
-              fontSize: 10, fontWeight: 700, padding: '1px 6px',
-              borderRadius: 20, background: verifikasi.bg, color: verifikasi.color,
-            }}>
-              {verifikasi.icon} {verifikasi.label}
-            </span>
+            {(() => {
+              const v = sellerStatusView(sellerTrust.status);
+              return (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '1px 6px',
+                  borderRadius: 20, background: v.bg, color: v.color,
+                }}>
+                  {v.icon} {v.label}
+                </span>
+              );
+            })()}
           </div>
 
           {/* Ditambahkan */}

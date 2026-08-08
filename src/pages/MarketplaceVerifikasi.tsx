@@ -7,6 +7,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
+import {
+  getTrustLevel,
+  getTrustLevelBadge,
+  TRUST_LEVEL_ORDER,
+} from '../data/marketplaceTrustData';
 import type {
   TrustVerificationRecord,
   TrustVerificationStatus,
@@ -32,6 +37,14 @@ function statusView(status: TrustVerificationStatus | null) {
     return { label: 'Dalam Proses', icon: '⏳', color: '#7b5e2a', bg: '#fff8e1' };
   }
   return { label: 'Belum Diverifikasi', icon: '⚪', color: '#616161', bg: '#f5f5f5' };
+}
+
+function formatBergabungSejak(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return `${d} ${BULAN[m - 1]} ${y}`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -99,7 +112,6 @@ function RiwayatItem({ event, isLast }: { event: TrustVerificationRecord['timeli
   const bg = positive ? '#e8f5ee' : negative ? '#ffebee' : '#e1f5fe';
   return (
     <div style={{ display: 'flex', gap: 10, paddingBottom: isLast ? 0 : 12 }}>
-      {/* Timeline dot + line */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
         <div style={{
           width: 28, height: 28, borderRadius: '50%',
@@ -113,7 +125,6 @@ function RiwayatItem({ event, isLast }: { event: TrustVerificationRecord['timeli
           <div style={{ width: 2, flex: 1, background: 'var(--color-border)', marginTop: 4 }} />
         )}
       </div>
-      {/* Content */}
       <div style={{ flex: 1, minWidth: 0, paddingBottom: isLast ? 0 : 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
           <span style={{
@@ -154,33 +165,21 @@ function InfoBox({ icon, title, body }: { icon: string; title: string; body: str
 
 export default function MarketplaceVerifikasi() {
   const navigate = useNavigate();
+  const { activeWorkspace } = useWorkspace();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const activeWs = getActiveWorkspace();
-  const workspace = WORKSPACES.find((w) => w.id === activeWs.id);
+  const workspaceId = activeWorkspace?.workspace_uuid ?? null;
+  const dbVerifikasi = useMarketplaceVerifikasi(workspaceId);
 
-  // DB hook: fetches trust_verifications for this workspace
-  const dbVerifikasi = useMarketplaceVerifikasi(activeWs.id);
+  const effectiveStatus = dbVerifikasi.status;
+  const verifikasi = statusView(effectiveStatus);
 
-  // Status badge: prefer DB-derived status; fall back to static in-memory data
-  const verifikasi = dbVerifikasi.status !== null
-    ? getVerifikasiBadge(activeWs.id)  // keep badge shape but override status below
-    : getVerifikasiBadge(activeWs.id);
+  const trustScore = dbVerifikasi.trustScore;
+  const levelBadge = trustScore !== null ? getTrustLevelBadge(getTrustLevel(trustScore)) : null;
+  const bergabung = dbVerifikasi.workspaceCreatedAt;
 
-  // Effective status: DB wins when loaded, else static
-  const effectiveStatus: StatusVerifikasiWorkspace =
-    dbVerifikasi.status ?? verifikasi.status;
-
-  // Build riwayat: prefer DB rows, fall back to static
-  const riwayat: RiwayatVerifikasiEvent[] = dbVerifikasi.rows.length > 0
-    ? dbVerifikasi.rows.flatMap(dbRowToRiwayatEvent).sort((a, b) =>
-        b.tanggal.localeCompare(a.tanggal))
-    : getRiwayatVerifikasiWorkspace(activeWs.id);
-
-  const trust = computeTrustScore(activeWs.id);
-  const levelBadge = getTrustLevelBadge(trust.level);
-  const bergabung = getWorkspaceBergabungSejak(activeWs.id);
+  const riwayat = dbVerifikasi.data?.records?.[0]?.timeline ?? [];
 
   async function handleAjukanVerifikasi() {
     setSubmitting(true);
@@ -193,7 +192,6 @@ export default function MarketplaceVerifikasi() {
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '12px 16px 40px' }}>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
         background: 'linear-gradient(135deg, #1b7a43 0%, #0277bd 100%)',
         borderRadius: 'var(--radius-md)',
@@ -208,13 +206,15 @@ export default function MarketplaceVerifikasi() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 22, flexShrink: 0,
           }}>
-            {workspace?.icon ?? '🏪'}
+            {activeWorkspace?.logo_url ?? '🏪'}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, marginBottom: 3 }}>
-              {activeWs.name}
+              {activeWorkspace?.workspace_name ?? '—'}
             </div>
-            <div style={{ fontSize: 11.5, opacity: 0.85 }}>{workspace?.type ?? '—'}</div>
+            <div style={{ fontSize: 11.5, opacity: 0.85 }}>
+              {dbVerifikasi.workspaceType ?? '—'}
+            </div>
           </div>
           <div style={{
             background: 'rgba(255,255,255,0.18)',
@@ -226,24 +226,26 @@ export default function MarketplaceVerifikasi() {
         </div>
       </div>
 
-      {/* ── Ringkasan ──────────────────────────────────────────────────────── */}
       <SectionCard title="📊 Ringkasan">
         <div style={{
-          background: levelBadge.bg, borderRadius: 'var(--radius-sm)',
+          background: levelBadge?.bg ?? 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
           padding: '12px 14px', marginBottom: 10,
         }}>
           <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Level Kepercayaan</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontSize: 20 }}>{levelBadge.bintang}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: levelBadge.color }}>{levelBadge.label}</span>
+            <span style={{ fontSize: 20 }}>{levelBadge?.bintang ?? '—'}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: levelBadge?.color ?? 'var(--color-text)' }}>
+              {levelBadge?.label ?? '—'}
+            </span>
           </div>
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--color-muted)', lineHeight: 1.55 }}>
-          {trust.ringkasan}
+          {trustScore !== null
+            ? `Workspace dengan skor kepercayaan ${trustScore}/100.`
+            : 'Skor kepercayaan belum tersedia.'}
         </div>
       </SectionCard>
 
-      {/* ── Status Verifikasi Workspace ────────────────────────────────────── */}
       <SectionCard title="🏅 Status Verifikasi Workspace">
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
@@ -262,11 +264,11 @@ export default function MarketplaceVerifikasi() {
             </div>
           </div>
         </div>
-        <InfoRow label="Workspace" value={activeWs.name} />
-        <InfoRow label="Jenis" value={workspace?.type ?? '—'} />
+        <InfoRow label="Workspace" value={activeWorkspace?.workspace_name ?? '—'} />
+        <InfoRow label="Jenis" value={dbVerifikasi.workspaceType ?? '—'} />
         <InfoRow
           label="Bergabung Sejak"
-          value={bergabung ? formatBergabungSejak(bergabung) : '—'}
+          value={formatBergabungSejak(bergabung)}
         />
         <InfoRow label="Status" value={
           <span style={{
@@ -279,7 +281,7 @@ export default function MarketplaceVerifikasi() {
           </span>
         } />
 
-        {effectiveStatus === 'Belum Diverifikasi' && (
+        {effectiveStatus === null || effectiveStatus === 'Draft' || effectiveStatus === 'Unverified' ? (
           <>
             <div style={{
               marginTop: 10, padding: '10px 12px',
@@ -313,8 +315,8 @@ export default function MarketplaceVerifikasi() {
               {submitting ? '⏳ Mengirim...' : '📤 Ajukan Verifikasi'}
             </button>
           </>
-        )}
-        {effectiveStatus === 'Dalam Proses' && (
+        ) : null}
+        {effectiveStatus === 'Submitted' || effectiveStatus === 'Pending' || effectiveStatus === 'UnderReview' ? (
           <div style={{
             marginTop: 10, padding: '10px 12px',
             background: '#fff8e1', borderRadius: 'var(--radius-sm)',
@@ -322,9 +324,9 @@ export default function MarketplaceVerifikasi() {
           }}>
             ⏳ Pengajuan verifikasi Anda sedang diproses oleh tim Marketplace. Kami akan menghubungi Anda melalui email.
           </div>
-        )}
+        ) : null}
 
-        {effectiveStatus === 'Ditangguhkan' && (
+        {effectiveStatus === 'Suspended' ? (
           <div style={{
             marginTop: 10, padding: '10px 12px',
             background: '#ffebee', borderRadius: 'var(--radius-sm)',
@@ -332,47 +334,45 @@ export default function MarketplaceVerifikasi() {
           }}>
             🚫 Workspace Anda saat ini ditangguhkan. Hubungi tim Marketplace untuk informasi lebih lanjut.
           </div>
-        )}
+        ) : null}
       </SectionCard>
 
-      {/* ── Trust Score ────────────────────────────────────────────────────── */}
       <SectionCard title="⭐ Trust Score">
         <div style={{ marginBottom: 14 }}>
-          <ScoreMeter skor={trust.skor} />
+          <ScoreMeter skor={trustScore} />
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          {/* Level Badge */}
           <div style={{
-            flex: 1, background: levelBadge.bg, borderRadius: 'var(--radius-sm)',
+            flex: 1, background: levelBadge?.bg ?? 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
             padding: '8px 10px', textAlign: 'center',
           }}>
             <div style={{ fontSize: 10, color: 'var(--color-muted)', marginBottom: 2 }}>Level</div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: levelBadge.color }}>{levelBadge.label}</div>
-            <div style={{ fontSize: 15, marginTop: 2 }}>{levelBadge.bintang}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: levelBadge?.color ?? 'var(--color-text)' }}>
+              {levelBadge?.label ?? '—'}
+            </div>
+            <div style={{ fontSize: 15, marginTop: 2 }}>{levelBadge?.bintang ?? '—'}</div>
           </div>
-          {/* Score Number */}
           <div style={{
             flex: 1, background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
             border: '1.5px solid var(--color-border)',
             padding: '8px 10px', textAlign: 'center',
           }}>
             <div style={{ fontSize: 10, color: 'var(--color-muted)', marginBottom: 2 }}>Skor</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: barColor(trust.skor), lineHeight: 1 }}>
-              {trust.skor}
+            <div style={{ fontSize: 24, fontWeight: 900, color: barColor(trustScore ?? 0), lineHeight: 1 }}>
+              {trustScore ?? '—'}
             </div>
             <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 2 }}>/100</div>
           </div>
         </div>
 
-        {/* Level scale */}
         <div style={{
           display: 'flex', gap: 3, marginBottom: 14,
           fontSize: 9, color: 'var(--color-muted)',
         }}>
           {TRUST_LEVEL_ORDER.map((lv) => {
             const b = getTrustLevelBadge(lv);
-            const isActive = lv === trust.level;
+            const isActive = trustScore !== null && getTrustLevel(trustScore) === lv;
             return (
               <div key={lv} style={{
                 flex: 1, textAlign: 'center', padding: '4px 2px',
@@ -390,7 +390,6 @@ export default function MarketplaceVerifikasi() {
           })}
         </div>
 
-        {/* Disclaimer */}
         <div style={{
           padding: '8px 10px', background: 'var(--color-bg)',
           borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)',
@@ -400,14 +399,6 @@ export default function MarketplaceVerifikasi() {
         </div>
       </SectionCard>
 
-      {/* ── Ringkasan Faktor Penilaian ─────────────────────────────────────── */}
-      <SectionCard title="📋 Ringkasan Faktor Penilaian">
-        {trust.faktorPenilaian.map((f) => (
-          <FaktorBar key={f.nama} faktor={f} />
-        ))}
-      </SectionCard>
-
-      {/* ── Riwayat Verifikasi ─────────────────────────────────────────────── */}
       <SectionCard title="📜 Riwayat Verifikasi">
         {riwayat.length === 0 ? (
           <div style={{
@@ -421,7 +412,7 @@ export default function MarketplaceVerifikasi() {
           <div>
             {riwayat.map((event, i) => (
               <RiwayatItem
-                key={`${event.tanggal}-${event.tipe}`}
+                key={`${event.created_at}-${event.action}-${i}`}
                 event={event}
                 isLast={i === riwayat.length - 1}
               />
@@ -430,7 +421,6 @@ export default function MarketplaceVerifikasi() {
         )}
       </SectionCard>
 
-      {/* ── Informasi Pendukung ────────────────────────────────────────────── */}
       <SectionCard title="💡 Informasi Pendukung">
         <InfoBox
           icon="🛡️"
@@ -456,7 +446,6 @@ export default function MarketplaceVerifikasi() {
         </div>
       </SectionCard>
 
-      {/* ── Navigasi kembali ───────────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => navigate('/marketplace/dashboard')}
@@ -472,3 +461,4 @@ export default function MarketplaceVerifikasi() {
     </div>
   );
 }
+

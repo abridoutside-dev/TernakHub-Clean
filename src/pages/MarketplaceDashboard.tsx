@@ -5,7 +5,7 @@
 import { useNavigate } from 'react-router-dom';
 import { getActiveWorkspace } from '../components/TopAppBar';
 import { useMarketplace } from '../hooks/useMarketplace';
-import { getVerifikasiBadge } from '../data/marketplaceWorkspaceVerifikasiData';
+import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 import { getDashboardPenjual, type GrafikHarian } from '../data/marketplaceDashboardData';
 import type { ListingItem } from '../data/marketplaceListingData';
 
@@ -16,6 +16,19 @@ function formatRupiah(n: number): string {
   if (n >= 1_000_000)     return `Rp ${(n / 1_000_000).toFixed(1)} jt`;
   if (n >= 1_000)         return `Rp ${(n / 1_000).toFixed(0)} rb`;
   return `Rp ${n.toLocaleString('id-ID')}`;
+}
+
+function statusView(status: string | null | undefined) {
+  if (status === 'Verified' || status === 'Approved') {
+    return { label: 'Terverifikasi', icon: '✅' };
+  }
+  if (status === 'Rejected' || status === 'Suspended' || status === 'Expired') {
+    return { label: status === 'Rejected' ? 'Ditolak' : 'Ditangguhkan', icon: '🚫' };
+  }
+  if (status === 'Submitted' || status === 'Pending' || status === 'UnderReview') {
+    return { label: 'Dalam Proses', icon: '⏳' };
+  }
+  return { label: 'Belum Diverifikasi', icon: '⚪' };
 }
 
 const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -310,7 +323,8 @@ export default function MarketplaceDashboard() {
   useMarketplace(); // FLOW-003M27: hydrate listings/transaksi from Supabase on mount
   const navigate = useNavigate();
   const ws = getActiveWorkspace();
-  const badge = getVerifikasiBadge(ws.id);
+  const dbVerifikasi = useMarketplaceVerifikasi(ws.id);
+  const badge = statusView(dbVerifikasi.status);
   const data = getDashboardPenjual(ws.id);
 
   const { ringkasan, statistik, aiInsight, listingTerbaru, transaksiTerbaru, negosiasiTerbaru, grafikTransaksi } = data;

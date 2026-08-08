@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMarketplace } from '../hooks/useMarketplace';
+import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 import { isEmailVerified } from '../utils/emailVerification';
 import EmailVerificationDialog from '../components/EmailVerificationDialog';
 import {
@@ -18,13 +19,7 @@ import {
   getSubKategoriBySlug,
 } from '../data/marketplaceKategoriData';
 import { computeDetailListingAiInsight } from '../data/marketplaceAiInsightData';
-import { getVerifikasiBadge } from '../data/marketplaceWorkspaceVerifikasiData';
-import {
-  computeTrustScore,
-  getTrustLevelBadge,
-  getWorkspaceBergabungSejak,
-  formatBergabungSejak,
-} from '../data/marketplaceTrustData';
+import { getTrustLevel, getTrustLevelBadge, formatBergabungSejak } from '../data/marketplaceTrustData';
 import { HeaderActionPortal, getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
 import { getOriginDetail } from '../data/marketplaceOriginDetailData';
 import { getOrCreateChat } from '../data/marketplaceChatData';
@@ -47,6 +42,19 @@ function formatTanggalPublish(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;
   return `${d} ${BULAN[m - 1]} ${y}`;
+}
+
+function sellerStatusView(status: string | null | undefined) {
+  if (status === 'Verified' || status === 'Approved') {
+    return { label: 'Terverifikasi', icon: '✅', color: '#1b7a43', bg: '#e8f5ee' };
+  }
+  if (status === 'Rejected' || status === 'Suspended' || status === 'Expired') {
+    return { label: status === 'Rejected' ? 'Ditolak' : 'Ditangguhkan', icon: '🚫', color: '#c62828', bg: '#ffebee' };
+  }
+  if (status === 'Submitted' || status === 'Pending' || status === 'UnderReview') {
+    return { label: 'Dalam Proses', icon: '⏳', color: '#7b5e2a', bg: '#fff8e1' };
+  }
+  return { label: 'Belum Diverifikasi', icon: '⚪', color: '#616161', bg: '#f5f5f5' };
 }
 
 function NotFound({ onBack }: { onBack: () => void }) {
@@ -340,10 +348,10 @@ export default function MarketplaceDetailListing() {
 
   const kategori = getKategoriMarketplaceBySlug(item.kategoriSlug);
   const workspace = WORKSPACES.find((w) => w.id === item.workspaceId);
-  const verifikasi = getVerifikasiBadge(item.workspaceId);
-  const trust = computeTrustScore(item.workspaceId);
-  const trustBadge = getTrustLevelBadge(trust.level);
-  const bergabung = getWorkspaceBergabungSejak(item.workspaceId);
+  const sellerTrust = useMarketplaceVerifikasi(item.workspaceId);
+  const trustScore = sellerTrust.trustScore;
+  const trustBadge = trustScore !== null ? getTrustLevelBadge(getTrustLevel(trustScore)) : null;
+  const bergabung = sellerTrust.workspaceCreatedAt;
   const originDetail = getOriginDetail(item);
   const aiInsight = computeDetailListingAiInsight(item, getAllListing());
 
@@ -409,27 +417,39 @@ export default function MarketplaceDetailListing() {
 
         {/* Badges row */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            fontSize: 11, fontWeight: 700, color: verifikasi.color, background: verifikasi.bg,
-            borderRadius: 20, padding: '3px 9px',
-          }}>
-            {verifikasi.icon} {verifikasi.label}
-          </span>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            fontSize: 11, fontWeight: 700, color: trustBadge.color, background: trustBadge.bg,
-            borderRadius: 20, padding: '3px 9px',
-          }}>
-            {trustBadge.bintang} {trustBadge.label}
-          </span>
+          {(() => {
+            const v = sellerStatusView(sellerTrust.status);
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 700, color: v.color, background: v.bg,
+                borderRadius: 20, padding: '3px 9px',
+              }}>
+                {v.icon} {v.label}
+              </span>
+            );
+          })()}
+          {trustBadge && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 11, fontWeight: 700, color: trustBadge.color, background: trustBadge.bg,
+              borderRadius: 20, padding: '3px 9px',
+            }}>
+              {trustBadge.bintang} {trustBadge.label}
+            </span>
+          )}
         </div>
 
         {/* Detail rows */}
         <FieldRow label="Nama Workspace" value={item.workspaceNama} />
         <FieldRow label="Jenis Workspace" value={workspace?.type ?? '—'} />
-        <FieldRow label="Status Verifikasi" value={`${verifikasi.icon} ${verifikasi.label}`} />
-        <FieldRow label="Trust Level" value={`${trustBadge.bintang} ${trustBadge.label}`} />
+        <FieldRow label="Status Verifikasi" value={
+          (() => {
+            const v = sellerStatusView(sellerTrust.status);
+            return `${v.icon} ${v.label}`;
+          })()
+        } />
+        <FieldRow label="Trust Level" value={trustBadge ? `${trustBadge.bintang} ${trustBadge.label}` : '—'} />
         <FieldRow
           label="Bergabung Sejak"
           value={bergabung ? formatBergabungSejak(bergabung) : '—'}
