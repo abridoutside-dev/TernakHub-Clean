@@ -8,8 +8,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
-import { getAllWorkspaces } from '../../../services/workspaceService';
+import { getAllWorkspaces, getSubscriptionPackages } from '../../../services/workspaceService';
 import type { WorkspaceRecord } from '../../../types/workspace';
+import type { SubscriptionPackage } from '../../../types/subscriptionAdmin';
 import {
   WS_PLAN_CONFIG,
   WS_STATUS_CONFIG,
@@ -88,16 +89,31 @@ function adaptWorkspaceRecord(w: WorkspaceRecord): AdminWorkspaceRecord {
 
 function useAdminWorkspaces() {
   const [workspaces, setWorkspaces] = useState<AdminWorkspaceRecord[]>([]);
+  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
   const [loading,    setLoading]    = useState(true);
 
   useEffect(() => {
-    getAllWorkspaces()
-      .then((records) => setWorkspaces(records.map(adaptWorkspaceRecord)))
-      .catch(() => setWorkspaces([]))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const [records, pkgs] = await Promise.all([
+          getAllWorkspaces(),
+          getSubscriptionPackages(),
+        ]);
+        if (cancelled) return;
+        setWorkspaces(records.map(adaptWorkspaceRecord));
+        setPackages(pkgs);
+      } catch {
+        if (!cancelled) setWorkspaces([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  return { workspaces, loading };
+  return { workspaces, loading, packages };
 }
 
 // ─── Shared components ────────────────────────────────────────────────────────
@@ -134,7 +150,7 @@ function LoadingState() {
 // ─── Export 1: WorkspacesPlansPage ────────────────────────────────────────────
 
 export function WorkspacesPlansPage() {
-  const { workspaces, loading } = useAdminWorkspaces();
+  const { workspaces, loading, packages } = useAdminWorkspaces();
   const [search,      setSearch]      = useState('');
   const [filterPlan,  setFilterPlan]  = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -162,7 +178,7 @@ export function WorkspacesPlansPage() {
   const hasFilter   = search || filterPlan;
   const resetFilters = () => { setSearch(''); setFilterPlan(''); setCurrentPage(1); };
 
-  const plans: WorkspacePlanTier[] = ['Free', 'Basic', 'Pro', 'Enterprise'];
+  const planOptions = useMemo(() => packages.map(p => ({ value: p.plan_key, label: p.name })), [packages]);
 
   return (
     <AdminLayout>
@@ -210,7 +226,7 @@ export function WorkspacesPlansPage() {
               style={{ padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, background: '#fff', cursor: 'pointer' }}
             >
               <option value="">Semua Paket</option>
-              {plans.map((p) => <option key={p} value={p}>{p}</option>)}
+              {planOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </label>
           {hasFilter && (

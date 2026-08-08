@@ -58,6 +58,10 @@ async function invoke<T>(
   return data.data;
 }
 
+export function repoListSubscriptionPackages(): Promise<SubscriptionPackage[]> {
+  return invoke('packages');
+}
+
 export function repoListSubscriptionAdmin(): Promise<SubscriptionAdminData> {
   return invoke('list');
 }

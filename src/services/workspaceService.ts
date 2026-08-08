@@ -136,6 +136,7 @@ import {
   repoListSubscriptionAdmin,
   repoListSubscriptionAudit,
   repoListSubscriptionHistory,
+  repoListSubscriptionPackages,
   repoListWorkspaceSubscriptionHistory,
   repoSetSubscriptionPackageStatus,
   repoTransitionSubscription,
@@ -654,6 +655,10 @@ function subscriptionError(error: unknown, fallback: string): SubscriptionServic
       code: error instanceof SubscriptionRepoError ? error.code : undefined,
     },
   };
+}
+
+export function getSubscriptionPackages(): Promise<SubscriptionPackage[]> {
+  return repoListSubscriptionPackages();
 }
 
 export function getSubscriptionAdmin(): Promise<SubscriptionAdminData> {

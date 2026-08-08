@@ -230,6 +230,8 @@ const FeedStoreSalesDetail = lazy(() => import('./routeBundles/feedStore').then(
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const UsersModule = lazy(() => import('./pages/admin/modules/UsersModule'));
 const WorkspacesModule = lazy(() => import('./pages/admin/modules/WorkspacesModule'));
+const AdminWorkspaceDetail = lazy(() => import('./pages/admin/modules/AdminWorkspaceDetail'));
+const AdminWorkspaceMembers = lazy(() => import('./pages/admin/modules/AdminWorkspaceMembers'));
 const MarketplaceModule = lazy(() => import('./pages/admin/modules/MarketplaceModule'));
 const LivestockModule = lazy(() => import('./pages/admin/modules/LivestockModule'));
 const FeedModule = lazy(() => import('./pages/admin/modules/FeedModule'));
@@ -693,6 +695,8 @@ export default function App() {
         <Route path="/admin/workspaces/verification" element={<WorkspacesVerificationPage />} />
         <Route path="/admin/workspaces/blocked"      element={<BlockedWorkspacesPage />} />
         <Route path="/admin/workspaces/pending"      element={<PendingRequestsPage />} />
+        <Route path="/admin/workspaces/members"      element={<AdminWorkspaceMembers />} />
+        <Route path="/admin/workspaces/:id"          element={<AdminWorkspaceDetail />} />
         {/* Marketplace */}
         <Route path="/admin/marketplace/transactions" element={<MarketplaceTransactionsPage />} />
         <Route path="/admin/marketplace/reports"      element={<MarketplaceReportsPage />} />

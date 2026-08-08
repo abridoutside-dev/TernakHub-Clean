@@ -4,13 +4,10 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 const PAGE_SIZE = 20;
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
-// adminWorkspacesData provides UI display-config constants (colors, icons, labels)
-// and AdminWorkspaceRecord type used for rendering only. All actual workspace data
-// is already fetched directly from Supabase below. No workspace CRUD goes through
-// this file.
 import {
   WS_STATUS_CONFIG,
   WS_PLAN_CONFIG,
@@ -20,6 +17,8 @@ import {
   type WorkspacePlanTier,
   type WsType,
 } from '../../../data/adminWorkspacesData';
+import { getSubscriptionPackages } from '../../../services/workspaceService';
+import type { SubscriptionPackage } from '../../../types/subscriptionAdmin';
 
 // ─── Supabase row shape ───────────────────────────────────────────────────────
 
@@ -201,16 +200,17 @@ function WorkspaceDetailDrawer({ ws, onClose }: { ws: AdminWorkspaceRecord; onCl
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WorkspacesModule() {
+  const navigate = useNavigate();
   const [rows, setRows]       = useState<AdminWorkspaceRecord[]>([]);
   const [totalCount, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
 
   const [nameQ, setNameQ]           = useState('');
   const [filterStatus, setStatus]   = useState('All');
   const [filterPlan, setPlan]       = useState('All');
   const [filterType, setType]       = useState('All');
-  const [selectedWs, setSelectedWs] = useState<AdminWorkspaceRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -218,14 +218,16 @@ export default function WorkspacesModule() {
     (async () => {
       try {
         setLoading(true); setError(null);
-        const [total, { data, error: fetchErr }] = await Promise.all([
+        const [total, { data, error: fetchErr }, pkgs] = await Promise.all([
           fetchCount('workspaces'),
           supabase.from('workspaces').select('*').order('created_at', { ascending: false }).limit(200),
+          getSubscriptionPackages(),
         ]);
         if (cancelled) return;
         if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
         setTotal(total);
         setRows((data ?? []).map(adaptWorkspace));
+        setPackages(pkgs);
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
       } finally {
@@ -317,8 +319,8 @@ export default function WorkspacesModule() {
               { value: 'Suspended', label: '🚫 Ditangguhkan' }, { value: 'Archived', label: '📦 Diarsipkan' },
             ]} />
             <SelectField label="Plan" value={filterPlan} onChange={setPlan} options={[
-              { value: 'All', label: 'Semua Paket' }, { value: 'Free', label: 'Free' },
-              { value: 'Basic', label: 'Basic' }, { value: 'Pro', label: 'Pro' }, { value: 'Enterprise', label: 'Enterprise' },
+              { value: 'All', label: 'Semua Paket' },
+              ...packages.map(p => ({ value: p.plan_key, label: p.name })),
             ]} />
             <SelectField label="Tipe" value={filterType} onChange={setType} options={[
               { value: 'All',               label: 'Semua Tipe' },
@@ -368,7 +370,7 @@ export default function WorkspacesModule() {
                 ) : pageRows.map((ws, idx) => {
                   const tc = WS_TYPE_CONFIG[ws.type] ?? WS_TYPE_CONFIG['Farm'];
                   return (
-                    <tr key={ws.id} onClick={() => setSelectedWs(ws)}
+                    <tr key={ws.id} onClick={() => navigate(`/admin/workspaces/${ws.id}`)}
                       style={{ cursor: 'pointer', background: idx % 2 === 0 ? '#fff' : '#fafbfc', borderBottom: '1px solid #f1f5f9', transition: 'background 0.12s' }}
                       onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = '#f0f9ff'}
                       onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = idx % 2 === 0 ? '#fff' : '#fafbfc'}
@@ -431,7 +433,6 @@ export default function WorkspacesModule() {
           </div>
         </div>
       </div>
-      {selectedWs && <WorkspaceDetailDrawer ws={selectedWs} onClose={() => setSelectedWs(null)} />}
     </AdminLayout>
   );
 }
