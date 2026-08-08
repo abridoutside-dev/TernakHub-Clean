@@ -317,7 +317,7 @@ export default function AdminWorkspaceDetail() {
 
         {changePlanOpen && (
           <div style={overlay}><div style={dialog}>
-            <div style={dialogHeader}><div><strong>Change Plan</strong><div style={{ color: muted, fontSize: 12 }}>{ws.workspace_name}</div></div><button type="button" onClick={() => { setChangePlanOpen(false); setSelectedPlanId(''); }} style={close}>×</button></div>
+            <div style={dialogHeader}><div><strong>Change Plan</strong><div style={{ color: muted, fontSize: 12 }}>{ws.workspace_name} · {currentPackage?.name ?? subscription?.plan_key ?? 'Belum ada paket'}</div></div><button type="button" onClick={() => { setChangePlanOpen(false); setSelectedPlanId(''); }} style={close}>×</button></div>
             <div style={{ padding: 20 }}>
               <label style={labelStyle}>Paket tujuan
                 <select value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)} style={{ ...inputStyle, background: '#fff' }}>
