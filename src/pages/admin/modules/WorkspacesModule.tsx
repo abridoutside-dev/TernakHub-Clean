@@ -218,15 +218,18 @@ export default function WorkspacesModule() {
     (async () => {
       try {
         setLoading(true); setError(null);
-        const [total, { data, error: fetchErr }, pkgs] = await Promise.all([
+        const [total, { data, error: fetchErr }] = await Promise.all([
           fetchCount('workspaces'),
           supabase.from('workspaces').select('*').order('created_at', { ascending: false }).limit(200),
-          getSubscriptionPackages(),
         ]);
         if (cancelled) return;
         if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
         setTotal(total);
         setRows((data ?? []).map(adaptWorkspace));
+        let pkgs: SubscriptionPackage[] = [];
+        try { pkgs = await getSubscriptionPackages(); } catch {
+          // subscription plan service gagal di-load; filter plan akan kosong.
+        }
         setPackages(pkgs);
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');

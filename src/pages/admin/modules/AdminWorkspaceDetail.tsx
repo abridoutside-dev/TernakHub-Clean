@@ -83,15 +83,18 @@ export default function AdminWorkspaceDetail() {
     if (!id) return;
     setLoading(true); setError(null);
     try {
-      const [wsData, subData, pkgData, transferData] = await Promise.all([
+      const [wsData, subData, transferData] = await Promise.all([
         getWorkspaceByUuid(id),
         getWorkspaceSubscription(id),
-        getSubscriptionPackages(),
         getOwnershipTransfers(),
       ]);
+      let pkgs: SubscriptionPackage[] = [];
+      try { pkgs = await getSubscriptionPackages(); } catch {
+        // subscription plan service gagal di-load; daftar paket akan kosong.
+      }
       setWs(wsData);
       setSubscription(subData);
-      setPackages(pkgData);
+      setPackages(pkgs);
       setUsers(transferData.users);
       if (wsData) {
         setEditForm({

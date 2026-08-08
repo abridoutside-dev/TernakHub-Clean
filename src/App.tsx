@@ -696,6 +696,7 @@ export default function App() {
         <Route path="/admin/workspaces/blocked"      element={<BlockedWorkspacesPage />} />
         <Route path="/admin/workspaces/pending"      element={<PendingRequestsPage />} />
         <Route path="/admin/workspaces/members"      element={<AdminWorkspaceMembers />} />
+        <Route path="/admin/workspaces/roles"        element={<AdminWorkspaceRolesPage />} />
         <Route path="/admin/workspaces/:id"          element={<AdminWorkspaceDetail />} />
         {/* Marketplace */}
         <Route path="/admin/marketplace/transactions" element={<MarketplaceTransactionsPage />} />

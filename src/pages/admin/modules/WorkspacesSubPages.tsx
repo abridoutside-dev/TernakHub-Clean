@@ -8,9 +8,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import { supabase } from '../../../lib/supabase';
-import { getAllWorkspaces, getSubscriptionPackages } from '../../../services/workspaceService';
+import { getAllWorkspaces, getSubscriptionPackages, getWorkspaceRoles } from '../../../services/workspaceService';
 import type { WorkspaceRecord } from '../../../types/workspace';
 import type { SubscriptionPackage } from '../../../types/subscriptionAdmin';
+import type { WorkspaceRoleRecord } from '../../../types/customRole';
 import {
   WS_PLAN_CONFIG,
   WS_STATUS_CONFIG,
@@ -97,12 +98,15 @@ function useAdminWorkspaces() {
     (async () => {
       try {
         setLoading(true);
-        const [records, pkgs] = await Promise.all([
+        const [records] = await Promise.all([
           getAllWorkspaces(),
-          getSubscriptionPackages(),
         ]);
         if (cancelled) return;
         setWorkspaces(records.map(adaptWorkspaceRecord));
+        let pkgs: SubscriptionPackage[] = [];
+        try { pkgs = await getSubscriptionPackages(); } catch {
+          // subscription plan service gagal di-load; paket tidak dapat ditampilkan.
+        }
         setPackages(pkgs);
       } catch {
         if (!cancelled) setWorkspaces([]);
@@ -933,6 +937,121 @@ export function PendingRequestsPage() {
             )}
           </div>
         </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
+export function AdminWorkspaceRolesPage() {
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
+  const [roles, setRoles] = useState<WorkspaceRoleRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const list = await getAllWorkspaces({ admin: true });
+        if (!cancelled) setWorkspaces(list);
+      } catch (e: unknown) {
+        if (!(e instanceof Error)) throw e;
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWorkspaceId) { setRoles([]); return; }
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError(null);
+      try {
+        const data = await getWorkspaceRoles(selectedWorkspaceId);
+        if (!cancelled) setRoles(data);
+      } catch (e: unknown) {
+        if (!(e instanceof Error)) throw e;
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedWorkspaceId]);
+
+  return (
+    <AdminLayout>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>Admin</span><span style={{ color: '#cbd5e1' }}>›</span>
+            <span>Workspace</span><span style={{ color: '#cbd5e1' }}>›</span>
+            <span style={{ color: '#3b82f6', fontWeight: 600 }}>Roles</span>
+          </div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a', letterSpacing: -0.3 }}>🔑 Workspace Roles</h1>
+          <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#64748b' }}>Pilih workspace untuk melihat dan mengelola peran.</p>
+        </div>
+
+        {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: '#b91c1c', fontSize: 13 }}>Gagal memuat data: {error}</div>}
+
+        <div style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', border: '1px solid #f1f5f9', marginBottom: 20 }}>
+          <label style={{ display: 'grid', gap: 5, fontSize: 12, fontWeight: 700, color: '#475569' }}>
+            Pilih Workspace
+            <select value={selectedWorkspaceId} onChange={e => setSelectedWorkspaceId(e.target.value)} style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', fontSize: 13 }}>
+              <option value="">— Pilih workspace —</option>
+              {workspaces.map(ws => <option key={ws.workspace_uuid} value={ws.workspace_uuid}>{ws.workspace_name}</option>)}
+            </select>
+          </label>
+        </div>
+
+        {selectedWorkspaceId && (
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f1f5f9', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              <strong style={{ color: '#0f172a' }}>Daftar Peran</strong>
+              <span style={{ marginLeft: 10, fontSize: 12, color: '#64748b' }}>{loading ? 'Memuat…' : `${roles.length} peran`}</span>
+            </div>
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Memuat peran…</div>
+            ) : roles.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Belum ada peran untuk workspace ini.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {['Nama', 'Jenis', 'Deskripsi', 'Status'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: 10, color: '#64748b', fontSize: 11.5, borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roles.map(role => (
+                      <tr key={role.id} style={{ borderTop: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: 10, fontWeight: 600, color: '#0f172a' }}>{role.name}</td>
+                        <td style={{ padding: 10 }}>
+                          <span style={{ padding: '2px 8px', borderRadius: 6, background: role.role_kind === 'builtin' ? '#dbeafe' : '#fef3c7', color: role.role_kind === 'builtin' ? '#1d4ed8' : '#b45309', fontSize: 11, fontWeight: 700 }}>
+                            {role.role_kind === 'builtin' ? 'Bawaan' : 'Kustom'}
+                          </span>
+                        </td>
+                        <td style={{ padding: 10, color: '#475569' }}>{role.description ?? '—'}</td>
+                        <td style={{ padding: 10 }}>
+                          <span style={{ padding: '2px 8px', borderRadius: 6, background: role.status === 'Active' ? '#d1fae5' : '#fee2e2', color: role.status === 'Active' ? '#047857' : '#b91c1c', fontSize: 11, fontWeight: 700 }}>
+                            {role.status === 'Active' ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
