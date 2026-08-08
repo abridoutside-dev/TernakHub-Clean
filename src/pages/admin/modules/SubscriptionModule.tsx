@@ -413,7 +413,7 @@ export default function SubscriptionModule() {
                         <td style={td}>{money(item.price_monthly)} / bln<br />{money(item.price_yearly)} / thn</td>
                         <td style={td}>{item.dependency_count ?? 0}</td>
                         <td style={td}>{item.is_active ? <Status value="Aktif" /> : <Status value="Nonaktif" />}</td>
-                        <td style={td}><Button secondary onClick={() => setDetail(item)}>Detail</Button></td>
+                        <td style={td}><Button secondary onClick={() => { setEditing(item); setShowEditor(true); }}>Edit</Button><Button secondary onClick={() => setDetail(item)}>Detail</Button></td>
                       </tr>
                     ))}
                   </tbody>
