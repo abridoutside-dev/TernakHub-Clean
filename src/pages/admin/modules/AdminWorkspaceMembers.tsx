@@ -100,8 +100,10 @@ export default function AdminWorkspaceMembers() {
         return;
       }
       setNotice({ kind: 'success', message: 'Role berhasil diubah.' });
-      setMembers(prev => prev.map(m => m.member_uuid === memberUuid ? result.data : m));
       setEditingMember(null);
+      const wsUuids = workspaces.map(w => w.workspace_uuid);
+      const memberList = await getWorkspaceMembersForWorkspaces(wsUuids);
+      setMembers(memberList);
     } catch (e: unknown) {
       setNotice({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal mengubah role.' });
     } finally {
