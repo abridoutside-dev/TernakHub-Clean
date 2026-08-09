@@ -257,7 +257,12 @@ export const adminUserService = {
   getProfile: (userId: string): Promise<UserProfileDetail> =>
     invokeAdminUsers<UserProfileDetail>('get-profile', { profile_id: userId }),
 
-  updateProfile: (userId: string, data: UserProfileUpdateInput): Promise<{ ok: boolean; profile?: unknown }> =>
-    invokeAdminUsers<{ ok: boolean; profile?: unknown }>('update-profile', { profile_id: userId, ...data }),
+  updateProfile: async (userId: string, data: UserProfileUpdateInput): Promise<{ ok: boolean; profile?: unknown }> => {
+    const raw = await invokeAdminUsers<unknown>('update-profile', { profile_id: userId, ...data });
+    if (raw && typeof raw === 'object' && 'ok' in raw) {
+      return raw as { ok: boolean; profile?: unknown };
+    }
+    return { ok: true, profile: raw };
+  },
 
 };

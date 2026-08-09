@@ -202,8 +202,7 @@ function ProfileDrawer({
           onSave={async data => {
             setLoading(true);
             try {
-              const result = await adminUserService.updateProfile(user.id, data);
-              if (!result.ok) throw new Error('Operasi tidak berhasil.');
+              await adminUserService.updateProfile(user.id, data);
               onToast('Profil berhasil diperbarui.', 'success');
               setEditOpen(false);
               onRefresh();
