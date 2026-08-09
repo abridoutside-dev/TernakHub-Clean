@@ -270,6 +270,7 @@ const WorkspacesPlansPage = lazy(() => import('./pages/admin/modules/WorkspacesS
 const WorkspacesVerificationPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.WorkspacesVerificationPage })));
 const BlockedWorkspacesPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.BlockedWorkspacesPage })));
 const PendingRequestsPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.PendingRequestsPage })));
+const AdminWorkspaceRolesPage = lazy(() => import('./pages/admin/modules/WorkspacesSubPages').then(m => ({ default: m.AdminWorkspaceRolesPage })));
 const MarketplaceTransactionsPage = lazy(() => import('./pages/admin/modules/MarketplaceSubPages').then(m => ({ default: m.MarketplaceTransactionsPage })));
 const MarketplaceReportsPage = lazy(() => import('./pages/admin/modules/MarketplaceSubPages').then(m => ({ default: m.MarketplaceReportsPage })));
 const FeedStockPage = lazy(() => import('./pages/admin/modules/FeedSubPages').then(m => ({ default: m.FeedStockPage })));
