@@ -162,7 +162,8 @@ async function main(request: Request): Promise<Response> {
 
   if (operation === 'add') {
     const role = dbRole(payload.role);
-    if (!role || role === 'Owner' || role === 'Guest') return errorResponse('Role member tidak valid.');
+    if (!role || role === 'Guest') return errorResponse('Role member tidak valid.');
+    if (role === 'Owner' && !isSystemAdmin(authData.user)) return errorResponse('Role member tidak valid.');
     let userId = uuid(payload.user_id) ? payload.user_id as string : '';
     if (!userId && typeof payload.email === 'string' && payload.email.trim()) {
       const result = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -194,7 +195,7 @@ async function main(request: Request): Promise<Response> {
     (member) => member.id === memberId && member.workspace_id === workspaceId,
   );
   if (!target) return errorResponse('Member tidak ditemukan.', 404);
-  if (target.role === 'Owner') {
+  if (!isSystemAdmin(authData.user) && target.role === 'Owner') {
     if (operation === 'remove') return errorResponse('Owner tidak dapat dihapus dari workspace.', 409);
     return errorResponse('Owner tidak dapat diubah.', 409);
   }
@@ -215,7 +216,7 @@ async function main(request: Request): Promise<Response> {
     const body: Record<string, string> = {};
     const role = payload.role === undefined ? null : dbRole(payload.role);
     const status = payload.status === undefined ? null : (payload.status === 'Active' ? 'Aktif' : payload.status === 'Inactive' ? 'Nonaktif' : null);
-    if (payload.role !== undefined && (!role || role === 'Owner' || role === 'Guest')) return errorResponse('Role member tidak valid.');
+    if (payload.role !== undefined && (!role || role === 'Guest' || (role === 'Owner' && !isSystemAdmin(authData.user)))) return errorResponse('Role member tidak valid.');
     if (payload.status !== undefined && !status) return errorResponse('Status member tidak valid.');
     if (role) body.role = role;
     if (status) body.status = status;

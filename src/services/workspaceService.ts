@@ -284,13 +284,16 @@ export async function updateWorkspaceMemberRole(
   memberUuid: string,
   newRole: MemberRole,
   workspaceUuid: string,
+  options?: { admin?: boolean },
 ): Promise<ServiceResult<WorkspaceMemberRecord>> {
-  const member = getMemberByUuid(memberUuid) ?? null;
-  if (!member) {
-    return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
-  }
-  if (member.role === 'Owner') {
-    return { ok: false, errors: [{ field: 'general', message: 'Role Owner tidak dapat diubah.' }] };
+  if (!options?.admin) {
+    const member = getMemberByUuid(memberUuid) ?? null;
+    if (!member) {
+      return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+    }
+    if (member.role === 'Owner') {
+      return { ok: false, errors: [{ field: 'general', message: 'Role Owner tidak dapat diubah.' }] };
+    }
   }
 
   try {
@@ -309,13 +312,16 @@ export async function updateWorkspaceMemberStatus(
   memberUuid: string,
   status: MemberStatus,
   workspaceUuid: string,
+  options?: { admin?: boolean },
 ): Promise<ServiceResult<WorkspaceMemberRecord>> {
-  const member = getMemberByUuid(memberUuid) ?? null;
-  if (!member) {
-    return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
-  }
-  if (member.role === 'Owner') {
-    return { ok: false, errors: [{ field: 'general', message: 'Status Owner tidak dapat diubah.' }] };
+  if (!options?.admin) {
+    const member = getMemberByUuid(memberUuid) ?? null;
+    if (!member) {
+      return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
+    }
+    if (member.role === 'Owner') {
+      return { ok: false, errors: [{ field: 'general', message: 'Status Owner tidak dapat diubah.' }] };
+    }
   }
 
   try {
@@ -334,12 +340,13 @@ export async function removeWorkspaceMember(
   memberUuid: string,
   workspaceUuid: string,
   preflight: WorkspaceMemberRemovalPreflight,
+  options?: { admin?: boolean },
 ): Promise<ServiceResult<{ removed: boolean }>> {
   const member = preflight.member;
   if (!member) {
     return { ok: false, errors: [{ field: 'general', message: 'Member tidak ditemukan.' }] };
   }
-  if (member.role === 'Owner') {
+  if (!options?.admin && member.role === 'Owner') {
     return { ok: false, errors: [{ field: 'general', message: 'Owner tidak dapat dihapus dari workspace.' }] };
   }
 

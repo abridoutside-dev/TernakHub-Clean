@@ -94,7 +94,7 @@ export default function AdminWorkspaceMembers() {
   const handleRoleChange = async (memberUuid: string, workspaceUuid: string) => {
     setBusy(true);
     try {
-      const result = await updateWorkspaceMemberRole(memberUuid, editRole as WorkspaceMemberRecord['role'], workspaceUuid);
+      const result = await updateWorkspaceMemberRole(memberUuid, editRole as WorkspaceMemberRecord['role'], workspaceUuid, { admin: true });
       if (!result.ok) {
         setNotice({ kind: 'error', message: result.errors[0]?.message ?? 'Gagal mengubah role.' });
         return;
@@ -115,7 +115,7 @@ export default function AdminWorkspaceMembers() {
     const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
     setBusy(true);
     try {
-      const result = await updateWorkspaceMemberStatus(memberUuid, newStatus, workspaceUuid);
+      const result = await updateWorkspaceMemberStatus(memberUuid, newStatus, workspaceUuid, { admin: true });
       if (!result.ok) {
         setNotice({ kind: 'error', message: result.errors[0]?.message ?? 'Gagal mengubah status.' });
         return;
@@ -140,7 +140,7 @@ export default function AdminWorkspaceMembers() {
         setNotice({ kind: 'error', message: 'Pre-check member gagal.' });
         return;
       }
-      const result = await removeWorkspaceMember(memberUuid, workspaceUuid, preflight);
+      const result = await removeWorkspaceMember(memberUuid, workspaceUuid, preflight, { admin: true });
       if (!result.ok) {
         setNotice({ kind: 'error', message: result.errors[0]?.message ?? 'Gagal menghapus member.' });
         return;
@@ -234,9 +234,9 @@ export default function AdminWorkspaceMembers() {
                             </>
                           ) : (
                             <>
-                              <Button secondary onClick={() => { setEditingMember(m.member_uuid); setEditRole(m.role); }} disabled={busy || m.role === 'Owner'}>Edit Role</Button>
-                              <Button secondary onClick={() => void handleStatusToggle(m.member_uuid, m.workspace_uuid, m.status)} disabled={busy || m.role === 'Owner'}>{m.status === 'Active' ? 'Deactivate' : 'Activate'}</Button>
-                              <Button danger onClick={() => void handleRemove(m.member_uuid, m.workspace_uuid)} disabled={busy || m.role === 'Owner'}>Remove</Button>
+                              <Button secondary onClick={() => { setEditingMember(m.member_uuid); setEditRole(m.role); }} disabled={busy}>Edit Role</Button>
+                              <Button secondary onClick={() => void handleStatusToggle(m.member_uuid, m.workspace_uuid, m.status)} disabled={busy}>{m.status === 'Active' ? 'Deactivate' : 'Activate'}</Button>
+                              <Button danger onClick={() => void handleRemove(m.member_uuid, m.workspace_uuid)} disabled={busy}>Remove</Button>
                             </>
                           )}
                         </div>
