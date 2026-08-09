@@ -687,7 +687,7 @@ async function handleAdminUsers(
       return errorResponse(await responseMessage(response, 'Profil pengguna gagal diperbarui'), response.status);
     }
     const updated = await response.json();
-    return jsonResponse({ ok: true, data: Array.isArray(updated) ? updated[0] : updated });
+    return jsonResponse({ ok: true, data: { ok: true, profile: Array.isArray(updated) ? updated[0] : updated } });
   }
 
   if (!id) return errorResponse('User ID diperlukan', 400);
