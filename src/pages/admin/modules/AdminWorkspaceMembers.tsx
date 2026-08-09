@@ -121,7 +121,9 @@ export default function AdminWorkspaceMembers() {
         return;
       }
       setNotice({ kind: 'success', message: 'Status member berhasil diubah.' });
-      setMembers(prev => prev.map(m => m.member_uuid === memberUuid ? result.data : m));
+      const wsUuids = workspaces.map(w => w.workspace_uuid);
+      const memberList = await getWorkspaceMembersForWorkspaces(wsUuids);
+      setMembers(memberList);
     } catch (e: unknown) {
       setNotice({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal mengubah status.' });
     } finally {
@@ -144,7 +146,9 @@ export default function AdminWorkspaceMembers() {
         return;
       }
       setNotice({ kind: 'success', message: 'Member berhasil dihapus.' });
-      setMembers(prev => prev.filter(m => m.member_uuid !== memberUuid));
+      const wsUuids = workspaces.map(w => w.workspace_uuid);
+      const memberList = await getWorkspaceMembersForWorkspaces(wsUuids);
+      setMembers(memberList);
     } catch (e: unknown) {
       setNotice({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal menghapus member.' });
     } finally {
