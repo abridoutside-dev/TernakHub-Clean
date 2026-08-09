@@ -229,6 +229,7 @@ const FeedStoreSalesForm = lazy(() => import('./routeBundles/feedStore').then(m 
 const FeedStoreSalesDetail = lazy(() => import('./routeBundles/feedStore').then(m => ({ default: m.FeedStoreSalesDetail })));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const UsersModule = lazy(() => import('./pages/admin/modules/UsersModule'));
+const AdminUserProfilesModule = lazy(() => import('./pages/admin/modules/AdminUserProfilesModule'));
 const WorkspacesModule = lazy(() => import('./pages/admin/modules/WorkspacesModule'));
 const AdminWorkspaceDetail = lazy(() => import('./pages/admin/modules/AdminWorkspaceDetail'));
 const AdminWorkspaceMembers = lazy(() => import('./pages/admin/modules/AdminWorkspaceMembers'));
@@ -666,6 +667,7 @@ export default function App() {
       <Route element={<AdminGuard />}>
         <Route path="/admin"                element={<AdminDashboard />} />
         <Route path="/admin/users"          element={<UsersModule />} />
+        <Route path="/admin/users/profiles" element={<AdminUserProfilesModule />} />
         <Route path="/admin/workspaces"     element={<WorkspacesModule />} />
         <Route path="/admin/marketplace"    element={<MarketplaceModule />} />
         <Route path="/admin/livestock"      element={<LivestockModule />} />

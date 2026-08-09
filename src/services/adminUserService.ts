@@ -107,6 +107,107 @@ export interface UserStats {
   anonymous: number;
 }
 
+export interface UserProfileDetail {
+  user: {
+    id: string;
+    email: string;
+    phone: string;
+    created_at: string;
+    updated_at?: string;
+    last_sign_in_at: string | null;
+    email_confirmed_at: string | null;
+    banned_until: string | null;
+    status: UserStatus;
+    is_admin: boolean;
+    providers: string[];
+    mfa_enabled: boolean;
+  };
+  profile: {
+    id: string;
+    full_name: string | null;
+    display_name: string | null;
+    phone_number: string | null;
+    avatar_url: string | null;
+    cover_url: string | null;
+    bio: string | null;
+    ktp_number: string | null;
+    ktp_verified: boolean;
+    ktp_front_url: string | null;
+    ktp_back_url: string | null;
+    whatsapp_number: string | null;
+    notification_preferences: Record<string, unknown>;
+    security_preferences: Record<string, unknown>;
+    onboarding_completed: boolean;
+    onboarding_step: number;
+    created_at: string;
+    updated_at: string;
+  } | null;
+}
+
+export interface UserProfileListItem {
+  user_id: string;
+  email: string;
+  phone: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  banned_until: string | null;
+  status: UserStatus;
+  is_admin: boolean;
+  profile: {
+    id: string;
+    full_name: string | null;
+    display_name: string | null;
+    phone_number: string | null;
+    avatar_url: string | null;
+    cover_url: string | null;
+    bio: string | null;
+    ktp_number: string | null;
+    ktp_verified: boolean;
+    ktp_front_url: string | null;
+    ktp_back_url: string | null;
+    whatsapp_number: string | null;
+    notification_preferences: Record<string, unknown>;
+    security_preferences: Record<string, unknown>;
+    onboarding_completed: boolean;
+    onboarding_step: number;
+    created_at: string;
+    updated_at: string;
+  } | null;
+}
+
+export interface UserProfileListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface UserProfileListResponse {
+  profiles: UserProfileListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface UserProfileUpdateInput {
+  full_name?: string | null;
+  display_name?: string | null;
+  phone_number?: string | null;
+  avatar_url?: string | null;
+  cover_url?: string | null;
+  bio?: string | null;
+  ktp_number?: string | null;
+  ktp_verified?: boolean;
+  ktp_front_url?: string | null;
+  ktp_back_url?: string | null;
+  whatsapp_number?: string | null;
+  notification_preferences?: Record<string, unknown>;
+  security_preferences?: Record<string, unknown>;
+  onboarding_completed?: boolean;
+  onboarding_step?: number;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -145,5 +246,18 @@ export const adminUserService = {
 
   signOut: (id: string): Promise<{ ok: boolean }> =>
     invokeAdminUsers<{ ok: boolean }>('sign-out', { id }),
+
+  listProfiles: (params: UserProfileListParams = {}): Promise<UserProfileListResponse> => {
+    const payload = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== ''),
+    );
+    return invokeAdminUsers<UserProfileListResponse>('list-profiles', payload);
+  },
+
+  getProfile: (userId: string): Promise<UserProfileDetail> =>
+    invokeAdminUsers<UserProfileDetail>('get-profile', { profile_id: userId }),
+
+  updateProfile: (userId: string, data: UserProfileUpdateInput): Promise<{ ok: boolean; profile?: unknown }> =>
+    invokeAdminUsers<{ ok: boolean; profile?: unknown }>('update-profile', { profile_id: userId, ...data }),
 
 };

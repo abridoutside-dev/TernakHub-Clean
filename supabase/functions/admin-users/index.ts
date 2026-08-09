@@ -72,6 +72,27 @@ interface AuthUser {
   is_anonymous?: boolean;
 }
 
+interface ProfileFull {
+  id: string;
+  full_name: string | null;
+  display_name: string | null;
+  phone_number: string | null;
+  avatar_url: string | null;
+  cover_url: string | null;
+  bio: string | null;
+  ktp_number: string | null;
+  ktp_verified: boolean;
+  ktp_front_url: string | null;
+  ktp_back_url: string | null;
+  whatsapp_number: string | null;
+  notification_preferences: Record<string, unknown>;
+  security_preferences: Record<string, unknown>;
+  onboarding_completed: boolean;
+  onboarding_step: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface Profile {
   id: string;
   full_name?: string | null;
@@ -271,6 +292,13 @@ async function readProfiles(url: string, key: string): Promise<Map<string, Profi
   return new Map((Array.isArray(profiles) ? profiles : []).map(profile => [profile.id, profile]));
 }
 
+async function readFullProfiles(url: string, key: string): Promise<Map<string, ProfileFull>> {
+  const response = await restFetch(url, '/user_profiles?select=*', key);
+  if (!response.ok) throw new Error(await responseMessage(response, 'Profil pengguna tidak dapat dimuat'));
+  const profiles = await response.json() as ProfileFull[];
+  return new Map((Array.isArray(profiles) ? profiles : []).map(profile => [profile.id, profile]));
+}
+
 async function readMemberships(url: string, key: string, userId: string): Promise<unknown[]> {
   const response = await restFetch(
     url,
@@ -435,6 +463,7 @@ async function handleAdminUsers(
     'get-workspaces', 'get-dependencies', 'transfer-ownership', 'delete-workspace',
     'remove-role', 'remove-invitation', 'add-workspace', 'update-workspace', 'remove-workspace',
     'list-workspaces', 'list-workspace-members',
+    'list-profiles', 'get-profile', 'update-profile',
   ]);
   if (!supportedOperations.has(operation)) return errorResponse('Operasi pengguna tidak dikenali', 400);
 
@@ -564,6 +593,101 @@ async function handleAdminUsers(
       };
     });
     return jsonResponse({ ok: true, data });
+  }
+
+  if (operation === 'list-profiles') {
+    const fetched = await fetchAllUsers(url, serviceRole);
+    const profiles = await readFullProfiles(url, serviceRole);
+    const page = Math.max(1, Number(payload.page) || 1);
+    const limit = Math.min(Math.max(1, Number(payload.limit) || 20), 100);
+    const search = typeof payload.search === 'string' ? payload.search.toLowerCase().trim() : '';
+    let items = fetched.users.map(user => {
+      const profile = profiles.get(user.id);
+      return {
+        user_id: user.id,
+        email: user.email ?? '',
+        phone: user.phone ?? '',
+        created_at: user.created_at ?? '',
+        last_sign_in_at: user.last_sign_in_at ?? null,
+        email_confirmed_at: user.email_confirmed_at ?? null,
+        banned_until: user.banned_until ?? null,
+        status: status(user),
+        is_admin: isAdmin(user),
+        profile: profile ?? null,
+      };
+    });
+    if (search) {
+      items = items.filter(item => {
+        const profile = item.profile;
+        const name = (profile?.full_name ?? profile?.display_name ?? '').toLowerCase();
+        return name.includes(search)
+          || item.email.toLowerCase().includes(search)
+          || item.user_id.toLowerCase().includes(search)
+          || (item.phone ?? '').includes(search);
+      });
+    }
+    const total = items.length;
+    const start = (page - 1) * limit;
+    return jsonResponse({
+      ok: true,
+      data: {
+        profiles: items.slice(start, start + limit),
+        total,
+        page,
+        limit,
+        pages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  }
+
+  if (operation === 'get-profile') {
+    const profileId = typeof payload.profile_id === 'string' ? payload.profile_id : '';
+    if (!profileId) return errorResponse('Profile ID diperlukan', 400);
+    const invalidId = requireUuid(profileId, 'Profile ID');
+    if (invalidId) return errorResponse(invalidId, 400);
+    const [userResponse, profileResponse] = await Promise.all([
+      authFetch(url, `/users/${profileId}`, serviceRole),
+      restFetch(url, `/user_profiles?id=eq.${encodeURIComponent(profileId)}&select=*`, serviceRole),
+    ]);
+    if (!userResponse.ok) {
+      return errorResponse(await responseMessage(userResponse, 'User tidak ditemukan'), userResponse.status);
+    }
+    if (!profileResponse.ok) {
+      return errorResponse(await responseMessage(profileResponse, 'Profil tidak ditemukan'), profileResponse.status);
+    }
+    const user = await userResponse.json() as AuthUser;
+    const profiles = await profileResponse.json() as ProfileFull[];
+    const profile = Array.isArray(profiles) ? profiles[0] : null;
+    return jsonResponse({ ok: true, data: { user, profile } });
+  }
+
+  if (operation === 'update-profile') {
+    const profileId = typeof payload.profile_id === 'string' ? payload.profile_id : '';
+    if (!profileId) return errorResponse('Profile ID diperlukan', 400);
+    const invalidId = requireUuid(profileId, 'Profile ID');
+    if (invalidId) return errorResponse(invalidId, 400);
+    const allowedFields = [
+      'full_name', 'display_name', 'phone_number', 'avatar_url', 'cover_url',
+      'bio', 'ktp_number', 'ktp_verified', 'ktp_front_url', 'ktp_back_url',
+      'whatsapp_number', 'notification_preferences', 'security_preferences',
+      'onboarding_completed', 'onboarding_step',
+    ];
+    const updateBody: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (payload[field] !== undefined) updateBody[field] = payload[field];
+    }
+    if (Object.keys(updateBody).length === 0) {
+      return errorResponse('Tidak ada field profil yang akan diperbarui', 400);
+    }
+    const response = await restFetch(url, `/user_profiles?id=eq.${encodeURIComponent(profileId)}`, serviceRole, {
+      method: 'PATCH',
+      body: JSON.stringify(updateBody),
+    });
+    if (!response.ok) {
+      return errorResponse(await responseMessage(response, 'Profil pengguna gagal diperbarui'), response.status);
+    }
+    const updated = await response.json();
+    return jsonResponse({ ok: true, data: Array.isArray(updated) ? updated[0] : updated });
   }
 
   if (!id) return errorResponse('User ID diperlukan', 400);

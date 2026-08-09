@@ -193,8 +193,8 @@ export const ADMIN_NAV_DOMAINS: AdminNavDomain[] = [
         label: 'User Profiles',
         icon: '🪪',
         path: '/admin/users/profiles',
-        syncStatus: 'not_implemented',
-        health: 'unknown',
+        syncStatus: 'synced',
+        health: 'healthy',
       },
       {
         key: 'workspaces',
