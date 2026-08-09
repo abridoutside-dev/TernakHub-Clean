@@ -33,11 +33,12 @@ function isUuid(value: unknown): value is string {
 }
 
 function isSystemAdmin(user: { user_metadata?: Record<string, unknown> | null; app_metadata?: Record<string, unknown> | null }): boolean {
-  const userMetadata = user.user_metadata ?? {};
+  const metadata = user.user_metadata ?? {};
   const appMetadata = user.app_metadata ?? {};
-  return userMetadata.is_admin === true
-    || userMetadata.role === 'admin'
-    || userMetadata.role === 'system_admin'
+  return metadata.is_admin === true
+    || metadata.role === 'admin'
+    || metadata.role === 'system_admin'
+    || appMetadata.role === 'admin'
     || appMetadata.role === 'system_admin';
 }
 
@@ -58,6 +59,12 @@ function roleDescription(role: BuiltinRole): string {
       : role === 'Manager' ? 'Pengawasan operasional dan laporan.'
         : role === 'Staff' ? 'Akses operasional harian.'
           : 'Akses baca untuk workspace.';
+}
+
+function sanitizeErrorMessage(message: string, fallback: string): string {
+  const normalized = message.replace(/\s+/g, ' ').trim();
+  if (!normalized || normalized.length > 240 || /[\r\n]/.test(message)) return fallback;
+  return normalized.replace(/\s*\[[A-Z0-9_:-]+\]\s*$/i, '').trim() || fallback;
 }
 
 async function main(request: Request): Promise<Response> {
@@ -235,10 +242,11 @@ async function main(request: Request): Promise<Response> {
   return fail('Operasi workspace roles tidak dikenal.');
 }
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   try {
     return await main(request);
-  } catch {
-    return fail('Operasi workspace roles gagal.', 'INTERNAL', 500);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'Operasi workspace roles gagal.';
+    return fail(sanitizeErrorMessage(message, 'Operasi workspace roles gagal.'), 'INTERNAL', 500);
   }
 });
