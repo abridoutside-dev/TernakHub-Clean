@@ -43,7 +43,7 @@ async function errorMessage(error: unknown, fallback: string): Promise<string> {
       if (candidate.context.status) return fallback;
     }
     if (typeof candidate.message === 'string' && candidate.message.trim()
-      && !/edge function returned non-2xx|failed to send a request/i.test(candidate.message)) {
+      && !/edge function returned.*non-2xx|failed to send a request/i.test(candidate.message)) {
       return candidate.message.replace(/\s+/g, ' ').trim();
     }
   }
