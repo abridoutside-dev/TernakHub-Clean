@@ -7,7 +7,6 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 const PAGE_SIZE = 20;
 import AdminLayout from '../layout/AdminLayout';
-import { supabase } from '../../../lib/supabase';
 import {
   WS_STATUS_CONFIG,
   WS_PLAN_CONFIG,
@@ -18,6 +17,7 @@ import {
   type WsType,
 } from '../../../data/adminWorkspacesData';
 import { getSubscriptionPackages } from '../../../services/workspaceService';
+import { invokeAdminUsers } from '../../../repositories/adminUserRepository';
 import type { SubscriptionPackage } from '../../../types/subscriptionAdmin';
 
 // ─── Supabase row shape ───────────────────────────────────────────────────────
@@ -73,11 +73,80 @@ function adaptWorkspace(w: WorkspaceRow): AdminWorkspaceRecord {
   };
 }
 
-async function fetchCount(table: string): Promise<number> {
-  const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true });
-  if (error || count === null) return 0;
-  return count;
-}
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function WorkspacesModule() {
+  const navigate = useNavigate();
+  const [rows, setRows]       = useState<AdminWorkspaceRecord[]>([]);
+  const [totalCount, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
+
+  const [nameQ, setNameQ]           = useState('');
+  const [filterStatus, setStatus]   = useState('All');
+  const [filterPlan, setPlan]       = useState('All');
+  const [filterType, setType]       = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const workspaces = await invokeAdminUsers<WorkspaceRow[]>('list-workspaces');
+        if (cancelled) return;
+        const mapped = workspaces.map(adaptWorkspace);
+        setTotal(workspaces.length);
+        setRows(mapped);
+        let pkgs: SubscriptionPackage[] = [];
+        try { pkgs = await getSubscriptionPackages(); } catch {
+          // subscription plan service gagal di-load; filter plan akan kosong.
+        }
+        setPackages(pkgs);
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = useMemo(() => {
+    let r = rows;
+    if (nameQ) { const q = nameQ.toLowerCase(); r = r.filter(w => w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q)); }
+    if (filterStatus !== 'All') r = r.filter(w => w.status === filterStatus);
+    if (filterPlan !== 'All') r = r.filter(w => w.plan === filterPlan);
+    if (filterType !== 'All') r = r.filter(w => w.type === filterType);
+    return r;
+  }, [rows, nameQ, filterStatus, filterPlan, filterType]);
+
+  const hasFilter = nameQ || filterStatus !== 'All' || filterPlan !== 'All' || filterType !== 'All';
+  const resetFilters = () => { setNameQ(''); setStatus('All'); setPlan('All'); setType('All'); setCurrentPage(1); };
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage   = Math.min(currentPage, totalPages);
+  const pageStart  = (safePage - 1) * PAGE_SIZE;
+  const pageRows   = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const typeBreakdown = useMemo(() => {
+    const m: Partial<Record<WsType, number>> = {};
+    rows.forEach(r => { m[r.type] = (r.type ?? '') ? ((m[r.type] ?? 0) + 1) : 0; });
+    return m;
+  }, [rows]);
+
+  const statCards = [
+    { label: 'Total Workspaces',    value: totalCount.toLocaleString(),                             icon: '🏢', color: '#3b82f6', delta: 'Semua workspace' },
+    { label: 'Dimuat',              value: rows.length.toLocaleString(),                             icon: '📋', color: '#10b981', delta: 'Dari Supabase' },
+    { label: 'Filter Aktif',        value: filtered.length.toLocaleString(),                         icon: '🔍', color: '#8b5cf6', delta: 'Setelah filter' },
+    { label: 'Peternakan',          value: (typeBreakdown['Farm']             ?? 0).toLocaleString(), icon: '🐄', color: '#059669', delta: 'Farm' },
+    { label: 'Toko Pakan',          value: (typeBreakdown['FeedStore']        ?? 0).toLocaleString(), icon: '🌾', color: '#d97706', delta: 'FeedStore' },
+    { label: 'Klinik Hewan',        value: (typeBreakdown['VeterinaryClinic'] ?? 0).toLocaleString(), icon: '🏥', color: '#0ea5e9', delta: 'VeterinaryClinic' },
+    { label: 'Dokter Hewan',        value: (typeBreakdown['VeterinaryDoctor'] ?? 0).toLocaleString(), icon: '👨‍⚕️', color: '#8b5cf6', delta: 'VeterinaryDoctor' },
+    { label: 'Transportasi',        value: (typeBreakdown['Transport']        ?? 0).toLocaleString(), icon: '🚛', color: '#f59e0b', delta: 'Transport' },
+    { label: 'Marketplace',         value: (typeBreakdown['Marketplace']      ?? 0).toLocaleString(), icon: '🛒', color: '#ec4899', delta: 'Marketplace' },
+  ];
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 
@@ -98,9 +167,7 @@ function PlanBadge({ plan }: { plan: WorkspacePlanTier }) {
 function TypeBadge({ type }: { type: WsType }) {
   const c = WS_TYPE_CONFIG[type] ?? WS_TYPE_CONFIG['Farm'];
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
-      {c.icon} {c.label}
-    </span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: c.color, fontWeight: 600 }}>{c.icon}</span>
   );
 }
 
@@ -196,84 +263,6 @@ function WorkspaceDetailDrawer({ ws, onClose }: { ws: AdminWorkspaceRecord; onCl
     </>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function WorkspacesModule() {
-  const navigate = useNavigate();
-  const [rows, setRows]       = useState<AdminWorkspaceRecord[]>([]);
-  const [totalCount, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
-
-  const [nameQ, setNameQ]           = useState('');
-  const [filterStatus, setStatus]   = useState('All');
-  const [filterPlan, setPlan]       = useState('All');
-  const [filterType, setType]       = useState('All');
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true); setError(null);
-        const [total, { data, error: fetchErr }] = await Promise.all([
-          fetchCount('workspaces'),
-          supabase.from('workspaces').select('*').order('created_at', { ascending: false }).limit(200),
-        ]);
-        if (cancelled) return;
-        if (fetchErr) { setError(fetchErr.message); setLoading(false); return; }
-        setTotal(total);
-        setRows((data ?? []).map(adaptWorkspace));
-        let pkgs: SubscriptionPackage[] = [];
-        try { pkgs = await getSubscriptionPackages(); } catch {
-          // subscription plan service gagal di-load; filter plan akan kosong.
-        }
-        setPackages(pkgs);
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat data');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const filtered = useMemo(() => {
-    let r = rows;
-    if (nameQ) { const q = nameQ.toLowerCase(); r = r.filter(w => w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q)); }
-    if (filterStatus !== 'All') r = r.filter(w => w.status === filterStatus);
-    if (filterPlan !== 'All') r = r.filter(w => w.plan === filterPlan);
-    if (filterType !== 'All') r = r.filter(w => w.type === filterType);
-    return r;
-  }, [rows, nameQ, filterStatus, filterPlan, filterType]);
-
-  const hasFilter = nameQ || filterStatus !== 'All' || filterPlan !== 'All' || filterType !== 'All';
-  const resetFilters = () => { setNameQ(''); setStatus('All'); setPlan('All'); setType('All'); setCurrentPage(1); };
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage   = Math.min(currentPage, totalPages);
-  const pageStart  = (safePage - 1) * PAGE_SIZE;
-  const pageRows   = filtered.slice(pageStart, pageStart + PAGE_SIZE);
-
-  const typeBreakdown = useMemo(() => {
-    const m: Partial<Record<WsType, number>> = {};
-    rows.forEach(r => { m[r.type] = (m[r.type] ?? 0) + 1; });
-    return m;
-  }, [rows]);
-
-  const statCards = [
-    { label: 'Total Workspaces',    value: totalCount.toLocaleString(),                             icon: '🏢', color: '#3b82f6', delta: 'Semua workspace' },
-    { label: 'Dimuat',              value: rows.length.toLocaleString(),                             icon: '📋', color: '#10b981', delta: 'Dari Supabase' },
-    { label: 'Filter Aktif',        value: filtered.length.toLocaleString(),                         icon: '🔍', color: '#8b5cf6', delta: 'Setelah filter' },
-    { label: 'Peternakan',          value: (typeBreakdown['Farm']             ?? 0).toLocaleString(), icon: '🐄', color: '#059669', delta: 'Farm' },
-    { label: 'Toko Pakan',          value: (typeBreakdown['FeedStore']        ?? 0).toLocaleString(), icon: '🌾', color: '#d97706', delta: 'FeedStore' },
-    { label: 'Klinik Hewan',        value: (typeBreakdown['VeterinaryClinic'] ?? 0).toLocaleString(), icon: '🏥', color: '#0ea5e9', delta: 'VeterinaryClinic' },
-    { label: 'Dokter Hewan',        value: (typeBreakdown['VeterinaryDoctor'] ?? 0).toLocaleString(), icon: '👨‍⚕️', color: '#8b5cf6', delta: 'VeterinaryDoctor' },
-    { label: 'Transportasi',        value: (typeBreakdown['Transport']        ?? 0).toLocaleString(), icon: '🚛', color: '#f59e0b', delta: 'Transport' },
-    { label: 'Marketplace',         value: (typeBreakdown['Marketplace']      ?? 0).toLocaleString(), icon: '🛒', color: '#ec4899', delta: 'Marketplace' },
-  ];
 
   return (
     <AdminLayout>
