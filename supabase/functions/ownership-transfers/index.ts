@@ -207,7 +207,12 @@ async function main(request: Request): Promise<Response> {
   try { payload = await request.json() as Record<string, unknown>; } catch { return fail('Request body harus berupa JSON.'); }
   if (payload.action !== 'ownership-transfers') return fail('Action tidak dikenal.');
   const operation = typeof payload.operation === 'string' ? payload.operation : '';
-  const base = await readBase(url, serviceKey);
+  let base;
+  try {
+    base = await readBase(url, serviceKey);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : 'Data dasar tidak dapat dimuat.', 'DATABASE', 500);
+  }
   const workspaceMap = new Map(base.workspaces.map((workspace) => [workspace.id, workspace]));
   const map = (row: TransferRow) => mapTransfer(row, workspaceMap, base.users, base.profiles, base.members);
 
@@ -239,7 +244,12 @@ async function main(request: Request): Promise<Response> {
   if (!mapped) return fail('Workspace transfer tidak ditemukan.', 'NOT_FOUND', 404);
 
   if (operation === 'detail' || operation === 'history') {
-    const details = await readHistoryAndAudit(url, serviceKey, transferId);
+    let details;
+    try {
+      details = await readHistoryAndAudit(url, serviceKey, transferId);
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : 'Riwayat transfer tidak dapat dimuat.', 'DATABASE', 500);
+    }
     return response({ ok: true, data: { ...mapped, ...details } });
   }
 
@@ -296,7 +306,12 @@ async function main(request: Request): Promise<Response> {
       }),
     });
     if (!rpc.ok) return fail(await bodyMessage(rpc, 'Status transfer tidak dapat diperbarui.'), 'INVALID_TRANSITION', rpc.status === 409 ? 409 : 500);
-    const rows = await rpc.json() as TransferRow[];
+    let rows: TransferRow[];
+    try {
+      rows = await rpc.json() as TransferRow[];
+    } catch {
+      return fail('Respons transisi transfer tidak dapat dibaca.', 'DATABASE', 500);
+    }
     const updated = map(rows[0] ?? existing);
     return response({ ok: true, data: updated });
   }
@@ -307,7 +322,12 @@ async function main(request: Request): Promise<Response> {
 async function create(request: Request): Promise<Response> {
   const url = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  const body = await request.clone().json() as Record<string, unknown>;
+  let body: Record<string, unknown>;
+  try {
+    body = await request.clone().json() as Record<string, unknown>;
+  } catch {
+    return fail('Request body harus berupa JSON.', 'BAD_REQUEST', 400);
+  }
   const workspaceId = body.workspace_id;
   const toUserId = body.to_user_id;
   if (!isUuid(workspaceId) || !isUuid(toUserId)) return fail('Workspace dan user penerima tidak valid.');
@@ -319,8 +339,6 @@ async function create(request: Request): Promise<Response> {
     return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
   }
 
-  // Creation is one database transaction: record, initial history, and audit
-  // are written by the SECURITY DEFINER RPC, never as separate writes.
   const insert = await restFetch(url, '/rpc/ownership_transfer_create', serviceKey, {
     method: 'POST',
     body: JSON.stringify({
@@ -338,11 +356,21 @@ async function create(request: Request): Promise<Response> {
     return fail(message, code, code === 'DEPENDENCY' ? 409 : code === 'NOT_FOUND' ? 404 : insert.status);
   }
 
-  const rows = await insert.json() as TransferRow[];
+  let rows: TransferRow[];
+  try {
+    rows = await insert.json() as TransferRow[];
+  } catch {
+    return fail('Respons pembuatan transfer tidak dapat dibaca.', 'DATABASE', 500);
+  }
   const inserted = rows[0];
   if (!inserted) return fail('Permintaan transfer tidak mengembalikan data.', 'DATABASE', 500);
 
-  const base = await readBase(url, serviceKey);
+  let base;
+  try {
+    base = await readBase(url, serviceKey);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : 'Data dasar tidak dapat dimuat.', 'DATABASE', 500);
+  }
   const mapped = mapTransfer(
     inserted,
     new Map(base.workspaces.map((workspace) => [workspace.id, workspace])),
