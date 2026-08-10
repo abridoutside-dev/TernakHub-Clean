@@ -24,18 +24,33 @@ export class SubscriptionRepoError extends Error {
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error?: string; code?: string };
 
-async function errorMessage(error: { message?: string; context?: unknown }): Promise<string> {
-  const context = error.context;
-  if (context instanceof Response) {
-    try {
-      const body = await context.clone().json() as { error?: unknown; message?: unknown };
-      if (typeof body.error === 'string' && body.error.trim()) return body.error;
-      if (typeof body.message === 'string' && body.message.trim()) return body.message;
-    } catch {
-      // Fall through to the SDK message when the response is not JSON.
+function isResponse(value: unknown): value is Response {
+  return typeof Response !== 'undefined' && value instanceof Response;
+}
+
+async function errorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error && typeof error === 'object') {
+    const candidate = error as { message?: unknown; context?: unknown };
+    if (isResponse(candidate.context)) {
+      try {
+        const raw = await candidate.context.clone().text();
+        if (raw.trim()) {
+          const body = JSON.parse(raw) as Record<string, unknown>;
+          const message = [body.error, body.message, body.error_description, body.msg, body.details, body.hint]
+            .find(value => typeof value === 'string' && value.trim());
+          if (typeof message === 'string') return message.replace(/\s+/g, ' ').trim();
+        }
+      } catch {
+        // Fall through to the SDK error below.
+      }
+      if (candidate.context.status) return fallback;
+    }
+    if (typeof candidate.message === 'string' && candidate.message.trim()
+      && !/edge function returned.*non-2xx|failed to send a request/i.test(candidate.message)) {
+      return candidate.message.replace(/\s+/g, ' ').trim();
     }
   }
-  return error.message || 'Operasi subscription gagal.';
+  return fallback;
 }
 
 async function invoke<T>(
@@ -47,7 +62,7 @@ async function invoke<T>(
     { body: { action: 'workspace-subscriptions', operation, ...payload } },
   );
   if (error) {
-    throw new SubscriptionRepoError(await errorMessage(error));
+    throw new SubscriptionRepoError(await errorMessage(error, 'Operasi subscription gagal.'));
   }
   if (!data?.ok) {
     throw new SubscriptionRepoError(

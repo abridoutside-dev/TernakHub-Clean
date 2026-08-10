@@ -551,7 +551,12 @@ async function handleAdminUsers(
     if (!response.ok) {
       return errorResponse(await responseMessage(response, 'Daftar workspace tidak dapat dimuat'), response.status);
     }
-    const workspaces = await response.json();
+    let workspaces: unknown;
+    try {
+      workspaces = await response.json();
+    } catch {
+      return errorResponse('Daftar workspace tidak dapat dibaca', 500);
+    }
     return jsonResponse({ ok: true, data: Array.isArray(workspaces) ? workspaces : [] });
   }
 

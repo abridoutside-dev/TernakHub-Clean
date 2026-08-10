@@ -20,6 +20,35 @@ export class WorkspaceMembersRepoError extends Error {
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error?: string };
 
+function isResponse(value: unknown): value is Response {
+  return typeof Response !== 'undefined' && value instanceof Response;
+}
+
+async function errorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error && typeof error === 'object') {
+    const candidate = error as { message?: unknown; context?: unknown };
+    if (isResponse(candidate.context)) {
+      try {
+        const raw = await candidate.context.clone().text();
+        if (raw.trim()) {
+          const body = JSON.parse(raw) as Record<string, unknown>;
+          const message = [body.error, body.message, body.error_description, body.msg, body.details, body.hint]
+            .find(value => typeof value === 'string' && value.trim());
+          if (typeof message === 'string') return message.replace(/\s+/g, ' ').trim();
+        }
+      } catch {
+        // Fall through to the SDK error below.
+      }
+      if (candidate.context.status) return fallback;
+    }
+    if (typeof candidate.message === 'string' && candidate.message.trim()
+      && !/edge function returned.*non-2xx|failed to send a request/i.test(candidate.message)) {
+      return candidate.message.replace(/\s+/g, ' ').trim();
+    }
+  }
+  return fallback;
+}
+
 async function invoke<T>(
   operation: string,
   payload: Record<string, unknown> = {},
@@ -29,9 +58,7 @@ async function invoke<T>(
     { body: { action: 'workspace-members', operation, ...payload } },
   );
   if (error) {
-    throw new WorkspaceMembersRepoError(
-      error.message || 'Permintaan workspace members gagal.',
-    );
+    throw new WorkspaceMembersRepoError(await errorMessage(error, 'Permintaan workspace members gagal.'));
   }
   if (!data?.ok) {
     throw new WorkspaceMembersRepoError(
