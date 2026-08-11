@@ -79,7 +79,6 @@ const DEPENDENCY_QUERIES: DependencyQuery[] = [
   { key: 'invitations', label: 'Undangan workspace', description: 'Undangan yang masih tersimpan untuk workspace.', table: 'workspace_invitations', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'relationships', label: 'Relasi workspace', description: 'Relasi dengan workspace lain.', table: 'workspace_relationships', columns: ['workspace_id_a', 'workspace_id_b'], blocksDelete: true, blocksArchive: false },
   { key: 'relationships', label: 'Inisiator relasi workspace', description: 'Relasi yang diinisiasi oleh workspace.', table: 'workspace_relationships', columns: ['initiated_by'], blocksDelete: true, blocksArchive: false },
-  { key: 'ownershipTransfers', label: 'Transfer kepemilikan', description: 'Riwayat atau proses transfer kepemilikan.', table: 'ownership_transfers', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'subscription', label: 'Subscription workspace', description: 'Subscription yang terpasang pada workspace.', table: 'workspace_subscriptions', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'livestock', label: 'Data ternak', description: 'Ternak dan riwayat pemilikannya.', table: 'livestock', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },
   { key: 'livestock', label: 'Riwayat kepemilikan ternak', description: 'Riwayat kepemilikan yang menunjuk workspace ini.', table: 'livestock_ownership_history', columns: ['workspace_id'], blocksDelete: true, blocksArchive: false },

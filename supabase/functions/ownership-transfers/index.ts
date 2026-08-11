@@ -188,25 +188,14 @@ async function readHistoryAndAudit(url: string, key: string, transferId: string)
   };
 }
 
-async function main(request: Request): Promise<Response> {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
-  if (request.method !== 'POST') return fail('Method tidak didukung.', 'METHOD_NOT_ALLOWED', 405);
+async function main(
+  body: Record<string, unknown>,
+  url: string,
+  serviceKey: string,
+  authResult: { data: { user: User } },
+): Promise<Response> {
+  const operation = typeof body.operation === 'string' ? body.operation : '';
 
-  const url = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-  if (!url || !serviceKey || !anonKey) return fail('Supabase belum dikonfigurasi.', 'CONFIGURATION', 500);
-  const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/, '');
-  if (!token) return fail('Authorization header diperlukan.', 'UNAUTHORIZED', 401);
-  const anon = createClient(url, anonKey, { auth: { persistSession: false } });
-  const authResult = await anon.auth.getUser(token);
-  if (authResult.error || !authResult.data.user) return fail('Token tidak valid atau kedaluwarsa.', 'UNAUTHORIZED', 401);
-  if (!isAdmin(authResult.data.user as User)) return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
-
-  let payload: Record<string, unknown>;
-  try { payload = await request.json() as Record<string, unknown>; } catch { return fail('Request body harus berupa JSON.'); }
-  if (payload.action !== 'ownership-transfers') return fail('Action tidak dikenal.');
-  const operation = typeof payload.operation === 'string' ? payload.operation : '';
   let base;
   try {
     base = await readBase(url, serviceKey);
@@ -236,7 +225,7 @@ async function main(request: Request): Promise<Response> {
     });
   }
 
-  const transferId = payload.transfer_id;
+  const transferId = body.transfer_id;
   if (!isUuid(transferId)) return fail('Transfer ID tidak valid.');
   const existing = base.transfers.find((row) => row.id === transferId);
   if (!existing) return fail('Transfer tidak ditemukan.', 'NOT_FOUND', 404);
@@ -289,7 +278,7 @@ async function main(request: Request): Promise<Response> {
   if (operation === 'create') return fail('Create tidak memakai transfer_id.');
 
   if (operation === 'approve' || operation === 'reject' || operation === 'cancel') {
-    const reason = typeof payload.reason === 'string' ? payload.reason : null;
+    const reason = typeof body.reason === 'string' ? body.reason : null;
     if (operation === 'approve') {
       const preflight = base.transfers.filter((row) => row.workspace_id === existing.workspace_id
         && row.id !== existing.id
@@ -305,60 +294,61 @@ async function main(request: Request): Promise<Response> {
         p_reason: reason,
       }),
     });
-    if (!rpc.ok) return fail(await bodyMessage(rpc, 'Status transfer tidak dapat diperbarui.'), 'INVALID_TRANSITION', rpc.status === 409 ? 409 : 500);
-    let rows: TransferRow[];
-    try {
-      rows = await rpc.json() as TransferRow[];
-    } catch {
-      return fail('Respons transisi transfer tidak dapat dibaca.', 'DATABASE', 500);
+    const rpcStatus = rpc.status;
+    const rpcText = await rpc.text();
+    let rpcRows: TransferRow[];
+    try { rpcRows = JSON.parse(rpcText) as TransferRow[]; }
+    catch { return fail('Respons transisi transfer tidak dapat dibaca.', 'DATABASE', 500); }
+    if (!rpc.ok) {
+      let rpcBody: Record<string, unknown>;
+      try { rpcBody = JSON.parse(rpcText) as Record<string, unknown>; }
+      catch { rpcBody = {}; }
+      const message = [rpcBody.message, rpcBody.error, rpcBody.details, rpcBody.hint]
+        .find((value): value is string => typeof value === 'string' && value.trim()) ?? 'Status transfer tidak dapat diperbarui.';
+      return fail(message, 'INVALID_TRANSITION', rpcStatus === 409 ? 409 : 500);
     }
-    const updated = map(rows[0] ?? existing);
+    const updated = map(rpcRows[0] ?? existing);
     return response({ ok: true, data: updated });
   }
 
   return fail('Operasi ownership transfer tidak dikenal.');
 }
 
-async function create(request: Request): Promise<Response> {
+async function create(body: Record<string, unknown>, actorId: string): Promise<Response> {
   const url = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  let body: Record<string, unknown>;
-  try {
-    body = await request.clone().json() as Record<string, unknown>;
-  } catch {
-    return fail('Request body harus berupa JSON.', 'BAD_REQUEST', 400);
-  }
+  if (!url || !serviceKey) return fail('Supabase belum dikonfigurasi.', 'CONFIGURATION', 500);
+
   const workspaceId = body.workspace_id;
   const toUserId = body.to_user_id;
   if (!isUuid(workspaceId) || !isUuid(toUserId)) return fail('Workspace dan user penerima tidak valid.');
-  const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/, '');
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-  const anon = createClient(url, anonKey, { auth: { persistSession: false } });
-  const authResult = await anon.auth.getUser(token);
-  if (authResult.error || !authResult.data.user || !isAdmin(authResult.data.user as User)) {
-    return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
-  }
 
   const insert = await restFetch(url, '/rpc/ownership_transfer_create', serviceKey, {
     method: 'POST',
     body: JSON.stringify({
       p_workspace_id: workspaceId,
       p_to_user_id: toUserId,
-      p_actor_id: authResult.data.user.id,
+      p_actor_id: actorId,
       p_reason: typeof body.reason === 'string' ? body.reason : null,
       p_notes: typeof body.notes === 'string' ? body.notes : null,
     }),
   });
+  const insertStatus = insert.status;
+  const insertText = await insert.text();
+  let insertBody: Record<string, unknown>;
+  try { insertBody = JSON.parse(insertText) as Record<string, unknown>; }
+  catch { insertBody = {}; }
+  const message = [insertBody.message, insertBody.error, insertBody.details, insertBody.hint]
+    .find((value): value is string => typeof value === 'string' && value.trim()) ?? 'Permintaan transfer tidak dapat dibuat.';
   if (!insert.ok) {
-    const message = await bodyMessage(insert, 'Permintaan transfer tidak dapat dibuat.');
     const code = message.includes('transfer aktif') ? 'DEPENDENCY'
       : message.includes('tidak ditemukan') ? 'NOT_FOUND' : 'DATABASE';
-    return fail(message, code, code === 'DEPENDENCY' ? 409 : code === 'NOT_FOUND' ? 404 : insert.status);
+    return fail(message, code, code === 'DEPENDENCY' ? 409 : code === 'NOT_FOUND' ? 404 : insertStatus);
   }
 
   let rows: TransferRow[];
   try {
-    rows = await insert.json() as TransferRow[];
+    rows = JSON.parse(insertText) as TransferRow[];
   } catch {
     return fail('Respons pembuatan transfer tidak dapat dibaca.', 'DATABASE', 500);
   }
@@ -382,15 +372,29 @@ async function create(request: Request): Promise<Response> {
   return response({ ok: true, data: mapped });
 }
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request): Promise<Response> => {
   try {
-    if (request.method === 'POST') {
-      const body = await request.clone().json() as Record<string, unknown>;
-      if (body.operation === 'create') {
-        return await create(request);
-      }
-    }
-    return await main(request);
+    if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+    if (request.method !== 'POST') return fail('Method tidak didukung.', 'METHOD_NOT_ALLOWED', 405);
+
+    const url = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    if (!url || !serviceKey || !anonKey) return fail('Supabase belum dikonfigurasi.', 'CONFIGURATION', 500);
+    const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/, '');
+    if (!token) return fail('Authorization header diperlukan.', 'UNAUTHORIZED', 401);
+    const anon = createClient(url, anonKey, { auth: { persistSession: false } });
+    const authResult = await anon.auth.getUser(token);
+    if (authResult.error || !authResult.data.user) return fail('Token tidak valid atau kedaluwarsa.', 'UNAUTHORIZED', 401);
+    if (!isAdmin(authResult.data.user as User)) return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
+
+    let body: Record<string, unknown>;
+    try { body = await request.json() as Record<string, unknown>; }
+    catch { return fail('Request body harus berupa JSON.', 'BAD_REQUEST', 400); }
+    if (typeof body.action !== 'string' || body.action !== 'ownership-transfers') return fail('Action tidak dikenal.');
+
+    if (body.operation === 'create') return await create(body, authResult.data.user.id);
+    return await main(body, url, serviceKey, authResult);
   } catch {
     return fail('Operasi ownership transfer gagal.', 'INTERNAL', 500);
   }
