@@ -55,12 +55,13 @@ export const PLATFORM_STAT_DEFS: PlatformStat[] = [
 export const QUICK_ACTIONS: QuickAction[] = [
   { key: 'users',        label: 'Pengguna',       icon: '👤', description: 'Kelola pengguna platform'        },
   { key: 'workspaces',   label: 'Workspace',      icon: '🏢', description: 'Kelola workspace'                },
-  { key: 'marketplace',  label: 'Marketplace',    icon: '🛒', description: 'Listing & transaksi'             },
+  { key: 'ownership',    label: 'Transfer',       icon: '🔄', description: 'Kontrol transfer kepemilikan'     },
+  { key: 'marketplace',  label: 'Marketplace',    icon: '🛒', description: 'Listing & transaksi'            },
   { key: 'livestock',    label: 'Ternak',          icon: '🐄', description: 'Pengawasan registri ternak'     },
   { key: 'feed',         label: 'Pakan',           icon: '🌾', description: 'Data master pakan & nutrisi'   },
   { key: 'medicine',     label: 'Obat',            icon: '💊', description: 'Katalog obat & kesehatan'      },
   { key: 'subscription', label: 'Langganan',       icon: '⭐', description: 'Paket, tagihan & fitur'        },
-  { key: 'announcement', label: 'Pengumuman',      icon: '📢', description: 'Terbitkan notifikasi platform' },
+  { key: 'announcement', label: 'Pengumuman',      icon: '📲', description: 'Terbitkan notifikasi platform' },
   { key: 'monitoring',   label: 'Monitoring',      icon: '📊', description: 'Metrik & notifikasi sistem'    },
   { key: 'reports',      label: 'Laporan',         icon: '🚩', description: 'Laporan yang dikirim pengguna' },
 ];

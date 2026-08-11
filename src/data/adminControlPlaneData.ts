@@ -144,6 +144,7 @@ export const DOMAIN_CONTROL_CENTERS: DomainControlCenter[] = [
       w('uw-subscription',  'Subscription Summary',  '⭐', LIVE),
       w('uw-blocked',       'Blocked Workspaces',    '🚫', LIVE),
       w('uw-pending',       'Pending Requests',      '⏳', LIVE),
+      w('uw-transfer',      'Ownership Transfer',    '🔄', LIVE),
     ],
   },
 

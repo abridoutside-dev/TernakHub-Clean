@@ -33,16 +33,17 @@ import AdminControlPlane from './AdminControlPlane';
 // ─── Quick-action key → route ─────────────────────────────────────────────────
 
 const QUICK_ACTION_ROUTES: Record<string, string> = {
-  users:        '/admin/users',
-  workspaces:   '/admin/workspaces',
-  marketplace:  '/admin/marketplace',
-  livestock:    '/admin/livestock',
-  feed:         '/admin/feed',
-  medicine:     '/admin/medicine',
-  subscription: '/admin/subscription',
-  announcement: '/admin/announcements',
-  monitoring:   '/admin/monitoring',
-  reports:      '/admin/reports',
+  users:           '/admin/users',
+  workspaces:      '/admin/workspaces',
+  marketplace:     '/admin/marketplace',
+  livestock:       '/admin/livestock',
+  feed:            '/admin/feed',
+  medicine:        '/admin/medicine',
+  subscription:    '/admin/subscription',
+  announcement:    '/admin/announcements',
+  monitoring:      '/admin/monitoring',
+  reports:         '/admin/reports',
+  ownership:       '/admin/ownership-transfer',
 };
 
 // ─── Supabase helpers ─────────────────────────────────────────────────────────
