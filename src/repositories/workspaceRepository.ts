@@ -395,6 +395,14 @@ export async function repoGetWorkspaceByUuid(
   return data ? repoMapWorkspaceRow(data as DbRow) : null;
 }
 
+/** Admin read: finds a workspace by UUID through the admin-users Edge Function. */
+export async function repoGetAdminWorkspaceByUuid(
+  uuid: string,
+): Promise<WorkspaceRecord | null> {
+  const row = await invokeAdminUsers<DbRow | null>('get-workspace', { workspace_id: uuid });
+  return row ? repoMapWorkspaceRow(row) : null;
+}
+
 /**
  * Finds a workspace by slug (stored in metadata->>'slug').
  * Returns null if not found.

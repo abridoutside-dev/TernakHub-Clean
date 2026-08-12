@@ -43,6 +43,7 @@ import {
   repoGetWorkspacesByType,
   repoGetWorkspacesByOwner,
   repoGetWorkspaceByUuid,
+  repoGetAdminWorkspaceByUuid,
   repoGetWorkspaceBySlug,
   repoGetWorkspaceDependencies,
   repoMapWorkspaceRow,
@@ -206,6 +207,12 @@ export async function getWorkspaceByUuid(
   uuid: string,
 ): Promise<WorkspaceRecord | null> {
   return repoGetWorkspaceByUuid(uuid);
+}
+
+export async function getAdminWorkspaceByUuid(
+  uuid: string,
+): Promise<WorkspaceRecord | null> {
+  return repoGetAdminWorkspaceByUuid(uuid);
 }
 
 export async function getWorkspaceBySlug(

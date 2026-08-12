@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../layout/AdminLayout';
 import {
-  getWorkspaceByUuid,
+  getAdminWorkspaceByUuid,
   updateWorkspace,
   deleteWorkspace,
   getWorkspaceDependencies,
@@ -84,7 +84,7 @@ export default function AdminWorkspaceDetail() {
     setLoading(true); setError(null);
     try {
       const [wsData, subData, transferData] = await Promise.all([
-        getWorkspaceByUuid(id),
+        getAdminWorkspaceByUuid(id),
         getWorkspaceSubscription(id),
         getOwnershipTransfers(),
       ]);

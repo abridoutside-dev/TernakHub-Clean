@@ -462,7 +462,7 @@ async function handleAdminUsers(
     'verify-email', 'delete', 'sign-out', 'reset-password', 'resend-verification',
     'get-workspaces', 'get-dependencies', 'transfer-ownership', 'delete-workspace',
     'remove-role', 'remove-invitation', 'add-workspace', 'update-workspace', 'remove-workspace',
-    'list-workspaces', 'list-workspace-members',
+    'list-workspaces', 'get-workspace', 'list-workspace-members',
     'list-profiles', 'get-profile', 'update-profile',
   ]);
   if (!supportedOperations.has(operation)) return errorResponse('Operasi pengguna tidak dikenali', 400);
@@ -558,6 +558,27 @@ async function handleAdminUsers(
       return errorResponse('Daftar workspace tidak dapat dibaca', 500);
     }
     return jsonResponse({ ok: true, data: Array.isArray(workspaces) ? workspaces : [] });
+  }
+
+  if (operation === 'get-workspace') {
+    const workspaceId = typeof payload.workspace_id === 'string' ? payload.workspace_id : '';
+    if (!workspaceId) return errorResponse('Workspace ID wajib diisi.', 400);
+    const response = await restFetch(
+      url,
+      `/workspaces?id=eq.${encodeURIComponent(workspaceId)}&select=*`,
+      serviceRole,
+    );
+    if (!response.ok) {
+      return errorResponse(await responseMessage(response, 'Workspace tidak dapat dimuat'), response.status);
+    }
+    let rows: unknown;
+    try {
+      rows = await response.json();
+    } catch {
+      return errorResponse('Workspace tidak dapat dibaca', 500);
+    }
+    const workspace = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+    return jsonResponse({ ok: true, data: workspace });
   }
 
   if (operation === 'list-workspace-members') {
