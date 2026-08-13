@@ -1406,7 +1406,14 @@ const handleDeleteWorkspace: Handler = async () => {
     if (!progress) break;
   }
 
-  const { error } = await svc.rpc('admin_delete_workspace', { p_workspace_id: workspaceId });
+  // admin_delete_workspace guards on auth.uid() (the caller must be an ACTIVE
+  // platform-admin user). It MUST therefore be invoked with the admin user's
+  // JWT, not the service_role token: with makeServiceClient() auth.uid()
+  // resolves to NULL and the RPC raises "Account is not active" (42501)
+  // before it ever reaches the DELETE. The child pre-clean above still uses the
+  // service_role client so it bypasses RLS.
+  const adminClient = makeAnonClient(ctx.jwt);
+  const { error } = await adminClient.rpc('admin_delete_workspace', { p_workspace_id: workspaceId });
   if (error) {
     return jsonResponse({ ok: false, error: error.message }, 400);
   }
