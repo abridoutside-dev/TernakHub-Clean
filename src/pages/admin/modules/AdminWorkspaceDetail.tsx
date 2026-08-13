@@ -4,8 +4,6 @@ import AdminLayout from '../layout/AdminLayout';
 import {
   getAdminWorkspaceByUuid,
   updateWorkspace,
-  deleteWorkspace,
-  getWorkspaceDependencies,
   getWorkspaceSubscription,
   getSubscriptionPackages,
   assignSubscriptionPackage,
@@ -16,7 +14,7 @@ import {
 import type { WorkspaceRecord } from '../../../types/workspace';
 import type { SubscriptionPackage, SubscriptionRecordAdmin } from '../../../types/subscriptionAdmin';
 import type { OwnershipTransferListResponse } from '../../../types/ownershipTransfer';
-import type { WorkspaceDependencies } from '../../../types/workspace';
+import { supabase } from '../../../lib/supabase';
 
 const blue = '#2563eb';
 const muted = '#64748b';
@@ -76,7 +74,6 @@ export default function AdminWorkspaceDetail() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [preflight, setPreflight] = useState<WorkspaceDependencies | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -197,17 +194,15 @@ export default function AdminWorkspaceDetail() {
   };
 
   const handleDelete = async () => {
-    if (!id) return;
+    if (!id || !ws) return;
     setBusy(true);
     try {
-      const deps = preflight ?? await getWorkspaceDependencies(id);
-      if (deps.hasDeleteBlockers) {
-        setNotice({ kind: 'error', message: `Workspace belum dapat dihapus: ${deps.items.filter(i => i.blocksDelete).map(i => `${i.label} (${i.count})`).join(', ')}` });
-        return;
-      }
-      const result = await deleteWorkspace(id, deps);
-      if (!result.ok) {
-        setNotice({ kind: 'error', message: result.errors[0]?.message ?? 'Gagal menghapus workspace.' });
+      const { data, error } = await supabase.functions.invoke<{ ok: boolean; message?: string }>('platform-health', {
+        body: { action: 'delete-workspace', workspaceId: id },
+      });
+      if (error || !data?.ok) {
+        const message = (data as { error?: string } | undefined)?.error ?? error?.message ?? 'Gagal menghapus workspace.';
+        setNotice({ kind: 'error', message });
         return;
       }
       setNotice({ kind: 'success', message: 'Workspace berhasil dihapus.' });
@@ -217,12 +212,6 @@ export default function AdminWorkspaceDetail() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const loadPreflight = async () => {
-    if (!id) return;
-    const deps = await getWorkspaceDependencies(id);
-    setPreflight(deps);
   };
 
   const currentPackage = useMemo(() => {
@@ -260,7 +249,7 @@ export default function AdminWorkspaceDetail() {
           <Button onClick={() => setEditing(!editing)}>{editing ? 'Batal Edit' : 'Edit Workspace'}</Button>
           <Button secondary onClick={() => setChangePlanOpen(true)}>Change Plan</Button>
           <Button secondary onClick={() => setTransferOpen(true)}>Transfer Ownership</Button>
-          <Button danger onClick={() => { void loadPreflight(); setDeleteOpen(true); }}>Delete</Button>
+          <Button danger onClick={() => setDeleteOpen(true)} disabled={busy || ws.workspace_status !== 'Inactive'}>Delete</Button>
         </div>
 
         {editing && (
@@ -353,12 +342,9 @@ export default function AdminWorkspaceDetail() {
           <div style={overlay}><div style={dialog}>
             <div style={dialogHeader}><div><strong>Hapus Workspace</strong></div><button type="button" onClick={() => setDeleteOpen(false)} style={close}>×</button></div>
             <div style={{ padding: 20 }}>
-              {preflight?.hasDeleteBlockers ? (
-                <div style={{ color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>
-                  <strong>Workspace tidak dapat dihapus karena masih memiliki dependency:</strong>
-                  <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-                    {preflight.items.filter(i => i.blocksDelete).map(i => <li key={i.key}>{i.label} ({i.count})</li>)}
-                  </ul>
+              {ws.workspace_status !== 'Inactive' ? (
+                <div style={{ color: '#b45309', fontSize: 13, marginBottom: 12 }}>
+                  Workspace harus berstatus <strong>Inactive</strong> sebelum dapat dihapus. Ubah status workspace menjadi Inactive terlebih dahulu.
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: muted, marginBottom: 12 }}>
@@ -368,7 +354,7 @@ export default function AdminWorkspaceDetail() {
             </div>
             <div style={footer}>
               <Button secondary onClick={() => setDeleteOpen(false)}>Batal</Button>
-              <Button danger onClick={() => void handleDelete()} disabled={busy || (preflight?.hasDeleteBlockers ?? true)}>{busy ? 'Menghapus…' : 'Hapus'}</Button>
+              <Button danger onClick={() => void handleDelete()} disabled={busy || ws.workspace_status !== 'Inactive'}>{busy ? 'Menghapus…' : 'Hapus'}</Button>
             </div>
           </div></div>
         )}
