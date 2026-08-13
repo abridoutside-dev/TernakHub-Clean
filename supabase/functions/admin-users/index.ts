@@ -833,6 +833,28 @@ async function handleAdminUsers(
         return errorResponse(rpcError.message ?? 'Gagal memperbarui lifecycle workspace', 500);
       }
     }
+    if (operation === 'unsuspend') {
+      // Keep the Auth layer and the DB lifecycle (user_profiles.status) in sync.
+      // admin_unsuspend_account only flips user_profiles.status to 'active' and
+      // intentionally does NOT re-activate owned workspaces — they remain Nonaktif.
+      const anonClient = createClient(url, anonKey, {
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+        auth: { persistSession: false },
+      });
+      const { error: rpcError } = await anonClient.rpc('admin_unsuspend_account', { p_user_id: id });
+      if (rpcError) {
+        // DB unsuspend failed: roll Auth back to suspended so the two layers
+        // never disagree about account state.
+        const rollbackResponse = await authFetch(url, `/users/${id}`, serviceRole, {
+          method: 'PUT',
+          body: JSON.stringify({ ban_duration: '876600h' }),
+        });
+        if (!rollbackResponse.ok) {
+          await responseMessage(rollbackResponse, 'Rollback penangguhan gagal');
+        }
+        return errorResponse(rpcError.message ?? 'Gagal memperbarui lifecycle akun', 500);
+      }
+    }
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
