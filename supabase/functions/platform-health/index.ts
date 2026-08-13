@@ -1385,7 +1385,7 @@ const WORKSPACE_CHILD_TABLES: ReadonlyArray<{ table: string; columns: string[] }
   { table: 'activity_log',               columns: ['workspace_id'] },
 ];
 
-const handleDeleteWorkspace: Handler = async () => {
+const handleDeleteWorkspace: Handler = async (ctx: ActionContext) => {
   const svc = makeServiceClient();
   const workspaceId = String(ctx.payload.workspaceId ?? '');
 
