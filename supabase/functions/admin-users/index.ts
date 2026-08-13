@@ -454,6 +454,7 @@ async function handleAdminUsers(
   url: string,
   serviceRole: string,
   anonKey: string,
+  jwt: string,
 ): Promise<Response> {
   const operation = typeof payload.operation === 'string' ? payload.operation : '';
   const id = typeof payload.id === 'string' ? payload.id : '';
@@ -815,6 +816,23 @@ async function handleAdminUsers(
     if (!response.ok) {
       return errorResponse(await responseMessage(response, 'Operasi user gagal'), response.status);
     }
+    if (operation === 'suspend') {
+      const anonClient = createClient(url, anonKey, {
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+        auth: { persistSession: false },
+      });
+      const { error: rpcError } = await anonClient.rpc('admin_suspend_account', { p_user_id: id });
+      if (rpcError) {
+        const rollbackResponse = await authFetch(url, `/users/${id}`, serviceRole, {
+          method: 'PUT',
+          body: JSON.stringify({ ban_duration: 'none' }),
+        });
+        if (!rollbackResponse.ok) {
+          await responseMessage(rollbackResponse, 'Rollback suspensi gagal');
+        }
+        return errorResponse(rpcError.message ?? 'Gagal memperbarui lifecycle workspace', 500);
+      }
+    }
     return jsonResponse({ ok: true, data: { ok: true } });
   }
 
@@ -1090,7 +1108,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   if (!isAdmin(user)) return errorResponse('Akses ditolak: admin only', 403);
 
   try {
-    return await handleAdminUsers(payload, url, serviceRole, anonKey);
+    return await handleAdminUsers(payload, url, serviceRole, anonKey, jwt);
   } catch (cause) {
     return errorResponse(
       sanitizeErrorMessage(cause instanceof Error ? cause.message : '', 'Operasi admin user gagal'),
