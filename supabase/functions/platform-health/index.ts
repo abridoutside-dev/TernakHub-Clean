@@ -1,11 +1,13 @@
 // ─── platform-health Edge Function ────────────────────────────────────────────
 //
-// Server-side dispatcher for admin Control Panel data that cannot be fetched
-// from the browser (service role queries, Supabase Management API).
+// Server-side dispatcher for the Admin Control Plane.
+// All platform configuration, account management, workspace lifecycle,
+// ownership transfer, and subscription management flow through this gateway.
 //
 // Dispatcher pattern — one function, multiple actions (same style as r2-storage).
 // Browser-facing actions require a system_admin user JWT. auth_integrity is
 // additionally restricted to the server-to-server internal authorization path.
+
 //
 // ─── Required Supabase Edge Function Secrets ─────────────────────────────────
 //   SUPABASE_URL             — auto-injected by Supabase runtime
@@ -15,18 +17,32 @@
 //                              (Management API — GET /v1/projects/:ref/*)
 //
 // ─── Actions ─────────────────────────────────────────────────────────────────
-//   db-info         — PostgreSQL stats via service role (version, connections,
-//                     size, extensions, schema migrations, RLS table status,
-//                     slow queries from pg_stat_statements)
-//   auth-config     — Auth provider config + security settings + user counts
-//                     (GET /v1/projects/:ref/config/auth + admin users API)
-//   functions-list  — List all deployed Edge Functions
-//                     (GET /v1/projects/:ref/functions)
-//   secrets-list    — List Edge Function secret names (not values)
-//                     (GET /v1/projects/:ref/secrets)
-//   auth-users      — Aggregate user counts (total, verified, anonymous, sessions)
-//                     via service_role Admin API (GET /auth/v1/admin/users)
-// ─────────────────────────────────────────────────────────────────────────────
+//   ping                — health check, no auth required
+//   db-info             — PostgreSQL stats via service role
+//   auth-config         — Auth provider config via Management API
+//   functions-list      — List deployed Edge Functions
+//   secrets-list        — List Edge Function secret names
+//   auth-users          — Aggregate user counts via Auth Admin API
+//   ── Account Control ────────────────────────────────────────────────────────
+//   list-users          — List all platform users (auth admin API)
+//   get-user            — Get single user profile + account status
+//   suspend-account     — Suspend a platform account
+//   unsuspend-account   — Unsuspend a platform account
+//   delete-account      — Delete a suspended account (must have no workspaces)
+//   ── Workspace Control ──────────────────────────────────────────────────────
+//   list-workspaces     — List all workspaces with owner/subscription summary
+//   get-workspace       — Get single workspace detail
+//   suspend-workspace   — Suspend a workspace
+//   unsuspend-workspace — Unsuspend a workspace
+//   delete-workspace    — Delete a suspended workspace (cascades to all data)
+//   ── Ownership Transfer Control ─────────────────────────────────────────────
+//   list-ownership-transfers — List all ownership transfer requests
+//   approve-ownership-transfer — Approve and complete a transfer
+//   reject-ownership-transfer  — Reject a transfer request
+//   ── Subscription Control ───────────────────────────────────────────────────
+//   list-subscription-plans — List all subscription plans
+//   update-subscription-plan — Update a subscription plan
+//   ────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -89,8 +105,6 @@ async function isPlatformAdmin(jwt: string): Promise<boolean> {
 // ─── Management API helper ────────────────────────────────────────────────────
 
 function projectRef(): string {
-  // Supabase project ref is the first subdomain of SUPABASE_URL:
-  // https://<ref>.supabase.co
   const url = Deno.env.get('SUPABASE_URL') ?? '';
   return url.match(/https?:\/\/([\w-]+)\./)?.[1] ?? '';
 }
@@ -128,16 +142,6 @@ interface ActionContext {
 type Handler = (ctx: ActionContext) => Promise<Response>;
 
 // ─── Action: db-info ──────────────────────────────────────────────────────────
-// Runs direct PostgreSQL queries via service role key.
-// Queries used:
-//   SELECT version()
-//   SELECT setting FROM pg_settings WHERE name = 'max_connections'
-//   SELECT count(*) FROM pg_stat_activity
-//   SELECT pg_size_pretty(pg_database_size(current_database()))
-//   SELECT extname, extversion FROM pg_catalog.pg_extension ORDER BY extname
-//   SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name <> 'information_schema'
-//   SELECT version FROM supabase_migrations.schema_migrations ORDER BY version DESC LIMIT 1
-//   SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename
 
 const handleDbInfo: Handler = async () => {
   const svc = makeServiceClient();
@@ -172,7 +176,6 @@ const handleDbInfo: Handler = async () => {
       .order('tablename' as never),
   ]);
 
-  // Extract values with graceful fallbacks
   const version      = versionRes.status === 'fulfilled'    ? (versionRes.value.data as { version?: string } | null)?.version     ?? null : null;
   const maxConn      = maxConnRes.status === 'fulfilled'     ? (maxConnRes.value.data as { setting?: string } | null)?.setting      ?? null : null;
   const activeConn   = activeConnRes.status === 'fulfilled'  ? (activeConnRes.value.data as { count?: number } | null)?.count       ?? null : null;
@@ -199,7 +202,6 @@ const handleDbInfo: Handler = async () => {
 };
 
 // ─── Action: auth-config ──────────────────────────────────────────────────────
-// GET /v1/projects/:ref/config/auth via Management API.
 
 const handleAuthConfig: Handler = async () => {
   let cfgData: Record<string, unknown> | null = null;
@@ -224,11 +226,9 @@ const handleAuthConfig: Handler = async () => {
     });
   }
 
-  // Map relevant fields — field names from Supabase Management API schema
   return jsonResponse({
     ok: true,
     auth_config: {
-      // Providers
       external_email_enabled:            cfgData.external_email_enabled          ?? null,
       external_google_enabled:           cfgData.external_google_enabled         ?? null,
       external_github_enabled:           cfgData.external_github_enabled         ?? null,
@@ -236,7 +236,6 @@ const handleAuthConfig: Handler = async () => {
       external_phone_enabled:            cfgData.external_phone_enabled          ?? null,
       external_magic_link_enabled:       cfgData.mailer_otp_enabled              ?? null,
       external_anonymous_sign_ins_enabled: cfgData.external_anonymous_sign_ins_enabled ?? null,
-      // Security
       mailer_autoconfirm:                cfgData.mailer_autoconfirm              ?? null,
       mfa_totp_enroll_enabled:           cfgData.mfa_totp_enroll_enabled         ?? null,
       mfa_phone_enroll_enabled:          cfgData.mfa_phone_enroll_enabled        ?? null,
@@ -247,7 +246,6 @@ const handleAuthConfig: Handler = async () => {
       rate_limit_email_sent:             cfgData.rate_limit_email_sent           ?? null,
       rate_limit_sms_sent:               cfgData.rate_limit_sms_sent             ?? null,
       rate_limit_otp:                    cfgData.rate_limit_otp                  ?? null,
-      // Redirect
       site_url:                          cfgData.site_url                        ?? null,
       additional_redirect_urls:          cfgData.additional_redirect_urls        ?? null,
     },
@@ -255,17 +253,6 @@ const handleAuthConfig: Handler = async () => {
 };
 
 // ─── Action: functions-list ───────────────────────────────────────────────────
-// GET /v1/projects/:ref/functions via Management API.
-
-interface FunctionEntry {
-  id:         string;
-  slug:       string;
-  name:       string;
-  status:     string;
-  version:    number;
-  created_at: string;
-  updated_at: string;
-}
 
 const handleFunctionsList: Handler = async () => {
   try {
@@ -301,14 +288,17 @@ const handleFunctionsList: Handler = async () => {
   }
 };
 
-// ─── Action: secrets-list ─────────────────────────────────────────────────────
-// GET /v1/projects/:ref/secrets via Management API.
-// Returns secret names only — values are never returned by the Management API.
-
-interface SecretEntry {
-  name:    string;
-  value?:  string; // API may or may not return masked values
+interface FunctionEntry {
+  id:         string;
+  slug:       string;
+  name:       string;
+  status:     string;
+  version:    number;
+  created_at: string;
+  updated_at: string;
 }
+
+// ─── Action: secrets-list ─────────────────────────────────────────────────────
 
 const handleSecretsList: Handler = async () => {
   try {
@@ -322,7 +312,6 @@ const handleSecretsList: Handler = async () => {
       });
     }
     const data = await res.json() as SecretEntry[];
-    // Return names only — never expose values
     return jsonResponse({
       ok:      true,
       secrets: Array.isArray(data) ? data.map((s) => ({ name: s.name })) : [],
@@ -337,10 +326,12 @@ const handleSecretsList: Handler = async () => {
   }
 };
 
+interface SecretEntry {
+  name:    string;
+  value?:  string;
+}
+
 // ─── Action: auth-users ───────────────────────────────────────────────────────
-// GET /auth/v1/admin/users via service role key.
-// Returns aggregate counts — total, email-verified, anonymous, active sessions.
-// Caller must be platform_admin.
 
 interface AuthUser {
   id:                  string;
@@ -792,6 +783,7 @@ async function fetchAuthUsers(
   }
 
   return { users, total, error: null, partial: false };
+
 }
 
 const handleAuthUsers: Handler = async () => {
@@ -1067,6 +1059,61 @@ const handleAuthConfigUpdate: Handler = async ({ payload }) => {
     return jsonResponse({
       ok:    false,
       error: err instanceof Error ? err.message : 'Management API tidak dapat dijangkau',
+
+// ─── Action: list-users ───────────────────────────────────────────────────────
+// Full user list via Auth Admin API, returned as array.
+
+const handleListUsers: Handler = async () => {
+  const url         = Deno.env.get('SUPABASE_URL')               ?? '';
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')  ?? '';
+
+  if (!serviceRole) {
+    return jsonResponse({ ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY tidak tersedia', users: null });
+  }
+
+  try {
+    const res = await fetch(`${url}/auth/v1/admin/users?per_page=1000`, {
+      headers: {
+        Authorization:          `Bearer ${serviceRole}`,
+        apikey:                 serviceRole,
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return jsonResponse({
+        ok:    false,
+        error: `Admin API HTTP ${res.status}: ${text.slice(0, 200)}`,
+        users: null,
+      });
+    }
+
+    const body     = await res.json() as { users?: AuthUser[] } | AuthUser[];
+    const userList = Array.isArray(body)
+      ? body as AuthUser[]
+      : ((body as { users?: AuthUser[] }).users ?? []) as AuthUser[];
+
+    return jsonResponse({
+      ok:   true,
+      users: userList.map((u) => ({
+        id:                 u.id,
+        email:              u.email,
+        email_confirmed_at: u.email_confirmed_at,
+        last_sign_in_at:    u.last_sign_in_at,
+        is_anonymous:       u.is_anonymous,
+        created_at:         u.created_at,
+        role:               u.user_metadata?.role ?? null,
+        is_admin:           u.user_metadata?.is_admin ?? null,
+      })),
+      count: userList.length,
+    });
+  } catch (err) {
+    return jsonResponse({
+      ok:    false,
+      error: err instanceof Error ? err.message : 'Admin API tidak dapat dijangkau',
+      users: null,
+
     });
   }
 };
@@ -1082,6 +1129,365 @@ const handlers: Record<string, Handler> = {
   'auth-users':           handleAuthUsers,
   'auth-integrity':       handleAuthIntegrity,
   'auth-health':          handleAuthHealth,
+
+// ─── Action: get-user ─────────────────────────────────────────────────────────
+// Returns user profile + account status.
+
+const handleGetUser: Handler = async () => {
+  const svc = makeServiceClient();
+  const userId = String(ctx.payload.userId ?? '');
+
+  if (!userId) {
+    return errorResponse('Field "userId" diperlukan');
+  }
+
+  const [profileRes, authRes] = await Promise.allSettled([
+    svc.from('user_profiles').select('*').eq('id', userId).maybeSingle(),
+    svc.auth.admin.getUserById(userId),
+  ]);
+
+  const profile = profileRes.status === 'fulfilled' ? profileRes.value.data : null;
+  const authUser = authRes.status === 'fulfilled' ? authRes.value.data : null;
+
+  return jsonResponse({
+    ok: true,
+    user: {
+      id:                 authUser?.id ?? userId,
+      email:              authUser?.email ?? null,
+      email_confirmed_at: authUser?.email_confirmed_at ?? null,
+      last_sign_in_at:    authUser?.last_sign_in_at ?? null,
+      created_at:         authUser?.created_at ?? null,
+      role:               authUser?.user_metadata?.role ?? null,
+      is_admin:           authUser?.user_metadata?.is_admin ?? null,
+      profile: profile ? {
+        full_name:             (profile as Record<string, unknown>).full_name,
+        display_name:          (profile as Record<string, unknown>).display_name,
+        phone_number:          (profile as Record<string, unknown>).phone_number,
+        onboarding_completed:  (profile as Record<string, unknown>).onboarding_completed,
+        status:                (profile as Record<string, unknown>).status,
+        created_at:            (profile as Record<string, unknown>).created_at,
+        updated_at:            (profile as Record<string, unknown>).updated_at,
+      } : null,
+    },
+  });
+};
+
+// ─── Action: suspend-account ──────────────────────────────────────────────────
+
+const handleSuspendAccount: Handler = async () => {
+  const svc = makeServiceClient();
+  const userId = String(ctx.payload.userId ?? '');
+
+  if (!userId) {
+    return errorResponse('Field "userId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_suspend_account', { p_user_id: userId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Account suspended' });
+};
+
+// ─── Action: unsuspend-account ────────────────────────────────────────────────
+
+const handleUnsuspendAccount: Handler = async () => {
+  const svc = makeServiceClient();
+  const userId = String(ctx.payload.userId ?? '');
+
+  if (!userId) {
+    return errorResponse('Field "userId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_unsuspend_account', { p_user_id: userId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Account unsuspended' });
+};
+
+// ─── Action: delete-account ───────────────────────────────────────────────────
+
+const handleDeleteAccount: Handler = async () => {
+  const svc = makeServiceClient();
+  const userId = String(ctx.payload.userId ?? '');
+
+  if (!userId) {
+    return errorResponse('Field "userId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_delete_account', { p_user_id: userId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Account deleted' });
+};
+
+// ─── Action: list-workspaces ──────────────────────────────────────────────────
+
+const handleListWorkspaces: Handler = async () => {
+  const svc = makeServiceClient();
+
+  const { data, error } = await svc
+    .from('workspaces')
+    .select(`
+      id, name, type, status, verification_status, trust_score,
+      owner_id, province, city, created_at, updated_at, archived_at,
+      subscription:workspace_subscriptions(status, expires_at, trial_ends_at, plan_id, plan:subscription_plans!plan_id(plan_key, name)),
+      member_count:workspace_members(count)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({
+    ok:   true,
+    data: data ?? [],
+  });
+};
+
+// ─── Action: get-workspace ────────────────────────────────────────────────────
+
+const handleGetWorkspace: Handler = async () => {
+  const svc = makeServiceClient();
+  const workspaceId = String(ctx.payload.workspaceId ?? '');
+
+  if (!workspaceId) {
+    return errorResponse('Field "workspaceId" diperlukan');
+  }
+
+  const { data, error } = await svc
+    .from('workspaces')
+    .select(`
+      *
+      subscription:workspace_subscriptions(*, plan:subscription_plans(*)),
+      members:workspace_members(*),
+      relationships:workspace_relationships(*, workspace_a:workspaces!workspace_id_a(name), workspace_b:workspaces!workspace_id_b(name)),
+      transfers:ownership_transfers(*)
+    `)
+    .eq('id', workspaceId)
+    .maybeSingle();
+
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({
+    ok:   true,
+    data: data ?? null,
+  });
+};
+
+// ─── Action: suspend-workspace ────────────────────────────────────────────────
+
+const handleSuspendWorkspace: Handler = async () => {
+  const svc = makeServiceClient();
+  const workspaceId = String(ctx.payload.workspaceId ?? '');
+
+  if (!workspaceId) {
+    return errorResponse('Field "workspaceId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_suspend_workspace', { p_workspace_id: workspaceId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Workspace suspended' });
+};
+
+// ─── Action: unsuspend-workspace ──────────────────────────────────────────────
+
+const handleUnsuspendWorkspace: Handler = async () => {
+  const svc = makeServiceClient();
+  const workspaceId = String(ctx.payload.workspaceId ?? '');
+
+  if (!workspaceId) {
+    return errorResponse('Field "workspaceId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_unsuspend_workspace', { p_workspace_id: workspaceId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Workspace unsuspended' });
+};
+
+// ─── Action: delete-workspace ─────────────────────────────────────────────────
+
+const handleDeleteWorkspace: Handler = async () => {
+  const svc = makeServiceClient();
+  const workspaceId = String(ctx.payload.workspaceId ?? '');
+
+  if (!workspaceId) {
+    return errorResponse('Field "workspaceId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_delete_workspace', { p_workspace_id: workspaceId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Workspace deleted' });
+};
+
+// ─── Action: list-ownership-transfers ────────────────────────────────────────
+
+const handleListOwnershipTransfers: Handler = async () => {
+  const svc = makeServiceClient();
+
+  const { data, error } = await svc
+    .from('ownership_transfers')
+    .select(`
+      *
+      workspace:workspaces!workspace_id(name, type, status)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({
+    ok:   true,
+    data: data ?? [],
+  });
+};
+
+// ─── Action: approve-ownership-transfer ──────────────────────────────────────
+
+const handleApproveOwnershipTransfer: Handler = async () => {
+  const svc = makeServiceClient();
+  const transferId = String(ctx.payload.transferId ?? '');
+
+  if (!transferId) {
+    return errorResponse('Field "transferId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_approve_ownership_transfer', { p_transfer_id: transferId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Ownership transfer approved' });
+};
+
+// ─── Action: reject-ownership-transfer ───────────────────────────────────────
+
+const handleRejectOwnershipTransfer: Handler = async () => {
+  const svc = makeServiceClient();
+  const transferId = String(ctx.payload.transferId ?? '');
+
+  if (!transferId) {
+    return errorResponse('Field "transferId" diperlukan');
+  }
+
+  const { error } = await svc.rpc('admin_reject_ownership_transfer', { p_transfer_id: transferId });
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({ ok: true, message: 'Ownership transfer rejected' });
+};
+
+// ─── Action: list-subscription-plans ─────────────────────────────────────────
+
+const handleListSubscriptionPlans: Handler = async () => {
+  const svc = makeServiceClient();
+
+  const { data, error } = await svc
+    .from('subscription_plans')
+    .select('*')
+    .order('price_monthly', { ascending: true });
+
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({
+    ok:   true,
+    data: data ?? [],
+  });
+};
+
+// ─── Action: update-subscription-plan ────────────────────────────────────────
+
+const handleUpdateSubscriptionPlan: Handler = async () => {
+  const svc = makeServiceClient();
+  const planId = String(ctx.payload.planId ?? '');
+
+  if (!planId) {
+    return errorResponse('Field "planId" diperlukan');
+  }
+
+  const updates: Record<string, unknown> = {};
+  const allowedFields = ['name', 'price_monthly', 'price_yearly', 'max_livestock', 'max_members', 'max_batches', 'max_listings', 'features', 'is_active'];
+
+  for (const field of allowedFields) {
+    if (field in ctx.payload) {
+      updates[field] = ctx.payload[field];
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return errorResponse('Tidak ada field yang diperbarui');
+  }
+
+  const { data, error } = await svc
+    .from('subscription_plans')
+    .update(updates)
+    .eq('id', planId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    return jsonResponse({ ok: false, error: error.message }, 400);
+  }
+
+  return jsonResponse({
+    ok:   true,
+    data: data ?? null,
+  });
+};
+
+// ─── Dispatcher ───────────────────────────────────────────────────────────────
+
+const handlers: Record<string, Handler> = {
+  // Infrastructure
+  'ping':                async () => jsonResponse({ ok: true, timestamp: new Date().toISOString() }),
+  'db-info':             handleDbInfo,
+  'auth-config':         handleAuthConfig,
+  'functions-list':      handleFunctionsList,
+  'secrets-list':        handleSecretsList,
+  'auth-users':          handleAuthUsers,
+  'auth-integrity':      handleAuthIntegrity,
+  'auth-health':         handleAuthHealth,
+  'auth-config-update':   handleAuthConfigUpdate,
+  // Account Control
+  'list-users':          handleListUsers,
+  'get-user':            handleGetUser,
+  'suspend-account':     handleSuspendAccount,
+  'unsuspend-account':   handleUnsuspendAccount,
+  'delete-account':      handleDeleteAccount,
+  // Workspace Control
+  'list-workspaces':     handleListWorkspaces,
+  'get-workspace':       handleGetWorkspace,
+  'suspend-workspace':   handleSuspendWorkspace,
+  'unsuspend-workspace': handleUnsuspendWorkspace,
+  'delete-workspace':    handleDeleteWorkspace,
+  // Ownership Transfer Control
+  'list-ownership-transfers':    handleListOwnershipTransfers,
+  'approve-ownership-transfer':  handleApproveOwnershipTransfer,
+  'reject-ownership-transfer':   handleRejectOwnershipTransfer,
+  // Subscription Control
+  'list-subscription-plans':     handleListSubscriptionPlans,
+  'update-subscription-plan':    handleUpdateSubscriptionPlan,
 };
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
@@ -1090,7 +1496,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsOk();
   if (req.method !== 'POST')    return errorResponse('Method tidak didukung. Gunakan POST.', 405);
 
-  // ── Parse body first — needed to check action before auth ─────────────────
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
@@ -1101,7 +1506,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const action = String(payload.action ?? '');
   if (!action) return errorResponse('Field "action" diperlukan');
 
-  // ── ping — no auth required; confirms the function is reachable ────────────
   if (action === 'ping') {
     return jsonResponse({ ok: true, timestamp: new Date().toISOString() });
   }
@@ -1149,6 +1553,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── JWT auth — required for all actions, including auth-health / auth-integrity
   //    when called directly from the browser (no internal token supplied). ─────
+
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt        = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!jwt) return errorResponse('Authorization header diperlukan', 401);
@@ -1167,7 +1572,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // ── Dispatch ───────────────────────────────────────────────────────────────
   try {
     // Pass internalAuthorization: true for system_admin — enables checkAuthIntegrity
     // and other privileged sub-checks inside handlers like handleAuthHealth.
