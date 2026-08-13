@@ -1059,6 +1059,9 @@ const handleAuthConfigUpdate: Handler = async ({ payload }) => {
     return jsonResponse({
       ok:    false,
       error: err instanceof Error ? err.message : 'Management API tidak dapat dijangkau',
+    });
+  }
+};
 
 // ─── Action: list-users ───────────────────────────────────────────────────────
 // Full user list via Auth Admin API, returned as array.
@@ -1119,16 +1122,6 @@ const handleListUsers: Handler = async () => {
 };
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
-
-const handlers: Record<string, Handler> = {
-  'db-info':              handleDbInfo,
-  'auth-config':          handleAuthConfig,
-  'auth-config-update':   handleAuthConfigUpdate,
-  'functions-list':       handleFunctionsList,
-  'secrets-list':         handleSecretsList,
-  'auth-users':           handleAuthUsers,
-  'auth-integrity':       handleAuthIntegrity,
-  'auth-health':          handleAuthHealth,
 
 // ─── Action: get-user ─────────────────────────────────────────────────────────
 // Returns user profile + account status.
@@ -1320,6 +1313,77 @@ const handleUnsuspendWorkspace: Handler = async () => {
 };
 
 // ─── Action: delete-workspace ─────────────────────────────────────────────────
+//
+// Hard-deletes the workspace row via the admin_delete_workspace RPC (migration
+// 00005). That RPC issues a bare `DELETE FROM workspaces` and relies on the DB
+// to cascade child rows. Several child tables, however, keep a plain RESTRICT
+// foreign key (migration 00003 only adds CASCADE to a subset), so deleting a
+// workspace that still owns child data raises a foreign-key violation (23503)
+// and the function returns a 400 ("non-2xx") to the browser.
+//
+// Child tables are therefore cleaned explicitly here, using the SAME
+// SERVICE-ROLE client used by the rest of this function. The deletes are
+// idempotent no-ops on tables that already CASCADE at the DB level, so this is
+// safe regardless of the current cascade configuration. No constraint is
+// disabled and no schema is changed. 2 passes handle child→child FK ordering.
+const WORKSPACE_CHILD_TABLES: ReadonlyArray<{ table: string; columns: string[] }> = [
+  { table: 'workspace_members',          columns: ['workspace_id'] },
+  { table: 'workspace_invitations',      columns: ['workspace_id'] },
+  { table: 'workspace_relationships',    columns: ['workspace_id_a', 'workspace_id_b', 'initiated_by'] },
+  { table: 'workspace_subscriptions',    columns: ['workspace_id'] },
+  { table: 'workspace_custom_roles',     columns: ['workspace_id'] },
+  { table: 'ownership_transfers',        columns: ['workspace_id'] },
+  { table: 'livestock',                  columns: ['workspace_id'] },
+  { table: 'livestock_ownership_history',columns: ['workspace_id'] },
+  { table: 'livestock_transfers',        columns: ['workspace_id'] },
+  { table: 'mutation_requests',          columns: ['workspace_id', 'destination_workspace_id'] },
+  { table: 'batches',                    columns: ['workspace_id'] },
+  { table: 'health_checkups',            columns: ['workspace_id'] },
+  { table: 'health_treatments',          columns: ['workspace_id'] },
+  { table: 'health_control_schedules',   columns: ['workspace_id'] },
+  { table: 'stok_obat',                  columns: ['workspace_id'] },
+  { table: 'stok_obat_masuk',            columns: ['workspace_id'] },
+  { table: 'stok_obat_keluar',           columns: ['workspace_id'] },
+  { table: 'stok_obat_adjustments',      columns: ['workspace_id'] },
+  { table: 'reproduksi_programs',        columns: ['workspace_id'] },
+  { table: 'pelaksanaan_reproduksi',     columns: ['workspace_id'] },
+  { table: 'pemeriksaan_kebuntingan',    columns: ['workspace_id'] },
+  { table: 'kebuntingan',                columns: ['workspace_id'] },
+  { table: 'kelahiran',                  columns: ['workspace_id'] },
+  { table: 'registrasi_anak',            columns: ['workspace_id'] },
+  { table: 'sapih',                      columns: ['workspace_id'] },
+  { table: 'feed_formulas',              columns: ['workspace_id'] },
+  { table: 'feed_formula_productions',   columns: ['workspace_id'] },
+  { table: 'stok_inventaris',            columns: ['workspace_id'] },
+  { table: 'stok_inventaris_transactions', columns: ['workspace_id'] },
+  { table: 'jadwal_pemberian_pakan',     columns: ['workspace_id'] },
+  { table: 'pemberian_pakan',            columns: ['workspace_id'] },
+  { table: 'marketplace_listings',       columns: ['workspace_id'] },
+  { table: 'marketplace_chat_rooms',     columns: ['buyer_workspace_id', 'seller_workspace_id'] },
+  { table: 'marketplace_chat_messages',  columns: ['sender_workspace_id'] },
+  { table: 'marketplace_negototiations', columns: ['buyer_workspace_id', 'seller_workspace_id'] },
+  { table: 'marketplace_transactions',   columns: ['buyer_workspace_id', 'seller_workspace_id'] },
+  { table: 'marketplace_moderations',    columns: ['reported_by_workspace_id'] },
+  { table: 'transaction_rooms',          columns: ['buyer_workspace_id', 'seller_workspace_id'] },
+  { table: 'transaction_participants',   columns: ['workspace_id'] },
+  { table: 'transaction_attachments',    columns: ['uploaded_by_workspace_id'] },
+  { table: 'service_quotations',         columns: ['provider_workspace_id'] },
+  { table: 'layanan_transport',          columns: ['workspace_id'] },
+  { table: 'layanan_dokter_hewan',       columns: ['workspace_id'] },
+  { table: 'layanan_klinik_hewan',       columns: ['workspace_id'] },
+  { table: 'transport_transactions',     columns: ['transport_workspace_id'] },
+  { table: 'transaction_conversation_messages', columns: ['sender_workspace_id'] },
+  { table: 'transaction_evidence',       columns: ['submitted_by_workspace_id'] },
+  { table: 'transaction_audit_trail',    columns: ['actor_workspace_id'] },
+  { table: 'news_publications',          columns: ['workspace_id'] },
+  { table: 'notifications',              columns: ['recipient_workspace_id'] },
+  { table: 'alert_reminders',            columns: ['workspace_id'] },
+  { table: 'trust_verifications',        columns: ['workspace_id'] },
+  { table: 'media',                      columns: ['owner_workspace_id'] },
+  { table: 'global_audit_trail',         columns: ['workspace_id'] },
+  { table: 'search_index',               columns: ['workspace_id'] },
+  { table: 'activity_log',               columns: ['workspace_id'] },
+];
 
 const handleDeleteWorkspace: Handler = async () => {
   const svc = makeServiceClient();
@@ -1327,6 +1391,19 @@ const handleDeleteWorkspace: Handler = async () => {
 
   if (!workspaceId) {
     return errorResponse('Field "workspaceId" diperlukan');
+  }
+
+  // Pre-clean child rows so admin_delete_workspace's `DELETE FROM workspaces`
+  // does not trip a RESTRICT foreign-key edge. No-op on already-cascaded tables.
+  for (let pass = 0; pass < 2; pass++) {
+    let progress = false;
+    for (const child of WORKSPACE_CHILD_TABLES) {
+      for (const col of child.columns) {
+        const { error: delErr } = await svc.from(child.table).delete().eq(col, workspaceId);
+        if (!delErr) progress = true;
+      }
+    }
+    if (!progress) break;
   }
 
   const { error } = await svc.rpc('admin_delete_workspace', { p_workspace_id: workspaceId });

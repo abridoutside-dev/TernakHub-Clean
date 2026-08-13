@@ -201,7 +201,17 @@ export default function AdminWorkspaceDetail() {
         body: { action: 'delete-workspace', workspaceId: id },
       });
       if (error || !data?.ok) {
-        const message = (data as { error?: string } | undefined)?.error ?? error?.message ?? 'Gagal menghapus workspace.';
+        let message: string = (data as { error?: string } | undefined)?.error ?? error?.message ?? 'Gagal menghapus workspace.';
+        // functions.invoke rejects with a generic "non-2xx" message when the
+        // function returns >= 400. Recover the real server error from the body
+        // so the admin sees what actually failed instead of a generic error.
+        const resp = (error as { context?: { response?: Response } } | undefined)?.context?.response;
+        if (resp) {
+          try {
+            const body = await resp.clone().json() as { error?: string; message?: string };
+            if (typeof body.error === 'string') message = body.error;
+          } catch { /* fall back to generic message */ }
+        }
         setNotice({ kind: 'error', message });
         return;
       }
