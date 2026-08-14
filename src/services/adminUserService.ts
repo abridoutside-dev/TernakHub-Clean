@@ -76,6 +76,7 @@ export interface UserDependencies {
   memberWorkspaces: WorkspaceMemberDependency[];
   roles: WorkspaceRoleDependency[];
   invitations: WorkspaceInvitationDependency[];
+  otherDependencies: Array<{ label: string; count: number }>;
   canDelete: boolean;
   reason: string | null;
 }

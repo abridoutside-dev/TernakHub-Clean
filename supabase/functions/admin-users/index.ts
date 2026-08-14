@@ -26,6 +26,32 @@ const OWNER_WORKSPACE_MESSAGE = 'User masih menjadi Owner Workspace. Pindahkan k
 const MEMBER_WORKSPACE_MESSAGE = 'User masih menjadi anggota Workspace. Hapus membership terlebih dahulu.';
 const ROLE_MESSAGE = 'User masih memiliki peran atau hak akses Workspace. Hapus peran terlebih dahulu.';
 const INVITATION_MESSAGE = 'User masih memiliki undangan Workspace. Hapus undangan terlebih dahulu.';
+const OTHER_DEPENDENCY_MESSAGE = 'User masih memiliki data operasional atau audit yang mereferensikan akun ini. Hapus data tersebut terlebih dahulu.';
+
+const ADDITIONAL_DEPENDENCY_TABLES: Array<{ table: string; column: string; label: string }> = [
+  { table: 'admin_announcements', column: 'created_by', label: 'Pengumuman Admin' },
+  { table: 'backup_records', column: 'triggered_by', label: 'Backup Records' },
+  { table: 'global_audit_trail', column: 'user_id', label: 'Global Audit Trail' },
+  { table: 'health_checkups', column: 'recorded_by', label: 'Pemeriksaan Kesehatan' },
+  { table: 'health_control_schedules', column: 'created_by', label: 'Jadwal Kesehatan' },
+  { table: 'health_treatments', column: 'recorded_by', label: 'Perlakuan Kesehatan' },
+  { table: 'kelahiran', column: 'recorded_by', label: 'Kelahiran' },
+  { table: 'listing_reports', column: 'moderator_user_id', label: 'Laporan Listing' },
+  { table: 'monitoring_reproduksi', column: 'recorded_by', label: 'Monitoring Reproduksi' },
+  { table: 'ownership_transfers', column: 'from_user_id', label: 'Transfer Kepemilikan (Dari)' },
+  { table: 'ownership_transfers', column: 'to_user_id', label: 'Transfer Kepemilikan (Ke)' },
+  { table: 'pelaksanaan_reproduksi', column: 'recorded_by', label: 'Pelaksanaan Reproduksi' },
+  { table: 'pemeriksaan_kebuntingan', column: 'recorded_by', label: 'Pemeriksaan Kebuntingan' },
+  { table: 'platform_config', column: 'updated_by', label: 'Konfigurasi Platform' },
+  { table: 'reproduksi_programs', column: 'created_by', label: 'Program Reproduksi' },
+  { table: 'sapih', column: 'recorded_by', label: 'Sapih' },
+  { table: 'stok_obat_adjustments', column: 'adjusted_by', label: 'Penyesuaian Stok Obat' },
+  { table: 'stok_obat_keluar', column: 'recorded_by', label: 'Stok Obat Keluar' },
+  { table: 'stok_obat_masuk', column: 'recorded_by', label: 'Stok Obat Masuk' },
+  { table: 'subscription_history', column: 'changed_by', label: 'Riwayat Subscription' },
+  { table: 'system_logs', column: 'user_id', label: 'Log Sistem' },
+  { table: 'workspace_members', column: 'invited_by', label: 'Anggota yang Diundang' },
+];
 
 function sanitizeErrorMessage(message: string, fallback: string): string {
   const normalized = message.replace(/\s+/g, ' ').trim();
@@ -140,6 +166,7 @@ interface UserDependencies {
   memberWorkspaces: WorkspaceMemberDependency[];
   roles: WorkspaceRoleDependency[];
   invitations: WorkspaceInvitationDependency[];
+  otherDependencies: Array<{ label: string; count: number }>;
   canDelete: boolean;
   reason: string | null;
 }
@@ -324,11 +351,15 @@ function workspaceDependency(row: Record<string, unknown>): WorkspaceDependency 
   };
 }
 
-function dependencyReason(dependencies: Omit<UserDependencies, 'canDelete' | 'reason'>): string | null {
+function dependencyReason(
+  dependencies: Omit<UserDependencies, 'otherDependencies' | 'canDelete' | 'reason'>,
+  otherDependencies: Array<{ label: string; count: number }>,
+): string | null {
   if (dependencies.ownerWorkspaces.length > 0) return 'USER_IS_OWNER';
   if (dependencies.memberWorkspaces.length > 0) return 'USER_IS_MEMBER';
   if (dependencies.roles.length > 0) return 'USER_HAS_WORKSPACE_ROLE';
   if (dependencies.invitations.length > 0) return 'USER_HAS_WORKSPACE_INVITATION';
+  if (otherDependencies.length > 0) return 'USER_HAS_OTHER_DEPENDENCY';
   return null;
 }
 
@@ -444,9 +475,34 @@ async function readDependencies(url: string, key: string, userId: string): Promi
     }];
   });
 
-  const result = { ownerWorkspaces, memberWorkspaces, roles, invitations: invitationDependencies };
-  const reason = dependencyReason(result);
-  return { ...result, canDelete: reason === null, reason };
+  const result = { ownerWorkspaces, memberWorkspaces, roles, invitations: invitationDependencies, otherDependencies: [] as Array<{ label: string; count: number }> };
+  const workspaceReason = dependencyReason(result, []);
+  if (workspaceReason) {
+    return { ...result, canDelete: false, reason: workspaceReason };
+  }
+
+  const additionalResponses = await Promise.all(
+    ADDITIONAL_DEPENDENCY_TABLES.map(({ table, column }) =>
+      restFetch(url, `/${table}?${column}=eq.${encodeURIComponent(userId)}&select=id`, key),
+    ),
+  );
+
+  const additionalDependencies: Array<{ label: string; count: number }> = [];
+  for (let i = 0; i < ADDITIONAL_DEPENDENCY_TABLES.length; i++) {
+    const { table, column, label } = ADDITIONAL_DEPENDENCY_TABLES[i];
+    const response = additionalResponses[i];
+    if (!response.ok) {
+      throw new Error(await responseMessage(response, `Gagal memeriksa ${label}`));
+    }
+    const rows = await response.json();
+    const count = Array.isArray(rows) ? rows.length : 0;
+    if (count > 0) {
+      additionalDependencies.push({ label, count });
+    }
+  }
+
+  const otherReason = additionalDependencies.length > 0 ? 'USER_HAS_OTHER_DEPENDENCY' : null;
+  return { ...result, otherDependencies: additionalDependencies, canDelete: otherReason === null, reason: otherReason };
 }
 
 async function handleAdminUsers(
@@ -797,7 +853,9 @@ async function handleAdminUsers(
           ? MEMBER_WORKSPACE_MESSAGE
           : dependencies.reason === 'USER_HAS_WORKSPACE_ROLE'
             ? ROLE_MESSAGE
-            : INVITATION_MESSAGE;
+            : dependencies.reason === 'USER_HAS_WORKSPACE_INVITATION'
+              ? INVITATION_MESSAGE
+              : OTHER_DEPENDENCY_MESSAGE;
       return errorResponse(reasonMessage, 409);
     }
   }

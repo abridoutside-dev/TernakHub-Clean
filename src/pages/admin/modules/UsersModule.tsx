@@ -139,6 +139,7 @@ function DependencySummary({
     { label: 'Role', items: dependencies?.roles ?? [], detail: (item: { workspace_type?: string; role_kind?: string }) => `${item.workspace_type || 'Workspace'} · ${item.role_kind === 'assigned' ? 'Assigned' : 'Created'}` },
     { label: 'Invitation', items: dependencies?.invitations ?? [], detail: (item: { email?: string; role?: string; status?: string }) => `${item.email || '—'} · ${item.role || '—'} · ${item.status || '—'}` },
   ];
+  const otherDeps = dependencies?.otherDependencies ?? [];
   return (
     <Modal onClose={onClose} width={650}>
       <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #f1f5f9' }}>
@@ -171,6 +172,20 @@ function DependencySummary({
               ))}
           </section>
         ))}
+        {!loading && dependencies && otherDeps.length > 0 && (
+          <section style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <strong style={{ fontSize: 13, color: '#334155' }}>Data Terkait Lainnya</strong>
+              <span style={{ fontSize: 12, color: '#64748b' }}>{otherDeps.length}</span>
+            </div>
+            {otherDeps.map(item => (
+              <div key={item.label} style={{ padding: '8px 10px', background: '#f8fafc', borderRadius: 7, marginTop: 6 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 650, color: '#0f172a' }}>{item.label}</div>
+                <div style={{ marginTop: 2, fontSize: 11.5, color: '#64748b' }}>{item.count} record</div>
+              </div>
+            ))}
+          </section>
+        )}
       </div>
       <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <Button onClick={onReload} disabled={loading} secondary>↻ Muat Ulang</Button>
