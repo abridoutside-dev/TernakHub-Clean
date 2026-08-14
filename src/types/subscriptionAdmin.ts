@@ -1,5 +1,34 @@
 export type SubscriptionDbStatus = 'Aktif' | 'Trial' | 'Kadaluarsa' | 'Dibatalkan' | 'Ditangguhkan';
 
+export type EntitlementAccessMode = 'allowed' | 'denied' | 'limited' | 'unlimited';
+
+export interface PackageEntitlement {
+  id: string;
+  package_id: string;
+  feature_key: string;
+  access_mode: EntitlementAccessMode;
+  usage_limit: number | null;
+  capabilities: Record<string, boolean>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageEntitlementInput {
+  feature_key: string;
+  access_mode: EntitlementAccessMode;
+  usage_limit?: number | null;
+  capabilities?: Record<string, boolean>;
+}
+
+export interface WorkspaceEntitlementView {
+  feature_key: string;
+  access_mode: EntitlementAccessMode;
+  usage_limit: number | null;
+  usage_count: number;
+  remaining: number | null;
+  is_explicit: boolean;
+}
+
 export interface SubscriptionPackage {
   id: string;
   plan_key: string;
@@ -16,6 +45,7 @@ export interface SubscriptionPackage {
   created_at: string;
   updated_at: string;
   dependency_count?: number;
+  entitlements?: PackageEntitlement[];
 }
 
 export interface SubscriptionPackageInput {
@@ -29,6 +59,7 @@ export interface SubscriptionPackageInput {
   max_batches?: number | null;
   max_listings?: number | null;
   features?: string[];
+  entitlements?: PackageEntitlementInput[];
 }
 
 export interface SubscriptionWorkspaceOption {

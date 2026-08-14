@@ -1,22 +1,23 @@
-// ─── Subscription Context — SUB-001 / DB-001B-3 ──────────────────────────────
+// ─── Subscription Context — SUB-001 / DB-001B-3 / ENT-002 ─────────────────────
 //
 // useSubscription() derives the active workspace's subscription state.
 // DB-001B-3: subscription status/dates now read from Supabase via
 // workspaceSubscriptionRepository (async). plan is read from WorkspaceContext
 // (already Supabase-backed). hasFeature() uses the local FEATURE_GATE matrix
-// (pure config — no in-memory store).
+// as fallback and package-specific entitlements as override.
 //
 // RULES:
 //  - Subscription is per-Workspace, NOT per-User.
 //  - Switching the active workspace triggers a fresh Supabase fetch.
 //  - hasFeature() is the sole gate — never compare plan strings in component code.
+//  - Package entitlements override plan defaults.
 //  - No payment, billing, or invoice state lives here.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWorkspace } from './WorkspaceContext';
-import { getWorkspaceSubscription } from '../services/workspaceService';
+import { getWorkspaceSubscription, getWorkspaceEntitlements } from '../services/workspaceService';
+import { resolveEntitlement, setEntitlementCache, clearEntitlementCache } from '../utils/workspaceEntitlementResolver';
 import type { SubscriptionRecordAdmin } from '../types/subscriptionAdmin';
-import { hasFeature as gateHasFeature } from '../data/workspaceSubscriptionData';
 import type { WorkspacePlan } from '../types/workspace';
 import type { WorkspaceSubscriptionStatus, FeatureKey } from '../types/subscription';
 
@@ -45,61 +46,86 @@ export interface SubscriptionState {
   isLoading: boolean;
 
   /**
-   * Returns true when the active workspace's plan grants access to the feature.
+   * Returns true when the active workspace's plan/package grants access to the feature.
+   * Package entitlements override plan defaults.
    *
    * @example
    * const { hasFeature } = useSubscription();
    * if (hasFeature('ai_formula_recommendation')) { ... }
    */
   hasFeature: (feature: FeatureKey) => boolean;
+
+  /**
+   * Returns detailed entitlement info for a feature.
+   * Includes usage count, limit, and remaining quota when applicable.
+   */
+  getEntitlement: (feature: FeatureKey) => {
+    allowed: boolean;
+    access_mode: string;
+    usage_limit: number | null;
+    usage_count: number;
+    remaining: number | null;
+    is_explicit: boolean;
+  };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-/**
- * Returns the subscription state for the currently active workspace.
- *
- * Re-evaluates whenever WorkspaceContext's activeWorkspace changes
- * (e.g. the user switches workspace via the Global Header).
- *
- * DB-001B-3: status/dates fetched from Supabase workspace_subscriptions table
- * via workspaceSubscriptionRepository. plan is always read from
- * activeWorkspace.workspace_plan (Supabase-backed via WorkspaceContext).
- *
- * Must be called inside a component tree wrapped by <WorkspaceProvider>.
- */
 export function useSubscription(): SubscriptionState {
   const { activeWorkspace } = useWorkspace();
 
   const workspaceUuid = activeWorkspace?.workspace_uuid ?? null;
 
-  // Plan is the canonical source from WorkspaceContext (Supabase-backed).
   const plan: WorkspacePlan =
     (activeWorkspace?.workspace_plan as WorkspacePlan) ?? 'Free';
 
-  // Async subscription record from Supabase (status + dates).
-  const [dbSub, setDbSub]     = useState<SubscriptionRecordAdmin | null>(null);
+  const [dbSub, setDbSub] = useState<SubscriptionRecordAdmin | null>(null);
+  const [entitlements, setEntitlements] = useState<Awaited<ReturnType<typeof getWorkspaceEntitlements>>>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!workspaceUuid) {
       setDbSub(null);
+      setEntitlements([]);
+      clearEntitlementCache(workspaceUuid ?? '');
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    getWorkspaceSubscription(workspaceUuid)
-      .then((sub) => {
+    Promise.all([
+      getWorkspaceSubscription(workspaceUuid),
+      getWorkspaceEntitlements(workspaceUuid),
+    ])
+      .then(([sub, ents]) => {
         setDbSub(sub);
+        setEntitlements(ents);
+        setEntitlementCache(workspaceUuid, ents);
       })
       .catch(() => {
         setDbSub(null);
+        setEntitlements([]);
+        clearEntitlementCache(workspaceUuid);
       })
       .finally(() => {
         setIsLoading(false);
       });
   }, [workspaceUuid]);
+
+  const hasFeature = useMemo(
+    () => (feature: FeatureKey) => {
+      const resolved = resolveEntitlement(plan, workspaceUuid, feature, entitlements);
+      return resolved.allowed;
+    },
+    [plan, workspaceUuid, entitlements],
+  );
+
+  const getEntitlement = useMemo(
+    () => (feature: FeatureKey) => {
+      return resolveEntitlement(plan, workspaceUuid, feature, entitlements);
+    },
+    [plan, workspaceUuid, entitlements],
+  );
 
   return {
     workspaceUuid,
@@ -107,8 +133,9 @@ export function useSubscription(): SubscriptionState {
     status:      (dbSub?.status      ?? 'Active') as WorkspaceSubscriptionStatus,
     activatedAt: dbSub?.started_at   ?? null,
     expiredAt:   dbSub?.expires_at   ?? null,
-    renewalAt:   dbSub?.expires_at   ?? null, // DB has expires_at; renewal aligns with expiry
+    renewalAt:   dbSub?.expires_at   ?? null,
     isLoading,
-    hasFeature:  (feature: FeatureKey) => gateHasFeature(plan, feature),
+    hasFeature,
+    getEntitlement,
   };
 }

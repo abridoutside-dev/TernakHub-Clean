@@ -131,6 +131,18 @@ function packagePayload(body: Record<string, unknown>) {
     features: Array.isArray(body.features) ? body.features.filter((item) => typeof item === 'string') : [],
   };
 }
+function mapEntitlement(row: Record<string, unknown>) {
+  return {
+    id: String(row.id ?? ''),
+    package_id: String(row.package_id ?? ''),
+    feature_key: String(row.feature_key ?? ''),
+    access_mode: String(row.access_mode ?? 'allowed'),
+    usage_limit: row.usage_limit == null ? null : Number(row.usage_limit),
+    capabilities: (row.capabilities && typeof row.capabilities === 'object') ? row.capabilities as Record<string, boolean> : {},
+    created_at: String(row.created_at ?? ''),
+    updated_at: String(row.updated_at ?? ''),
+  };
+}
 function mapPackage(row: PackageRow, dependencyCount?: number) {
   return {
     id: row.id,
@@ -358,7 +370,108 @@ async function main(request: Request): Promise<Response> {
       })),
     });
   }
+  if (operation === 'workspace-entitlements') {
+    // Callable by any active member of the workspace (or an admin).
+    const workspaceId = body.workspace_id;
+    if (!isUuid(workspaceId)) return fail('Workspace ID tidak valid.');
+    const membership = await restFetch(
+      url,
+      `/workspace_members?workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(actor.id)}&status=eq.Aktif&select=id&limit=1`,
+      serviceKey,
+    );
+    if (!membership.ok) return fail('Membership workspace tidak dapat diverifikasi.', 'DATABASE', 500);
+    const members = await membership.json() as Array<{ id: string }>;
+    if (!members.length && !isAdmin(actor)) return fail('Akses ditolak untuk workspace ini.', 'FORBIDDEN', 403);
+    const result = await restFetch(
+      url,
+      '/rpc/get_workspace_entitlements',
+      serviceKey,
+      { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ p_workspace_id: workspaceId }) },
+    );
+    if (!result.ok) return fail(await bodyMessage(result, 'Entitlement workspace tidak dapat dimuat.'), 'DATABASE', result.status);
+    const rows = await result.json() as Array<Record<string, unknown>>;
+    return response({ ok: true, data: rows.map((row) => ({
+      feature_key: String(row.feature_key ?? ''),
+      access_mode: String(row.access_mode ?? 'allowed'),
+      usage_limit: row.usage_limit == null ? null : Number(row.usage_limit),
+      usage_count: Number(row.usage_count ?? 0),
+      remaining: row.remaining == null ? null : Number(row.remaining),
+      is_explicit: row.is_explicit === true,
+    })) });
+  }
   if (!isAdmin(actor)) return fail('Akses ditolak: admin only.', 'FORBIDDEN', 403);
+  if (operation === 'package-entitlements') {
+    const packageId = body.package_id;
+    if (!isUuid(packageId)) return fail('Package ID tidak valid.');
+    const result = await restFetch(url, `/package_entitlements?package_id=eq.${encodeURIComponent(packageId)}&order=feature_key.asc`, serviceKey);
+    if (!result.ok) return fail(await bodyMessage(result, 'Entitlement tidak dapat dimuat.'), 'DATABASE', result.status);
+    const rows = await result.json() as Record<string, unknown>[];
+    return response({ ok: true, data: rows.map(mapEntitlement) });
+  }
+  if (operation === 'upsert-package-entitlements') {
+    const packageId = body.package_id;
+    const entitlements = Array.isArray(body.entitlements) ? body.entitlements : [];
+    if (!isUuid(packageId)) return fail('Package ID tidak valid.');
+    const existingResult = await restFetch(url, `/package_entitlements?package_id=eq.${encodeURIComponent(packageId)}&select=*`, serviceKey);
+    if (!existingResult.ok) return fail(await bodyMessage(existingResult, 'Entitlement existing tidak dapat dimuat.'), 'DATABASE', existingResult.status);
+    const existingRows = await existingResult.json() as Record<string, unknown>[];
+    const existingByKey = new Map(existingRows.map((row) => [String(row.feature_key), row]));
+    const toUpsert: Record<string, unknown>[] = [];
+    const toDelete: string[] = [];
+    for (const ent of entitlements) {
+      const featureKey = stringValue(ent.feature_key);
+      if (!featureKey) continue;
+      const accessMode = stringValue(ent.access_mode) || 'allowed';
+      const usageLimit = ent.usage_limit == null ? null : Number(ent.usage_limit);
+      const capabilities = (ent.capabilities && typeof ent.capabilities === 'object') ? ent.capabilities : {};
+      const existing = existingByKey.get(featureKey);
+      if (existing) {
+        toUpsert.push({
+          id: existing.id,
+          access_mode: accessMode,
+          usage_limit: usageLimit,
+          capabilities: capabilities,
+          updated_at: new Date().toISOString(),
+        });
+      } else {
+        toUpsert.push({
+          package_id: packageId,
+          feature_key: featureKey,
+          access_mode: accessMode,
+          usage_limit: usageLimit,
+          capabilities: capabilities,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+    for (const [featureKey] of existingByKey) {
+      if (!entitlements.some((ent: Record<string, unknown>) => String(ent.feature_key ?? '') === featureKey)) {
+        toDelete.push(featureKey);
+      }
+    }
+    if (toUpsert.length > 0) {
+      const upsertResult = await restFetch(url, '/package_entitlements', serviceKey, {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates' },
+        body: JSON.stringify(toUpsert),
+      });
+      if (!upsertResult.ok) return fail(await bodyMessage(upsertResult, 'Entitlement tidak dapat disimpan.'), 'DATABASE', upsertResult.status);
+    }
+    if (toDelete.length > 0) {
+      for (const featureKey of toDelete) {
+        const row = existingByKey.get(featureKey);
+        if (!row?.id) continue;
+        const delResult = await restFetch(url, `/package_entitlements?id=eq.${encodeURIComponent(row.id)}`, serviceKey, { method: 'DELETE' });
+        if (!delResult.ok) return fail(await bodyMessage(delResult, 'Entitlement tidak dapat dihapus.'), 'DATABASE', delResult.status);
+      }
+    }
+    await insertAudit(url, serviceKey, actor.id, 'package.entitlements.upsert', packageId, null, null, { count: toUpsert.length, deleted: toDelete.length });
+    const refreshedResult = await restFetch(url, `/package_entitlements?package_id=eq.${encodeURIComponent(packageId)}&order=feature_key.asc`, serviceKey);
+    if (!refreshedResult.ok) return fail(await bodyMessage(refreshedResult, 'Entitlement refreshed tidak dapat dimuat.'), 'DATABASE', refreshedResult.status);
+    const refreshed = await refreshedResult.json() as Record<string, unknown>[];
+    return response({ ok: true, data: refreshed.map(mapEntitlement) });
+  }
   const base = await readBase(url, serviceKey);
   const mapSubscriptionRow = (row: SubscriptionRow) =>
     mapSubscription(row, base.workspaceMap, base.packageMap);

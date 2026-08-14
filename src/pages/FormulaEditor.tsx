@@ -18,6 +18,7 @@ import { getFormulaSelectableProdukKomersial, type FormulaProdukKomersialRef } f
 import { getAllFormulaMasterPakan, type FormulaMasterPakanRef } from '../data/formulaMasterPakanData';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import {
   recordCreateFormula,
   recordUpdateFormula,
@@ -713,6 +714,7 @@ export default function FormulaEditor() {
   // Hydrate in-memory store from Supabase on hard refresh so that edit mode
   // resolves the formula correctly (FLOW-003M25).
   const { loading: formulaLoading } = useFormula();
+  const { hasFeature }            = useSubscription();
 
   const existing     = isEdit ? getFormulaById(id!) : undefined;
 
@@ -730,6 +732,7 @@ export default function FormulaEditor() {
   const [errors, setErrors]  = useState<FormErrors>({});
   const [picker, setPicker]  = useState<PickerStep>({ step: 'closed' });
   const [saved,  setSaved]   = useState(false);
+  const [serverError, setServerError] = useState('');
 
   // ── Keyed counter for new bahan ─────────────────────────────────────
   const [_keyCount, setKeyCount] = useState(0);
@@ -806,7 +809,7 @@ export default function FormulaEditor() {
   }
 
   // ── Save ─────────────────────────────────────────────────────────────
-  function handleSave() {
+  async function handleSave() {
     if (!validate()) return;
 
     const nutrisi = computeNutrisi(bahan);
@@ -836,21 +839,21 @@ export default function FormulaEditor() {
     } else {
       const added = addFormula(input);
       targetId = added.id;
-      // Chain: ingredients require the formula's Supabase UUID to be stored
-      // in FORMULA_SUPABASE_ID_MAP first — only fire after formula insert resolves ok.
-      void recordCreateFormula(added.id, workspaceId, userId, added)
-        .then((result) => {
-          if (result.ok) {
-            void recordCreateFormulaIngredients(added.id, added.bahan ?? []).catch(
-              (err) => console.error('[FormulaEditor] recordCreateFormulaIngredients failed:', err),
-            );
-          }
-        })
-        .catch((err) => console.error('[FormulaEditor] recordCreateFormula failed:', err));
+      try {
+        const result = await recordCreateFormula(added.id, workspaceId, userId, added);
+        if (!result.ok) {
+          setServerError(result.error);
+          return;
+        }
+        await recordCreateFormulaIngredients(added.id, added.bahan ?? []);
+      } catch (err) {
+        console.error('[FormulaEditor] recordCreateFormula failed:', err);
+        setServerError(err instanceof Error ? err.message : 'Gagal menyimpan formula.');
+        return;
+      }
     }
 
     setSaved(true);
-    // Navigate to detail page after short feedback delay
     setTimeout(() => navigate(`/stok-pakan/formula/${targetId}`, { replace: true }), 300);
   }
 
@@ -860,6 +863,28 @@ export default function FormulaEditor() {
       <div style={{ padding: '60px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>❓</div>
         <div style={{ fontSize: 15, fontWeight: 700 }}>Formula tidak ditemukan.</div>
+        <button type="button" onClick={() => navigate(-1)}
+          style={{ marginTop: 20, padding: '10px 20px', border: '1.5px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)', background: 'none', cursor: 'pointer', fontSize: 14 }}>
+          Kembali
+        </button>
+      </div>
+    );
+  }
+
+  // ── Subscription guard (ENT): direct-URL / route-level denial ─────────
+  // Server-side trigger remains the authoritative enforcement; this guard
+  // gives an immediate locked UI when formula_feed is denied by the package.
+  if (!hasFeature('formula_feed')) {
+    return (
+      <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
+          Formula Pakan tidak termasuk dalam paket Anda.
+        </div>
+        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 20, maxWidth: 420, margin: '0 auto' }}>
+          Fitur ini memerlukan paket yang lebih tinggi. Hubungi administrator platform untuk melakukan upgrade paket workspace ini.
+        </div>
         <button type="button" onClick={() => navigate(-1)}
           style={{ marginTop: 20, padding: '10px 20px', border: '1.5px solid var(--color-border)',
             borderRadius: 'var(--radius-md)', background: 'none', cursor: 'pointer', fontSize: 14 }}>
@@ -1107,6 +1132,14 @@ export default function FormulaEditor() {
         padding: '12px 16px',
         maxWidth: 480, margin: '0 auto',
       }}>
+        {serverError && (
+          <div style={{
+            background: '#fff1f2', border: '1px solid #fecaca', color: '#b91c1c',
+            borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12,
+          }}>
+            ⚠ {serverError}
+          </div>
+        )}
         <button
           type="button"
           onClick={handleSave}

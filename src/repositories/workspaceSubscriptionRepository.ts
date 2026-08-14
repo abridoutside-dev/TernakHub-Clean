@@ -6,6 +6,8 @@
 
 import { supabase } from '../lib/supabase';
 import type {
+  PackageEntitlement,
+  PackageEntitlementInput,
   SubscriptionAdminData,
   SubscriptionAuditEntry,
   SubscriptionHistoryEntryAdmin,
@@ -13,6 +15,7 @@ import type {
   SubscriptionPackageInput,
   SubscriptionPreflight,
   SubscriptionRecordAdmin,
+  WorkspaceEntitlementView,
 } from '../types/subscriptionAdmin';
 
 export class SubscriptionRepoError extends Error {
@@ -153,6 +156,80 @@ export function repoListSubscriptionAudit(): Promise<SubscriptionAuditEntry[]> {
   return invoke('audit');
 }
 
+export function repoListPackageEntitlements(packageId: string): Promise<PackageEntitlement[]> {
+  return invoke('package-entitlements', { package_id: packageId });
+}
+
+export function repoUpsertPackageEntitlements(
+  packageId: string,
+  entitlements: PackageEntitlementInput[],
+): Promise<PackageEntitlement[]> {
+  return invoke('upsert-package-entitlements', { package_id: packageId, entitlements });
+}
+
+export function repoGetWorkspaceEntitlements(workspaceId: string): Promise<WorkspaceEntitlementView[]> {
+  return invoke('workspace-entitlements', { workspace_id: workspaceId });
+}
+
+export async function repoCheckEntitlement(
+  workspaceId: string,
+  featureKey: string,
+): Promise<{ allowed: boolean; access_mode: string; usage_limit: number | null; usage_count: number; remaining: number | null }> {
+  const { data, error } = await supabase.rpc('check_entitlement', {
+    p_workspace_id: workspaceId,
+    p_feature_key: featureKey,
+  });
+  if (error) throw new SubscriptionRepoError(error.message, error.code);
+  const row = (data ?? [])[0];
+  if (!row) return { allowed: false, access_mode: 'denied', usage_limit: null, usage_count: 0, remaining: 0 };
+  return {
+    allowed: row.allowed,
+    access_mode: row.access_mode,
+    usage_limit: row.usage_limit,
+    usage_count: row.usage_count,
+    remaining: row.remaining,
+  };
+}
+
+export async function repoIncrementUsage(
+  workspaceId: string,
+  featureKey: string,
+): Promise<{ usage_count: number }> {
+  const { data, error } = await supabase.rpc('increment_usage', {
+    p_workspace_id: workspaceId,
+    p_feature_key: featureKey,
+  });
+  if (error) throw new SubscriptionRepoError(error.message, error.code);
+  const row = (data ?? [])[0];
+  return { usage_count: row?.usage_count ?? 0 };
+}
+
+export async function repoCreateFormulaWithEntitlement(input: {
+  workspace_id: string;
+  name: string;
+  status: string;
+  target_species: string[];
+  target_age_group: string | null;
+  description: string | null;
+  total_cost_per_kg: number | null;
+  created_by: string | null;
+}): Promise<{ id: string }> {
+  const { data, error } = await supabase.rpc('create_formula_with_entitlement', {
+    p_workspace_id: input.workspace_id,
+    p_name: input.name,
+    p_status: input.status,
+    p_target_species: input.target_species,
+    p_target_age_group: input.target_age_group,
+    p_description: input.description,
+    p_total_cost_per_kg: input.total_cost_per_kg,
+    p_created_by: input.created_by,
+  });
+  if (error) throw new SubscriptionRepoError(error.message, error.code);
+  const row = (data ?? [])[0];
+  if (!row) throw new SubscriptionRepoError('Gagal membuat formula.');
+  return { id: row.id };
+}
+
 export type {
   SubscriptionAdminData,
   SubscriptionAuditEntry,
@@ -161,4 +238,7 @@ export type {
   SubscriptionPackageInput,
   SubscriptionPreflight,
   SubscriptionRecordAdmin,
+  PackageEntitlement,
+  PackageEntitlementInput,
+  WorkspaceEntitlementView,
 };

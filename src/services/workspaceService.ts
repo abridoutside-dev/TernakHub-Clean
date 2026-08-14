@@ -130,10 +130,15 @@ import {
 import {
   repoAssignSubscription,
   repoChangeSubscription,
+  repoCheckEntitlement,
+  repoCreateFormulaWithEntitlement,
   repoCreateSubscriptionPackage,
   repoDeleteSubscriptionPackage,
   repoGetPackageDeletePreflight,
+  repoGetWorkspaceEntitlements,
   repoGetWorkspaceSubscription,
+  repoIncrementUsage,
+  repoListPackageEntitlements,
   repoListSubscriptionAdmin,
   repoListSubscriptionAudit,
   repoListSubscriptionHistory,
@@ -142,9 +147,12 @@ import {
   repoSetSubscriptionPackageStatus,
   repoTransitionSubscription,
   repoUpdateSubscriptionPackage,
+  repoUpsertPackageEntitlements,
   SubscriptionRepoError,
 } from '../repositories/workspaceSubscriptionRepository';
 import type {
+  PackageEntitlement,
+  PackageEntitlementInput,
   SubscriptionAdminData,
   SubscriptionAuditEntry,
   SubscriptionHistoryEntryAdmin,
@@ -152,6 +160,7 @@ import type {
   SubscriptionPackageInput,
   SubscriptionPreflight,
   SubscriptionRecordAdmin,
+  WorkspaceEntitlementView,
 } from '../types/subscriptionAdmin';
 import {
   repoGetTrustVerification,
@@ -892,6 +901,48 @@ export function getWorkspaceSubscriptionHistory(
 
 export function getSubscriptionAudit(): Promise<SubscriptionAuditEntry[]> {
   return repoListSubscriptionAudit();
+}
+
+export function getPackageEntitlements(packageId: string): Promise<PackageEntitlement[]> {
+  return repoListPackageEntitlements(packageId);
+}
+
+export function upsertPackageEntitlements(
+  packageId: string,
+  entitlements: PackageEntitlementInput[],
+): Promise<PackageEntitlement[]> {
+  return repoUpsertPackageEntitlements(packageId, entitlements);
+}
+
+export function getWorkspaceEntitlements(workspaceId: string): Promise<WorkspaceEntitlementView[]> {
+  return repoGetWorkspaceEntitlements(workspaceId);
+}
+
+export async function checkWorkspaceEntitlement(
+  workspaceId: string,
+  featureKey: string,
+): Promise<{ allowed: boolean; access_mode: string; usage_limit: number | null; usage_count: number; remaining: number | null }> {
+  return repoCheckEntitlement(workspaceId, featureKey);
+}
+
+export async function incrementWorkspaceUsage(
+  workspaceId: string,
+  featureKey: string,
+): Promise<{ usage_count: number }> {
+  return repoIncrementUsage(workspaceId, featureKey);
+}
+
+export async function createFormulaWithEntitlement(input: {
+  workspace_id: string;
+  name: string;
+  status: string;
+  target_species: string[];
+  target_age_group: string | null;
+  description: string | null;
+  total_cost_per_kg: number | null;
+  created_by: string | null;
+}): Promise<{ id: string }> {
+  return repoCreateFormulaWithEntitlement(input);
 }
 
 export interface WorkspaceMemberRemovalPreflight {

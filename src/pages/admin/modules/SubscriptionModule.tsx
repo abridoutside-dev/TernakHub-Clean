@@ -1,25 +1,30 @@
 // ─── Admin Subscription Management ───────────────────────────────────────────
 // UI → WorkspaceService → WorkspaceSubscriptionRepository → Edge Function.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../layout/AdminLayout';
 import {
   assignSubscriptionPackage,
   activateSubscription,
   cancelSubscription,
   changeSubscriptionPackage,
-  deactivateSubscription,
   createSubscriptionPackage,
+  deactivateSubscription,
   deleteSubscriptionPackage,
   expireSubscription,
+  getPackageEntitlements,
   getSubscriptionAdmin,
   getSubscriptionAudit,
   getSubscriptionHistory,
   getSubscriptionPackageDeletePreflight,
   setSubscriptionPackageStatus,
   updateSubscriptionPackage,
+  upsertPackageEntitlements,
 } from '../../../services/workspaceService';
 import type {
+  EntitlementAccessMode,
+  PackageEntitlement,
+  PackageEntitlementInput,
   SubscriptionAdminData,
   SubscriptionAuditEntry,
   SubscriptionHistoryEntryAdmin,
@@ -28,10 +33,17 @@ import type {
   SubscriptionPreflight,
   SubscriptionRecordAdmin,
 } from '../../../types/subscriptionAdmin';
+import { SUBSCRIPTION_FEATURE_POLICY } from '../../../data/subscriptionFeaturePolicy';
+
 
 const blue = '#2563eb';
 const muted = '#64748b';
 const border = '#e2e8f0';
+// Features that have a real, runtime-enforced usage counter (resource_usage table
+// + check_entitlement/increment_usage RPC). Only these support a numeric
+// "Terbatas/Full" mode in the admin form (spec §7). Add a key here when a new
+// feature gains a usage-limit enforcement point.
+const USAGE_LIMITED_FEATURES = new Set<string>(['formula_feed']);
 type Notice = { kind: 'success' | 'error'; message: string };
 
 function dateOf(value: string | null | undefined): string {
@@ -88,17 +100,44 @@ function PackageEditor({
     max_batches: initial?.max_batches ?? null, max_listings: initial?.max_listings ?? null,
     features: initial?.features ?? [],
   });
+  const [entitlements, setEntitlements] = useState<PackageEntitlementInput[]>(
+    initial?.entitlements ?? [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const previousModeRef = useRef<Map<string, EntitlementAccessMode>>(new Map());
+
+  // Load existing package entitlements when editing so toggles reflect stored config.
+  const packageId = initial?.id;
+  useEffect(() => {
+    if (!packageId) return;
+    void getPackageEntitlements(packageId)
+      .then((loaded) => setEntitlements(loaded))
+      .catch(() => {});
+  }, [packageId]);
   const set = (key: keyof SubscriptionPackageInput, value: string | number | null) =>
     setForm((current) => ({ ...current, [key]: value }));
   const submit = async () => {
     setBusy(true); setError('');
     try {
+      const payload = { ...form, entitlements };
       const result = initial
-        ? await updateSubscriptionPackage(initial.id, form)
-        : await createSubscriptionPackage(form);
+        ? await updateSubscriptionPackage(initial.id, payload)
+        : await createSubscriptionPackage(payload);
       if (!result.ok) { setError(result.error.message); return; }
+      if (initial) {
+        await upsertPackageEntitlements(initial.id, entitlements.map((e) => ({
+          feature_key: e.feature_key,
+          access_mode: e.access_mode as PackageEntitlementInput['access_mode'],
+          usage_limit: e.usage_limit,
+        })));
+      } else {
+        await upsertPackageEntitlements((result.data as SubscriptionPackage).id, entitlements.map((e) => ({
+          feature_key: e.feature_key,
+          access_mode: e.access_mode as PackageEntitlementInput['access_mode'],
+          usage_limit: e.usage_limit,
+        })));
+      }
       onNotice({ kind: 'success', message: initial ? 'Paket berhasil diperbarui.' : 'Paket berhasil dibuat.' });
       onSaved();
     } catch (cause) {
@@ -113,18 +152,107 @@ function PackageEditor({
     ['max_livestock', 'Maks. livestock', 'Kosong = unlimited'], ['max_members', 'Maks. member', 'Kosong = unlimited'],
     ['max_batches', 'Maks. batch', 'Kosong = unlimited'], ['max_listings', 'Maks. listing', 'Kosong = unlimited'],
   ];
+
+  const entitlementTree = useMemo(() => {
+    const modules = new Map<string, Array<{ key: string; label: string; limit: string }>>();
+    for (const row of SUBSCRIPTION_FEATURE_POLICY) {
+      const mod = row.module;
+      if (!modules.has(mod)) modules.set(mod, []);
+      modules.get(mod)!.push({ key: row.key, label: row.feature, limit: row.limit });
+    }
+    return modules;
+  }, []);
+
+  // Per spec: checked = allowed, unchecked = explicitly denied (not removed).
+  // A 'denied' entitlement row overrides plan defaults, so leaving a checkbox
+  // unchecked truly blocks access instead of falling through to the plan gate.
+  const toggleEntitlement = (featureKey: string, accessMode: EntitlementAccessMode) => {
+    setEntitlements((prev) => {
+      const existing = prev.find((e) => e.feature_key === featureKey);
+      if (existing) {
+        if (accessMode === 'denied') {
+          previousModeRef.current.set(featureKey, existing.access_mode);
+          return prev.map((e) => e.feature_key === featureKey ? { ...e, access_mode: 'denied' } : e);
+        }
+        const restoredMode = previousModeRef.current.get(featureKey) ?? accessMode;
+        previousModeRef.current.delete(featureKey);
+        return prev.map((e) => e.feature_key === featureKey ? { ...e, access_mode: restoredMode } : e);
+      }
+      return [...prev, { feature_key: featureKey, access_mode: accessMode, usage_limit: null }];
+    });
+  };
+
+  const setEntitlementLimit = (featureKey: string, limit: number | null) => {
+    setEntitlements((prev) => prev.map((e) => e.feature_key === featureKey ? { ...e, usage_limit: limit } : e));
+  };
+
+  const getEntitlement = (featureKey: string) => entitlements.find((e) => e.feature_key === featureKey);
+
   return <div style={overlay}><div style={dialog}>
     <div style={dialogHeader}><strong>{initial ? 'Detail / Update Paket' : 'Buat Paket'}</strong><button type="button" onClick={onClose} style={close}>×</button></div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: 20 }}>
-      {fields.map(([key, label, placeholder]) => <label key={key} style={labelStyle}>{label}
-        <input disabled={initial && key === 'plan_key'} value={String(form[key] ?? '')} placeholder={placeholder}
-          type={key.startsWith('price_') || key.startsWith('max_') ? 'number' : 'text'}
-          onChange={(event) => set(key, key.startsWith('price_') || key.startsWith('max_') ? (event.target.value === '' ? null : Number(event.target.value)) : event.target.value)}
-          style={inputStyle} />
-      </label>)}
-      <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>Deskripsi
-        <textarea value={form.description ?? ''} onChange={(event) => set('description', event.target.value)} rows={3} style={inputStyle} />
-      </label>
+    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {fields.map(([key, label, placeholder]) => <label key={key} style={labelStyle}>{label}
+          <input disabled={initial && key === 'plan_key'} value={String(form[key] ?? '')} placeholder={placeholder}
+            type={key.startsWith('price_') || key.startsWith('max_') ? 'number' : 'text'}
+            onChange={(event) => set(key, key.startsWith('price_') || key.startsWith('max_') ? (event.target.value === '' ? null : Number(event.target.value)) : event.target.value)}
+            style={inputStyle} />
+        </label>)}
+        <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>Deskripsi
+          <textarea value={form.description ?? ''} onChange={(event) => set('description', event.target.value)} rows={3} style={inputStyle} />
+        </label>
+      </div>
+
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>HAK AKSES PAKET</div>
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, maxHeight: 400, overflowY: 'auto' }}>
+          {Array.from(entitlementTree.entries()).map(([module, features]) => (
+            <div key={module} style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{module}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 12 }}>
+                  {features.map((feat) => {
+                   const ent = getEntitlement(feat.key);
+                   const checked = ent ? ent.access_mode !== 'denied' : false;
+                   const mode = ent?.access_mode ?? 'allowed';
+                   const supportsLimit = USAGE_LIMITED_FEATURES.has(feat.key);
+                   return (
+                     <div key={feat.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                       <input
+                         type="checkbox"
+                         checked={checked}
+                         onChange={(e) => toggleEntitlement(feat.key, e.target.checked ? 'allowed' : 'denied')}
+                         style={{ width: 14, height: 14 }}
+                       />
+                       <span style={{ flex: 1, color: checked ? '#0f172a' : '#94a3b8' }}>{feat.label}</span>
+                       {checked && supportsLimit && (
+                         <select
+                           value={mode}
+                           onChange={(e) => toggleEntitlement(feat.key, e.target.value as EntitlementAccessMode)}
+                           style={{ fontSize: 11, padding: '3px 6px', border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff' }}
+                         >
+                           <option value="allowed">Allowed</option>
+                           <option value="limited">Terbatas</option>
+                           <option value="unlimited">Full</option>
+                         </select>
+                       )}
+                       {checked && supportsLimit && mode === 'limited' && (
+                         <input
+                           type="number"
+                           min={1}
+                           value={ent?.usage_limit ?? ''}
+                           placeholder="Batas"
+                           onChange={(e) => setEntitlementLimit(feat.key, e.target.value === '' ? null : Number(e.target.value))}
+                           style={{ width: 70, fontSize: 11, padding: '3px 6px', border: '1px solid #e2e8f0', borderRadius: 6 }}
+                         />
+                       )}
+                     </div>
+                   );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
     {error && <div style={errorBox}>{error}</div>}
     <div style={footer}><Button secondary onClick={onClose}>Batal</Button><Button onClick={() => void submit()} disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan'}</Button></div>
@@ -141,6 +269,14 @@ function PackageDetail({
 }) {
   const [preflight, setPreflight] = useState<SubscriptionPreflight | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pkgEntitlements, setPkgEntitlements] = useState<PackageEntitlement[]>([]);
+  const packageId = item.id;
+
+  useEffect(() => {
+    void getPackageEntitlements(packageId)
+      .then((loaded) => setPkgEntitlements(loaded))
+      .catch(() => {});
+  }, [packageId]);
   const action = async (work: () => Promise<{ ok: boolean; error?: { message: string } }>) => {
     setBusy(true);
     try {
@@ -177,6 +313,23 @@ function PackageDetail({
     <div style={dialogHeader}><div><strong>{item.name}</strong><div style={{ color: muted, fontSize: 12 }}>{item.plan_key}</div></div><button type="button" onClick={onClose} style={close}>×</button></div>
     <div style={{ padding: 20, overflowY: 'auto' }}>
       {[['Harga bulanan', money(item.price_monthly)], ['Harga tahunan', money(item.price_yearly)], ['Deskripsi', item.description ?? '—'], ['Maks. livestock', item.max_livestock ?? 'Unlimited'], ['Maks. member', item.max_members ?? 'Unlimited'], ['Dipakai subscription', item.dependency_count ?? 0], ['Dibuat', dateOf(item.created_at)]].map(([label, value]) => <div key={label} style={infoRow}><span style={{ color: muted }}>{label}</span><strong>{value}</strong></div>)}
+      {pkgEntitlements.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Hak Akses Eksplisit</div>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, maxHeight: 240, overflowY: 'auto' }}>
+            {pkgEntitlements.map((ent) => {
+              const modeLabel = ent.access_mode === 'denied' ? 'Ditolak' : ent.access_mode === 'limited' ? 'Terbatas' : ent.access_mode === 'unlimited' ? 'Full' : 'Diizinkan';
+              const modeColor = ent.access_mode === 'denied' ? '#b91c1c' : ent.access_mode === 'limited' ? '#b45309' : ent.access_mode === 'unlimited' ? '#15803d' : '#2563eb';
+              return (
+                <div key={ent.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 8px', fontSize: 11, borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ color: '#334155' }}>{ent.feature_key}</span>
+                  <span style={{ color: modeColor, fontWeight: 700 }}>{modeLabel}{ent.access_mode === 'limited' && ent.usage_limit != null ? ` (${ent.usage_limit})` : ''}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Button secondary onClick={onEdit}>Update</Button>
         <Button onClick={() => void action(() => setSubscriptionPackageStatus(item.id, !item.is_active))}>{item.is_active ? 'Deactivate' : 'Activate'}</Button>
