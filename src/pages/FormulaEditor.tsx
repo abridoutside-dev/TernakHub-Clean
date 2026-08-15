@@ -18,7 +18,6 @@ import { getFormulaSelectableProdukKomersial, type FormulaProdukKomersialRef } f
 import { getAllFormulaMasterPakan, type FormulaMasterPakanRef } from '../data/formulaMasterPakanData';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscription } from '../contexts/SubscriptionContext';
 import {
   recordCreateFormula,
   recordUpdateFormula,
@@ -714,7 +713,6 @@ export default function FormulaEditor() {
   // Hydrate in-memory store from Supabase on hard refresh so that edit mode
   // resolves the formula correctly (FLOW-003M25).
   const { loading: formulaLoading } = useFormula();
-  const { hasFeature }            = useSubscription();
 
   const existing     = isEdit ? getFormulaById(id!) : undefined;
 
@@ -863,28 +861,6 @@ export default function FormulaEditor() {
       <div style={{ padding: '60px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>❓</div>
         <div style={{ fontSize: 15, fontWeight: 700 }}>Formula tidak ditemukan.</div>
-        <button type="button" onClick={() => navigate(-1)}
-          style={{ marginTop: 20, padding: '10px 20px', border: '1.5px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)', background: 'none', cursor: 'pointer', fontSize: 14 }}>
-          Kembali
-        </button>
-      </div>
-    );
-  }
-
-  // ── Subscription guard (ENT): direct-URL / route-level denial ─────────
-  // Server-side trigger remains the authoritative enforcement; this guard
-  // gives an immediate locked UI when formula_feed is denied by the package.
-  if (!hasFeature('formula_feed')) {
-    return (
-      <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
-          Formula Pakan tidak termasuk dalam paket Anda.
-        </div>
-        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 20, maxWidth: 420, margin: '0 auto' }}>
-          Fitur ini memerlukan paket yang lebih tinggi. Hubungi administrator platform untuk melakukan upgrade paket workspace ini.
-        </div>
         <button type="button" onClick={() => navigate(-1)}
           style={{ marginTop: 20, padding: '10px 20px', border: '1.5px solid var(--color-border)',
             borderRadius: 'var(--radius-md)', background: 'none', cursor: 'pointer', fontSize: 14 }}>

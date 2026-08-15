@@ -14,7 +14,6 @@ import {
 } from '../data/formulaData';
 import { computeFormulaAiInsights, type FormulaInsight } from '../utils/formulaInsight';
 import FeatureGate from '../components/subscription/FeatureGate';
-import { useSubscription } from '../contexts/SubscriptionContext';
 
 // ─── FormulaTab (FP-002) ────────────────────────────────────────────────────────
 // Tab Formula: daftar formula dengan search, filter, dan kartu ringkas.
@@ -400,13 +399,11 @@ const FILTER_TABS: { key: FilterKey; label: string }[] = [
 
 export default function FormulaTab() {
   const navigate = useNavigate();
-  const { getEntitlement } = useSubscription();
   const [query,  setQuery]  = useState('');
   const debouncedQuery = useDebounce(query, 300);
   const [filter, setFilter] = useState<FilterKey>('semua');
 
   const allFormula = getFormulaList();
-  const formulaEntitlement = getEntitlement('formula_feed');
 
   const filtered = allFormula.filter((f) => {
     const q = debouncedQuery.trim().toLowerCase();
@@ -426,35 +423,19 @@ export default function FormulaTab() {
 
       {/* ── Action utama (FP-002A): + Formula · Riwayat Produksi ────────── */}
       <div style={{ display: 'flex', gap: 10 }}>
-        {formulaEntitlement.allowed ? (
-          <button
-            type="button"
-            onClick={() => navigate('/stok-pakan/formula/tambah')}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '13px 0', borderRadius: 'var(--radius-md)',
-              border: 'none', background: 'var(--color-primary)',
-              color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            <span style={{ fontSize: 17, lineHeight: 1 }}>＋</span>
-            Formula
-            {formulaEntitlement.access_mode === 'limited' && formulaEntitlement.remaining != null && (
-              <span style={{ fontSize: 10, opacity: 0.9, fontWeight: 600 }}>
-                ({formulaEntitlement.remaining} tersisa)
-              </span>
-            )}
-          </button>
-        ) : (
-          <div style={{
-            flex: 1, padding: '13px 0', borderRadius: 'var(--radius-md)',
-            border: '1.5px solid #fecaca', background: '#fff1f2',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            fontSize: 13, fontWeight: 700, color: '#b91c1c',
-          }}>
-            🔒 Formula Pakan tidak termasuk dalam paket Anda
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => navigate('/stok-pakan/formula/tambah')}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '13px 0', borderRadius: 'var(--radius-md)',
+            border: 'none', background: 'var(--color-primary)',
+            color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 17, lineHeight: 1 }}>＋</span>
+          Formula
+        </button>
         <button
           type="button"
           onClick={() => navigate('/stok-pakan/formula/riwayat')}

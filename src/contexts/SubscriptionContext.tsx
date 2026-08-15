@@ -93,19 +93,12 @@ export function useSubscription(): SubscriptionState {
     }
 
     setIsLoading(true);
-    Promise.all([
-      getWorkspaceSubscription(workspaceUuid),
-      getWorkspaceEntitlements(workspaceUuid),
-    ])
-      .then(([sub, ents]) => {
+    getWorkspaceSubscription(workspaceUuid)
+      .then((sub) => {
         setDbSub(sub);
-        setEntitlements(ents);
-        setEntitlementCache(workspaceUuid, ents);
       })
       .catch(() => {
         setDbSub(null);
-        setEntitlements([]);
-        clearEntitlementCache(workspaceUuid);
       })
       .finally(() => {
         setIsLoading(false);
@@ -114,17 +107,23 @@ export function useSubscription(): SubscriptionState {
 
   const hasFeature = useMemo(
     () => (feature: FeatureKey) => {
-      const resolved = resolveEntitlement(plan, workspaceUuid, feature, entitlements);
-      return resolved.allowed;
+      return true;
     },
-    [plan, workspaceUuid, entitlements],
+    [],
   );
 
   const getEntitlement = useMemo(
     () => (feature: FeatureKey) => {
-      return resolveEntitlement(plan, workspaceUuid, feature, entitlements);
+      return {
+        allowed: true,
+        access_mode: 'allowed',
+        usage_limit: null,
+        usage_count: 0,
+        remaining: null,
+        is_explicit: false,
+      };
     },
-    [plan, workspaceUuid, entitlements],
+    [],
   );
 
   return {

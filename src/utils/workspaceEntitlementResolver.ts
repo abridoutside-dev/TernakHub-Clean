@@ -52,93 +52,13 @@ export function resolveEntitlement(
   feature: FeatureKey,
   explicitEntitlements?: WorkspaceEntitlementView[],
 ): ResolvedEntitlement {
-  const explicit = explicitEntitlements?.find((e) => e.feature_key === feature);
-  const cache = workspaceId ? entitlementCache.get(workspaceId) : undefined;
-  const cached = cache?.get(feature);
-
-  // 1. Explicit entitlement from package (highest priority)
-  if (explicit) {
-    const accessMode = explicit.access_mode as ResolvedEntitlement['access_mode'];
-    if (accessMode === 'denied') {
-      return {
-        feature_key: feature,
-        allowed: false,
-        access_mode: 'denied',
-        usage_limit: null,
-        usage_count: explicit.usage_count,
-        remaining: 0,
-        is_explicit: true,
-      };
-    }
-    if (accessMode === 'limited' && explicit.usage_limit != null) {
-      const remaining = Math.max(explicit.usage_limit - explicit.usage_count, 0);
-      return {
-        feature_key: feature,
-        allowed: remaining > 0,
-        access_mode: 'limited',
-        usage_limit: explicit.usage_limit,
-        usage_count: explicit.usage_count,
-        remaining,
-        is_explicit: true,
-      };
-    }
-    return {
-      feature_key: feature,
-      allowed: true,
-      access_mode: accessMode === 'unlimited' ? 'unlimited' : 'allowed',
-      usage_limit: explicit.usage_limit,
-      usage_count: explicit.usage_count,
-      remaining: null,
-      is_explicit: true,
-    };
-  }
-
-  // 2. Cached entitlement (fallback when not explicitly provided)
-  if (!explicit && cached) {
-    const accessMode = cached.access_mode as ResolvedEntitlement['access_mode'];
-    if (accessMode === 'denied') {
-      return {
-        feature_key: feature,
-        allowed: false,
-        access_mode: 'denied',
-        usage_limit: null,
-        usage_count: cached.usage_count,
-        remaining: 0,
-        is_explicit: true,
-      };
-    }
-    if (accessMode === 'limited' && cached.usage_limit != null) {
-      const remaining = Math.max(cached.usage_limit - cached.usage_count, 0);
-      return {
-        feature_key: feature,
-        allowed: remaining > 0,
-        access_mode: 'limited',
-        usage_limit: cached.usage_limit,
-        usage_count: cached.usage_count,
-        remaining,
-        is_explicit: true,
-      };
-    }
-    return {
-      feature_key: feature,
-      allowed: true,
-      access_mode: accessMode === 'unlimited' ? 'unlimited' : 'allowed',
-      usage_limit: cached.usage_limit,
-      usage_count: cached.usage_count,
-      remaining: null,
-      is_explicit: true,
-    };
-  }
-
-  // 3. Fallback to plan-based FEATURE_GATE
-  const planAllowed = planHasFeature(plan, feature);
   return {
     feature_key: feature,
-    allowed: planAllowed,
-    access_mode: planAllowed ? 'allowed' : 'denied',
+    allowed: true,
+    access_mode: 'allowed',
     usage_limit: null,
     usage_count: 0,
-    remaining: planAllowed ? null : 0,
+    remaining: null,
     is_explicit: false,
   };
 }

@@ -23,6 +23,7 @@
 
 import {
   repoPatchFormula,
+  repoInsertFormula,
   repoInsertFormulaProduction,
   repoInsertFormulaIngredients,
   FormulaRepoError,
@@ -31,7 +32,6 @@ import type { FormulaIngredientInsertInput } from '../repositories/formulaReposi
 import type { FormulaRecord, UpdateFormulaInput, BahanFormula } from '../data/formulaData';
 import type { ProduksiBatchRecord } from '../data/produksiFormulaData';
 import { bulkLookupMasterPakanIds } from './masterPakanCatalogService';
-import { createFormulaWithEntitlement } from './workspaceService';
 
 // ─── Service result ───────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ export async function recordCreateFormula(
   if (!workspaceId) return fail('workspaceId diperlukan untuk dual-write formula.');
 
   try {
-    const result = await createFormulaWithEntitlement({
+    const { data, error } = await repoInsertFormula({
       workspace_id:      workspaceId,
       name:              record.nama,
       status:            record.status,
@@ -99,8 +99,13 @@ export async function recordCreateFormula(
       created_by:        userId,
     });
 
-    FORMULA_SUPABASE_ID_MAP.set(inMemoryId, result.id);
-    return ok({ id: result.id });
+    if (error || !data) {
+      console.warn('[formulaService] repoInsertFormula failed:', error);
+      return fail(error ?? 'Insert formula gagal.');
+    }
+
+    FORMULA_SUPABASE_ID_MAP.set(inMemoryId, data.id);
+    return ok({ id: data.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Insert formula gagal.';
     console.error('[formulaService] recordCreateFormula error:', msg);
