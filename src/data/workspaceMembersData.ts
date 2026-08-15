@@ -44,10 +44,14 @@ export function upsertWorkspaceMembersCache(
   workspaceUuid: string,
   records: WorkspaceMemberRecord[],
 ): void {
-  MEMBERS_DB = [
-    ...MEMBERS_DB.filter((member) => member.workspace_uuid !== workspaceUuid),
-    ...records,
-  ];
+  if (workspaceUuid === '') {
+    MEMBERS_DB = records;
+  } else {
+    MEMBERS_DB = [
+      ...MEMBERS_DB.filter((member) => member.workspace_uuid !== workspaceUuid),
+      ...records,
+    ];
+  }
 }
 
 export function getMembersByWorkspace(workspaceUuid: string): WorkspaceMemberRecord[] {
