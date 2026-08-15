@@ -5,6 +5,7 @@ import FloatingAssistant from './FloatingAssistant';
 import ScrollRestorer from './ScrollRestorer';
 import PageContent from './PageContent';
 import { WorkspaceProvider } from '../contexts/WorkspaceContext';
+import { WORKSPACE_REGISTRY } from '../config/workspaceRegistry';
 
 type PageMeta = {
   title: string;
@@ -38,7 +39,16 @@ function resolveMeta(pathname: string): PageMeta {
   if (pathname === '/onboarding') return { title: 'Selamat Datang', hideTopBar: true, hideNav: true };
   if (pathname.startsWith('/admin/')) return { title: '', hideNav: true, hideTopBar: true };
   if (pathname === '/admin') return { title: '', hideNav: true, hideTopBar: true };
-  if (pathname.startsWith('/workspace/')) return { title: 'Workspace', showBack: true, hideNav: true };
+  if (pathname.startsWith('/workspace/')) {
+    const nonFarmWorkspaces = Object.values(WORKSPACE_REGISTRY).filter(c => c.kind !== 'Farm');
+    for (const ws of nonFarmWorkspaces) {
+      const toRegex = (route: string) => new RegExp(`^${route.replace(':id', '[^/]+')}(?:/|$|\\?)`);
+      if (toRegex(ws.routeDashboard).test(pathname) || toRegex(ws.routeUtama).test(pathname)) {
+        return { title: ws.nama, showBack: true, hideNav: false };
+      }
+    }
+    return { title: 'Workspace', showBack: true, hideNav: true };
+  }
   if (pathname.startsWith('/profile/')) return { title: 'Profil', showBack: true, hideNav: true };
   if (pathname.startsWith('/livestock/')) return { title: 'Detail Ternak', showBack: true, hideNav: true };
   if (pathname.startsWith('/kesehatan-hewan/')) return { title: 'Kesehatan Hewan', showBack: true, hideNav: true };
