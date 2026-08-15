@@ -11,6 +11,9 @@
 
 import { getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
 import { generateUUID } from '../utils/uuid';
+import { repoUpsertUserProfile } from '../repositories/userProfileRepository';
+import type { User } from '@supabase/supabase-js';
+import type { UserProfile as SupabaseUserProfile } from '../types/userProfile';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,18 +37,48 @@ export interface UserProfile {
 // ─── Seed Data ─────────────────────────────────────────────────────────────────
 // Placeholder — akan digantikan auth layer pada fase berikutnya.
 
-let USER_PROFILE: UserProfile = {
-  id:                'usr-berkah-001',
-  foto:              '👨‍🌾',
-  nama:              'Budi Santoso',
-  username:          '@budi.berkah',
-  email:             'budi.santoso@berkahfarm.id',
-  nomorHP:           '+62 812-3456-7890',
-  statusVerifikasi:  'Terverifikasi',
-  membership:        'PRO',
-  statusAkun:        'Aktif',
-  bergabungSejak:    '2024-03-15',
-};
+let AUTH_USER_ID: string | null = null;
+let AUTH_USER: User | null = null;
+
+function buildFallbackProfile(): UserProfile {
+  return {
+    id:                'usr-berkah-001',
+    foto:              '👨‍🌾',
+    nama:              'Budi Santoso',
+    username:          '@budi.berkah',
+    email:             'budi.santoso@berkahfarm.id',
+    nomorHP:           '+62 812-3456-7890',
+    statusVerifikasi:  'Terverifikasi',
+    membership:        'PRO',
+    statusAkun:        'Aktif',
+    bergabungSejak:    '2024-03-15',
+  };
+}
+
+let USER_PROFILE: UserProfile = buildFallbackProfile();
+
+export function setAuthProfile(user: User | null, supabaseProfile: SupabaseUserProfile | null): void {
+  AUTH_USER_ID = user?.id ?? null;
+  AUTH_USER = user ?? null;
+
+  if (!supabaseProfile || !user) {
+    USER_PROFILE = buildFallbackProfile();
+    return;
+  }
+
+  USER_PROFILE = {
+    id: supabaseProfile.id,
+    foto: supabaseProfile.avatar_url ?? '👨‍🌾',
+    nama: supabaseProfile.full_name ?? supabaseProfile.display_name ?? '',
+    username: '',
+    email: user.email ?? '',
+    nomorHP: supabaseProfile.phone_number ?? '',
+    statusVerifikasi: 'Belum Terverifikasi',
+    membership: 'FREE',
+    statusAkun: 'Aktif',
+    bergabungSejak: supabaseProfile.created_at?.split('T')[0] ?? '',
+  };
+}
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
@@ -86,6 +119,25 @@ export function updateUserProfile(
     }
   });
   USER_PROFILE = { ...USER_PROFILE, ...patch };
+
+  if (!AUTH_USER_ID) return;
+
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (patch.nama !== undefined) {
+    supabaseUpdates.full_name = patch.nama;
+    supabaseUpdates.display_name = patch.nama;
+  }
+  if (patch.nomorHP !== undefined) {
+    supabaseUpdates.phone_number = patch.nomorHP;
+  }
+  if (patch.foto !== undefined) {
+    supabaseUpdates.avatar_url = patch.foto;
+  }
+  if (Object.keys(supabaseUpdates).length > 0) {
+    repoUpsertUserProfile(AUTH_USER_ID, supabaseUpdates).catch((err) => {
+      console.error('[profileData] Failed to persist profile update:', err);
+    });
+  }
 }
 
 /** Jumlah Workspace yang terdaftar di registry Global Header (read-only). */

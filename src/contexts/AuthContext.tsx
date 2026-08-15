@@ -31,6 +31,7 @@ import {
   repoUpsertUserProfile,
   UserProfileRepoError,
 } from '../repositories/userProfileRepository';
+import { setAuthProfile } from '../data/profileData';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('[AuthContext] PROFILE QUERY');
           profile = await loadUserProfile(u.id);
         }
+        setAuthProfile(u, profile);
         setUserProfile(profile);
         console.log('[AuthContext] SET LOADING FALSE', {
           currentUser: u ? { id: u.id, email: u.email } : null,
@@ -226,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('[AuthContext] PROFILE QUERY');
           profile = await loadUserProfile(u.id);
         }
+        setAuthProfile(u, profile);
         setUserProfile(profile);
         console.log('[AuthContext] SET LOADING FALSE', {
           currentUser: u ? { id: u.id, email: u.email } : null,
@@ -308,11 +311,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       console.log('[AuthContext] PROFILE QUERY');
       const profile = await loadUserProfile(u.id);
+      setAuthProfile(u, profile);
       setUserProfile(profile);
     } else {
       console.log('[AuthContext] AUTH NO USER fetchUser');
       setCurrentUser(null);
       setUserProfile(null);
+      setAuthProfile(null, null);
       setAuthBridge(null, null, null);
     }
     return { error };

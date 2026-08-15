@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PublicLayout from './components/PublicLayout';
 import ProtectedLayout from './components/ProtectedLayout';
 import { WorkspaceProviderLayout } from './components/ProtectedLayout';
+import PublicAppLayout from './components/PublicAppLayout';
 import { AuthenticatedRoute, OnboardingRoute } from './components/AuthenticatedRoute';
 import Landing from './pages/Landing';
 import InitializeGuard from './components/InitializeGuard';
@@ -383,7 +384,7 @@ export default function App() {
         <Route path="/workspace/:id/profile"     element={<WorkspacePublicProfile />} />
 
         {/* ── Public browsing — guests may explore without an account ── */}
-        <Route element={<WorkspaceProviderLayout />}>
+        <Route element={<PublicAppLayout />}>
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/news-event" element={<NewsEvent />} />
           <Route path="/news-event/:id" element={<NewsEventDetail />} />
