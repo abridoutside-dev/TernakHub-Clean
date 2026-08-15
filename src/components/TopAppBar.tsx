@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useAuth } from '../contexts/AuthContext';
+import { getMembersByUserId } from '../data/workspaceMembersData';
 import { countUnread } from '../services/globalNotificationService';
 import { subscribe } from '../utils/notifSignal';
 import type { WorkspaceRecord } from '../types/workspace';
@@ -271,6 +273,13 @@ export default function TopAppBar({ title = 'TernakHub', showBack = false, showB
 
   // ── Real workspace data from context ─────────────────────────────────────────
   const { workspaces, activeWorkspace, setActiveWorkspaceUuid } = useWorkspace();
+  const { currentUser } = useAuth();
+
+  const memberships = currentUser ? getMembersByUserId(currentUser.id) : [];
+  const memberWorkspaceIds = new Set(memberships.map((m) => m.workspace_uuid));
+  const visibleWorkspaces = workspaces.filter(
+    (w) => w.owner_user_uuid === currentUser?.id || memberWorkspaceIds.has(w.workspace_uuid),
+  );
 
   const hasBack     = showBack || showBackWithSwitcher;
   const hasSwitcher = !showBack || showBackWithSwitcher;
@@ -439,7 +448,7 @@ export default function TopAppBar({ title = 'TernakHub', showBack = false, showB
       {/* Workspace Switcher Bottom Sheet */}
       {wsOpen && (
         <WorkspaceSwitcher
-          workspaces={workspaces}
+          workspaces={visibleWorkspaces}
           activeUuid={activeWorkspace?.workspace_uuid ?? null}
           onClose={() => setWsOpen(false)}
           onSwitch={(uuid) => { setActiveWorkspaceUuid(uuid); setWsOpen(false); }}
