@@ -20,7 +20,7 @@
 //   - 0 accessible workspaces → show empty state + "Create Workspace"
 
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import AuthLogo from '../../components/auth/AuthLogo';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -273,6 +273,8 @@ export default function WorkspaceSelect() {
 
   const currentUserId = currentUser?.id ?? '';
 
+  const location = useLocation();
+
   // ── FLOW-001F: Auto-navigate when exactly 1 non-blocked workspace ─────────
   // Requirement: WorkspaceSelect should only be shown when the user has
   // MORE than one workspace OR has no active workspace yet.
@@ -328,6 +330,7 @@ export default function WorkspaceSelect() {
   // go straight to the dashboard.  The selector only needs to be shown when
   // there are 2+ workspaces (real choice required) or 0 workspaces (empty state).
   useEffect(() => {
+    if (location.pathname !== '/workspace/select') return;
     if (autoNavigated) return;
     if (authLoading || wsLoading) return;
     if (wsError) return;
@@ -340,7 +343,7 @@ export default function WorkspaceSelect() {
     setAutoNavigated(true);
     setActiveWorkspaceUuid(ws.workspace_uuid);
     navigate('/dashboard', { replace: true });
-  }, [autoNavigated, authLoading, wsLoading, wsError, userWorkspaces, setActiveWorkspaceUuid, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname, autoNavigated, authLoading, wsLoading, wsError, userWorkspaces, setActiveWorkspaceUuid, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Recently used ─────────────────────────────────────────────────────────
   const [recentUuids] = useState<string[]>(() => getRecentWorkspaceUuids());

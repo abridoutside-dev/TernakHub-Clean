@@ -160,7 +160,6 @@ export default function WorkspaceCreate() {
   const { currentUser, loading: authLoading } = useAuth();
   const {
     activeWorkspaces,
-    workspaces,
     isLoading: wsLoading,
     wsError,
     setActiveWorkspaceUuid,
@@ -236,15 +235,6 @@ export default function WorkspaceCreate() {
       </div>
     );
   }
-
-  // User already owns active workspaces → send them to the selector so they
-  // can pick which workspace to enter.  Redirecting straight to /dashboard
-  // would bypass the workspace context initialisation that /workspace/select
-  // performs (and break the post-create E2E flow).
-  const ownedActiveWorkspaces = workspaces.filter(
-    (w) => w.owner_user_uuid === currentUser?.id && w.workspace_status === 'Active',
-  );
-  if (ownedActiveWorkspaces.length > 0) return <Navigate to="/workspace/select" replace />;
   // ── End prerequisites guard ───────────────────────────────────────────────
 
   // ── Validate ──────────────────────────────────────────────────────────────
