@@ -10,8 +10,8 @@
 //   LIVE    → feed_store_orders             (Pesanan — digunakan di Laporan)
 //   LIVE    → feed_store_sales              (Penjualan — digunakan di Laporan)
 
-import { useState, type ReactElement } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, type ReactElement } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
 import { getWorkspaceDashboardConfig } from '../../config/workspaceDashboardRegistry';
 import { resolveWorkspaceRoute } from '../../config/workspaceRegistry';
@@ -994,6 +994,7 @@ function getSectionCountLabel(
 
 export default function FeedStoreOperational(): ReactElement {
   const { id: workspaceId = '' } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedSection, setSelectedSection] = useState<SectionId>('products');
   const [itemDetailOpen, setItemDetailOpen] = useState(false);
@@ -1009,6 +1010,33 @@ export default function FeedStoreOperational(): ReactElement {
 
   const workspaceName = data.workspace?.workspace_name ?? config.title;
   const selected      = SECTIONS.find((s) => s.id === selectedSection) ?? SECTIONS[0];
+
+  // Handle ?action= params from Quick Actions / Dashboard module cards
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (!action) return;
+
+    if (action === 'stok-masuk') {
+      setSelectedSection('stock');
+      setStokMasukOpen(true);
+      window.setTimeout(() => {
+        searchParams.delete('action');
+        setSearchParams(searchParams, { replace: true });
+      }, 100);
+    } else if (action === 'stok-keluar' || action === 'transaksi-keluar') {
+      setSelectedSection('outgoing');
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    } else if (action === 'transaksi-masuk') {
+      setSelectedSection('incoming');
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    } else if (action === 'tambah-produk' || action === 'penjualan' || action === 'pembelian') {
+      setSelectedSection('products');
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
 
   const handleItemClick = (item: StokInventarisDbRow) => {
     setSelectedItem(item);

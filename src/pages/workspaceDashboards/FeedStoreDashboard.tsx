@@ -83,6 +83,102 @@ function QuickActions({ actions, workspaceId }: { actions: WorkspaceQuickAction[
   );
 }
 
+// ─── Module Cards ─────────────────────────────────────────────────────────────
+// Karti modul di Dashboard Toko Pakan — setiap karti membuka modul yang memang
+// sudah ada dalam arsitektur via route /workspace/:id/feed-store?tab=operational
+
+interface ModuleCard {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  action: string;
+  color: string;
+}
+
+const MODULE_CARDS: ModuleCard[] = [
+  {
+    id: 'daftar-produk',
+    icon: '🌾',
+    title: 'Daftar Produk',
+    description: 'Kelola item stok tersedia di Toko Pakan.',
+    action: '',
+    color: '#166534',
+  },
+  {
+    id: 'manajemen-stok',
+    icon: '📦',
+    title: 'Manajemen Stok',
+    description: 'Pantau & ubah stok, minimum, dan status item.',
+    action: 'stok-masuk',
+    color: '#1d4ed8',
+  },
+  {
+    id: 'transaksi-masuk',
+    icon: '📥',
+    title: 'Transaksi Masuk',
+    description: 'Riwayat penerimaan barang (stok masuk).',
+    action: 'transaksi-masuk',
+    color: '#166534',
+  },
+  {
+    id: 'transaksi-keluar',
+    icon: '📤',
+    title: 'Transaksi Keluar',
+    description: 'Riwayat pengeluaran barang (stok keluar).',
+    action: 'transaksi-keluar',
+    color: '#991b1b',
+  },
+];
+
+function ModuleCards({ workspaceId }: { workspaceId: string }) {
+  const navigate = useNavigate();
+  const dashboardConfig = getWorkspaceDashboardConfig('FeedStore');
+  const baseUrl = resolveWorkspaceRoute(dashboardConfig.defaultRoute, workspaceId);
+
+  return (
+    <Card style={{ marginBottom: 14 }}>
+      <SectionTitle title="Modul Toko Pakan" badge="Live" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+        {MODULE_CARDS.map((mod) => (
+          <button
+            key={mod.id}
+            type="button"
+            onClick={() => {
+              const url = mod.action
+                ? `${baseUrl}?tab=operational&action=${mod.action}`
+                : `${baseUrl}?tab=operational`;
+              navigate(url);
+            }}
+            style={{
+              border: `1.5px solid ${mod.color}30`,
+              borderRadius: 12,
+              background: `${mod.color}08`,
+              padding: 14,
+              cursor: 'pointer',
+              textAlign: 'left',
+              minHeight: 80,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 22 }}>{mod.icon}</span>
+            <div>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>
+                {mod.title}
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.3 }}>
+                {mod.description}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
@@ -422,13 +518,16 @@ export default function FeedStoreDashboard(): React.ReactElement {
       {/* ── Content ── */}
       {!loading && (
         <>
-          {/* Quick Action */}
-          <Card style={{ marginBottom: 14 }}>
-            <SectionTitle title="Quick Action" />
-            <QuickActions actions={dashboardConfig.quickActions} workspaceId={routeWorkspaceId} />
-          </Card>
+           {/* Quick Action */}
+           <Card style={{ marginBottom: 14 }}>
+             <SectionTitle title="Quick Action" />
+             <QuickActions actions={dashboardConfig.quickActions} workspaceId={routeWorkspaceId} />
+           </Card>
 
-          {/* Ringkasan Penjualan — LIVE */}
+           {/* Modul Toko Pakan — entry point ke seluruh modul yang tersedia */}
+           <ModuleCards workspaceId={routeWorkspaceId} />
+
+           {/* Ringkasan Penjualan — LIVE */}
           <SalesSummaryCard summary={data.salesSummary} />
 
           {/* Pesanan Terbaru — LIVE */}
