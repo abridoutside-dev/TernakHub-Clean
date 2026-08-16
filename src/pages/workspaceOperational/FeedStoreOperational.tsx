@@ -312,6 +312,55 @@ function computeTransactionsMasukInsight(transactions: StokTransactionDbRow[]): 
   return result;
 }
 
+function computeTransactionsKeluarInsight(transactions: StokTransactionDbRow[]): AiInsightItem[] {
+  const keluar = transactions.filter((t) => t.transaction_type === 'Keluar');
+  if (keluar.length === 0) return [];
+
+  const totalQty = keluar.reduce((sum, t) => sum + Math.abs(t.quantity_delta), 0);
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const hariIni = keluar.filter((t) => {
+    const d = new Date(t.created_at);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === today.getTime();
+  }).length;
+
+  const mingguIni = keluar.filter((t) => new Date(t.created_at) >= weekAgo).length;
+
+  const byMonth: Record<string, number> = {};
+  keluar.forEach((t) => {
+    const m = t.transaction_date.slice(0, 7);
+    byMonth[m] = (byMonth[m] ?? 0) + 1;
+  });
+
+  const currentMonth = today.toISOString().slice(0, 7);
+  const currentMonthCount = byMonth[currentMonth] ?? 0;
+
+  const result: AiInsightItem[] = [
+    {
+      icon: '📤',
+      text: `${formatNumber(keluar.length)} transaksi keluar, total ${formatNumber(totalQty)} unit terpakai.`,
+    },
+    {
+      icon: '📅',
+      text: `${formatNumber(hariIni)} transaksi keluar hari ini, ${formatNumber(mingguIni)} dalam 7 hari terakhir.`,
+    },
+  ];
+
+  if (currentMonthCount > 0) {
+    result.push({
+      icon: '📆',
+      text: `Bulan ini: ${formatNumber(currentMonthCount)} transaksi keluar tercatat.`,
+    });
+  }
+
+  return result;
+}
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
 function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
@@ -435,6 +484,14 @@ function TransactionList({ transactions, type }: { transactions: StokTransaction
           title="AI Insight Transaksi Masuk"
           icon="🤖"
           items={computeTransactionsMasukInsight(transactions)}
+        />
+      )}
+
+      {type === 'Keluar' && (
+        <AiInsightCard
+          title="AI Insight Transaksi Keluar"
+          icon="🤖"
+          items={computeTransactionsKeluarInsight(transactions)}
         />
       )}
 
