@@ -7,7 +7,7 @@
 //   Manajemen Stok = STOK FISIK workspace (stok_inventaris)
 //   Listing        = hanya dari stok fisik yang tersedia
 
-import { useState, useEffect, type ReactElement } from 'react';
+import { useState, useEffect, useMemo, type ReactElement } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
 import { getWorkspaceDashboardConfig } from '../../config/workspaceDashboardRegistry';
@@ -31,7 +31,7 @@ import {
 } from '../../services/stokInventarisService';
 import { addInventarisFromTambahStok, addPerubahanStok } from '../../data/stokInventarisData';
 import { getMasterPakanList, type MasterPakanItem } from '../../data/masterPakanData';
-import { getProdukKomersialList, type ProdukKomersialItem } from '../../data/produkKomersialData';
+import { getProdukKomersialList, type ProdukKomersialItem, KATEGORI_PRODUK_KOMERSIAL } from '../../data/produkKomersialData';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
 import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow, FeedStoreSalesDbRow } from '../../types/feedStore';
 import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
@@ -118,6 +118,7 @@ interface MasterProdukItem {
   nama: string;
   sumber: MasterProdukSumber;
   kategori: string;
+  subKategori?: string;
   icon: string;
   brand?: string;
   satuanDefault?: string;
@@ -125,12 +126,17 @@ interface MasterProdukItem {
   estimasiHarga?: number;
 }
 
+const KOMERSIAL_KATEGORI_NAMA: Record<string, string> = Object.fromEntries(
+  KATEGORI_PRODUK_KOMERSIAL.map((k) => [k.slug, k.nama]),
+);
+
 function getMasterProdukList(): MasterProdukItem[] {
   const fromPakan = getMasterPakanList().map((p: MasterPakanItem): MasterProdukItem => ({
     id: p.id,
     nama: p.name,
     sumber: 'Master Pakan',
     kategori: p.category,
+    subKategori: undefined,
     icon: p.icon ?? '🌿',
     satuanDefault: undefined,
     referensiId: p.id,
@@ -141,9 +147,10 @@ function getMasterProdukList(): MasterProdukItem[] {
     id: p.id,
     nama: p.nama,
     sumber: 'Produk Komersial',
-    kategori:    p.kategoriSlug,
+    kategori: KOMERSIAL_KATEGORI_NAMA[p.kategoriSlug] ?? p.kategoriSlug,
+    subKategori: p.seri ?? p.jenisProduk,
     icon: '📦',
-    brand:       p.merek,
+    brand: p.merek,
     satuanDefault: p.satuanDefault,
     referensiId: p.id,
     estimasiHarga: undefined,
@@ -537,6 +544,20 @@ function computeLaporanInsight(
 
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
+interface GroupedProduct {
+  key: string;
+  label: string;
+  icon: string;
+  items: MasterProdukItem[];
+  groups?: GroupedSub[];
+}
+
+interface GroupedSub {
+  key: string;
+  label: string;
+  items: MasterProdukItem[];
+}
+
 function ProductsDetail({
   masterProduk,
   stokItems,
@@ -544,15 +565,193 @@ function ProductsDetail({
   masterProduk: MasterProdukItem[];
   stokItems: StokInventarisDbRow[];
 }) {
-  const stokMap = new Map<string, StokInventarisDbRow>();
-  stokItems.forEach((s) => {
-    let refId: string | null = null;
-    if (s.notes) {
-      try { refId = JSON.parse(s.notes).rid ?? null; } catch { refId = null; }
-    }
-    if (!refId && s.master_pakan_id) refId = s.master_pakan_id;
-    if (refId) stokMap.set(refId, s);
-  });
+  const stokMap = useMemo(() => {
+    const map = new Map<string, StokInventarisDbRow>();
+    stokItems.forEach((s) => {
+      let refId: string | null = null;
+      if (s.notes) {
+        try { refId = JSON.parse(s.notes).rid ?? null; } catch { refId = null; }
+      }
+      if (!refId && s.master_pakan_id) refId = s.master_pakan_id;
+      if (refId) map.set(refId, s);
+    });
+    return map;
+  }, [stokItems]);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sumberFilter, setSumberFilter] = useState<MasterProdukSumber | ''>('');
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedSubCategories, setExpandedSubCategories] = useState<Set<string>>(new Set());
+
+  const filteredProduk = useMemo(() => {
+    return masterProduk.filter((p) => {
+      const matchesSearch =
+        p.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+        p.kategori.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.subKategori?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+        p.sumber.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSource = sumberFilter === '' || p.sumber === sumberFilter;
+      return matchesSearch && matchesSource;
+    });
+  }, [masterProduk, searchTerm, sumberFilter]);
+
+  const totalPages = useMemo(
+    () => Math.ceil(filteredProduk.length / pageSize) || 1,
+    [filteredProduk.length, pageSize],
+  );
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedProduk = useMemo(
+    () => filteredProduk.slice(startIndex, startIndex + pageSize),
+    [filteredProduk, startIndex, pageSize],
+  );
+
+  const grouped = useMemo(() => {
+    const bySource = new Map<string, MasterProdukItem[]>();
+    paginatedProduk.forEach((p) => {
+      const arr = bySource.get(p.sumber) ?? [];
+      arr.push(p);
+      bySource.set(p.sumber, arr);
+    });
+
+    const result: GroupedProduct[] = [];
+    bySource.forEach((items, sumber) => {
+      const byKategori = new Map<string, MasterProdukItem[]>();
+      items.forEach((p) => {
+        const key = p.kategori;
+        const arr = byKategori.get(key) ?? [];
+        arr.push(p);
+        byKategori.set(key, arr);
+      });
+
+      const subGroups: GroupedSub[] = [];
+      byKategori.forEach((subItems, kategori) => {
+        const hasSeri = subItems.some((p) => p.subKategori);
+        if (hasSeri) {
+          const bySeri = new Map<string, MasterProdukItem[]>();
+          subItems.forEach((p) => {
+            const key = p.subKategori ?? '(Tanpa Seri)';
+            const arr = bySeri.get(key) ?? [];
+            arr.push(p);
+            bySeri.set(key, arr);
+          });
+          bySeri.forEach((seriItems, seri) => {
+            subGroups.push({
+              key: `${sumber}|${kategori}|${seri}`,
+              label: seri,
+              items: seriItems,
+            });
+          });
+        } else {
+          subGroups.push({
+            key: `${sumber}|${kategori}`,
+            label: kategori,
+            items: subItems,
+          });
+        }
+      });
+
+      const icon = sumber === 'Master Pakan' ? '🌿' : '📦';
+      result.push({
+        key: sumber,
+        label: sumber,
+        icon,
+        items,
+        groups: subGroups,
+      });
+    });
+
+    return result.sort((a, b) => (a.label < b.label ? -1 : 1));
+  }, [paginatedProduk]);
+
+  useEffect(() => {
+    setExpandedCategories(new Set(grouped.map((g) => g.key)));
+    setExpandedSubCategories(new Set(grouped.flatMap((g) => (g.groups ?? []).map((sg) => sg.key))));
+  }, [grouped]);
+
+  const toggleCategory = (key: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleSubCategory = (key: string) => {
+    setExpandedSubCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  };
+
+  const handleSourceChange = (val: MasterProdukSumber | '') => {
+    setSumberFilter(val);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (val: number) => {
+    setPageSize(val);
+    setCurrentPage(1);
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const renderProductRow = (p: MasterProdukItem) => {
+    const stok = stokMap.get(p.referensiId);
+    return (
+      <div
+        key={p.id}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 12px', borderRadius: 7,
+          background: stok ? '#f0fdf4' : '#f9fafb',
+          border: `1px solid ${stok ? '#bbf7d0' : '#e5e7eb'}`,
+          fontSize: 12,
+        }}
+      >
+        <span style={{ fontSize: 15 }}>{p.icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {p.nama}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {p.sumber} · {p.kategori}
+            {p.subKategori && ` · ${p.subKategori}`}
+            {p.brand && ` · ${p.brand}`}
+          </p>
+        </div>
+        {stok && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+            color: stok.quantity > 0 ? '#166534' : '#991b1b',
+          }}>
+            Stok: {formatNumber(stok.quantity)} {stok.unit ?? ''}
+          </span>
+        )}
+        {!stok && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+            color: '#6b7280',
+          }}>
+            Belum masuk stok
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -563,59 +762,232 @@ function ProductsDetail({
         emptyMessage="Belum ada produk/master yang tersedia."
       />
 
-      {masterProduk.length === 0 ? (
+      {/* Controls */}
+      <div style={{
+        display: 'flex', gap: 10, alignItems: 'center',
+        margin: '12px 0', flexWrap: 'wrap',
+      }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <input
+            type="text"
+            placeholder="Cari produk..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            style={{
+              width: '100%', padding: '6px 8px 6px 30px', fontSize: 11,
+              borderRadius: 6, border: '1px solid #d1d5db',
+            }}
+          />
+          <span style={{
+            position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 13,
+          }}>🔍</span>
+        </div>
+
+        <select
+          value={sumberFilter}
+          onChange={(e) => handleSourceChange(e.target.value as MasterProdukSumber | '')}
+          style={{
+            padding: '5px 8px', fontSize: 11, borderRadius: 6,
+            border: '1px solid #d1d5db', background: '#fff', minWidth: 120,
+          }}
+        >
+          <option value="">Semua Sumber</option>
+          <option value="Master Pakan">Master Pakan</option>
+          <option value="Produk Komersial">Produk Komersial</option>
+        </select>
+
+        <select
+          value={pageSize}
+          onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+          style={{
+            padding: '5px 8px', fontSize: 11, borderRadius: 6,
+            border: '1px solid #d1d5db', background: '#fff', minWidth: 80,
+          }}
+        >
+          <option value={20}>20/hlm</option>
+          <option value={50}>50/hlm</option>
+          <option value={100}>100/hlm</option>
+        </select>
+      </div>
+
+      {/* Results info */}
+      <p style={{
+        margin: '0 0 8px', fontSize: 11, color: 'var(--color-muted)',
+      }}>
+        Menampilkan {filteredProduk.length === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + pageSize, filteredProduk.length)} dari {filteredProduk.length} produk
+      </p>
+
+      {filteredProduk.length === 0 ? (
         <EmptyState
-          icon="🌾"
-          message="Belum ada produk/master tersedia."
+          icon="📭"
+          message="Belum ada produk yang sesuai."
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {masterProduk.slice(0, 20).map((p) => {
-            const stok = stokMap.get(p.referensiId);
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {grouped.map((category) => {
+            const isExpanded = expandedCategories.has(category.key);
+            const subGroups = category.groups ?? [];
+            const hasSubGroups = subGroups.length > 0;
+
             return (
-              <div
-                key={p.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 9,
-                  background: stok ? '#f0fdf4' : '#f9fafb',
-                  border: `1px solid ${stok ? '#bbf7d0' : '#e5e7eb'}`,
-                }}
-              >
-                <span style={{ fontSize: 18 }}>{p.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.nama}
-                  </p>
-                  <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
-                    {p.sumber} · {p.kategori}
-                    {p.brand && ` · ${p.brand}`}
-                  </p>
+              <div key={category.key}>
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    cursor: hasSubGroups || category.items.length > 0 ? 'pointer' : 'default',
+                    padding: '8px 10px', borderRadius: 7,
+                    background: '#f1f5f9', fontWeight: 700, fontSize: 12,
+                  }}
+                  onClick={() => {
+                    if (hasSubGroups) toggleCategory(category.key);
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{category.icon}</span>
+                  <span>{category.label}</span>
+                  <span style={{ fontSize: 11, color: 'var(--color-muted)', fontWeight: 400 }}>
+                    ({category.items.length})
+                  </span>
+                  {hasSubGroups && (
+                    <span style={{
+                      marginLeft: 'auto', fontSize: 11,
+                      transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease',
+                    }}>▶</span>
+                  )}
                 </div>
-                {stok && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700,
-                    color: stok.quantity > 0 ? '#166534' : '#991b1b',
-                  }}>
-                    Stok: {formatNumber(stok.quantity)} {stok.unit ?? ''}
-                  </span>
-                )}
-                {!stok && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700,
-                    color: '#6b7280',
-                  }}>
-                    Belum masuk stok
-                  </span>
+
+                {isExpanded && hasSubGroups && (
+                  <div style={{ paddingLeft: 16, paddingBottom: 4 }}>
+                    {subGroups.map((sub) => {
+                      const isSubExpanded = expandedSubCategories.has(sub.key);
+                      const showAll = !isSubExpanded ? false : true;
+
+                      return (
+                        <div key={sub.key}>
+                          <div
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6,
+                              cursor: 'pointer',
+                              padding: '6px 8px', borderRadius: 6,
+                              background: '#f8fafc',
+                              fontWeight: 600, fontSize: 11,
+                              marginTop: 4,
+                            }}
+                            onClick={() => toggleSubCategory(sub.key)}
+                          >
+                            <span>{sub.label}</span>
+                            <span style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
+                              ({sub.items.length})
+                            </span>
+                            <span style={{
+                              marginLeft: 'auto', fontSize: 10,
+                              transform: isSubExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.2s ease',
+                            }}>▶</span>
+                          </div>
+
+                          {isSubExpanded && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                              {sub.items.map((p) => renderProductRow(p))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             );
           })}
-          {masterProduk.length > 20 && (
-            <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
-              ... dan {masterProduk.length - 20} produk lainnya
-            </p>
-          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filteredProduk.length > 0 && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          gap: 8, marginTop: 16, fontSize: 12,
+        }}>
+          <button
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            style={{
+              padding: '4px 10px', borderRadius: 5, fontSize: 11,
+              border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer',
+              opacity: currentPage <= 1 ? 0.4 : 1,
+            }}
+          >
+            Previous
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+            if (totalPages <= 7) {
+                return (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    style={{
+                      padding: '4px 10px', borderRadius: 5, fontSize: 11,
+                      border: '1px solid #d1d5db',
+                      background: page === currentPage ? 'var(--color-primary)' : '#fff',
+                      color: page === currentPage ? '#fff' : 'var(--color-text)',
+                      cursor: 'pointer',
+                      minWidth: 32,
+                    }}
+                  >
+                    {page}
+                  </button>
+                );
+              }
+              if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2) {
+                return (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    style={{
+                      padding: '4px 10px', borderRadius: 5, fontSize: 11,
+                      border: '1px solid #d1d5db',
+                      background: page === currentPage ? 'var(--color-primary)' : '#fff',
+                      color: page === currentPage ? '#fff' : 'var(--color-text)',
+                      cursor: 'pointer',
+                      minWidth: 32,
+                    }}
+                  >
+                    {page}
+                  </button>
+                );
+              }
+              if (page === currentPage - 3 || page === currentPage + 3) {
+                return <span key={page} style={{ fontSize: 11, color: 'var(--color-muted)' }}>…</span>;
+              }
+              return null;
+            })}
+
+          <button
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            style={{
+              padding: '4px 10px', borderRadius: 5, fontSize: 11,
+              border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer',
+              opacity: currentPage >= totalPages ? 0.4 : 1,
+            }}
+          >
+            Next
+          </button>
+
+          <select
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            style={{
+              padding: '3px 6px', fontSize: 11, borderRadius: 5,
+              border: '1px solid #d1d5db', background: '#fff',
+            }}
+          >
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
         </div>
       )}
     </div>
