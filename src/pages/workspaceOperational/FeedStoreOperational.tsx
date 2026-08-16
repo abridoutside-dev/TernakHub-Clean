@@ -2078,6 +2078,18 @@ export default function FeedStoreOperational(): ReactElement {
       setSelectedSection('products');
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
+    } else if (action === 'supplier') {
+      setSelectedSection('supplier');
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    } else if (action === 'customers') {
+      setSelectedSection('customers');
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    } else if (action === 'reports') {
+      setSelectedSection('reports');
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams]);
 

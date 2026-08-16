@@ -10,7 +10,7 @@
 //   LIVE  → feed_store_sales (ringkasan penjualan bulan ini)
 //   LIVE → ringkasan operasional berbasis data stok, transaksi, dan aktivitas
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getWorkspaceDashboardConfig, type WorkspaceQuickAction } from '../../config/workspaceDashboardRegistry';
 import { resolveWorkspaceRoute } from '../../config/workspaceRegistry';
@@ -26,9 +26,11 @@ import {
 import type { StokInventarisDbRow } from '../../types/stokInventaris';
 import type { ActivityLogDbRow } from '../../types/activityLog';
 import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow } from '../../types/feedStore';
-import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
+import type { FeedStoreSalesSummaryData, FeedStoreDashboardData } from '../../hooks/useFeedStoreDashboardData';
 import type { StokTransactionDbRow } from '../../types/stokInventaris';
 import { AiInsightCard, type AiInsightItem } from '../../components/AiInsightCard';
+import { getMasterPakanList } from '../../data/masterPakanData';
+import { getProdukKomersialList } from '../../data/produkKomersialData';
 
 // ─── UI Primitives ────────────────────────────────────────────────────────────
 
@@ -95,6 +97,7 @@ interface ModuleCard {
   description: string;
   action: string;
   color: string;
+  countLabel?: string;
 }
 
 const MODULE_CARDS: ModuleCard[] = [
@@ -102,7 +105,7 @@ const MODULE_CARDS: ModuleCard[] = [
     id: 'daftar-produk',
     icon: '🌾',
     title: 'Daftar Produk',
-    description: 'Kelola item stok tersedia di Toko Pakan.',
+    description: 'Master produk/catalog toko — Master Pakan + Produk Komersial.',
     action: '',
     color: '#166534',
   },
@@ -110,7 +113,7 @@ const MODULE_CARDS: ModuleCard[] = [
     id: 'manajemen-stok',
     icon: '📦',
     title: 'Manajemen Stok',
-    description: 'Pantau & ubah stok, minimum, dan status item.',
+    description: 'Pantau & ubah stok fisik workspace.',
     action: 'stok-masuk',
     color: '#1d4ed8',
   },
@@ -130,12 +133,51 @@ const MODULE_CARDS: ModuleCard[] = [
     action: 'transaksi-keluar',
     color: '#991b1b',
   },
+  {
+    id: 'supplier',
+    icon: '🚚',
+    title: 'Supplier',
+    description: 'Daftar pemasok dan riwayat pembelian.',
+    action: 'supplier',
+    color: '#7c3aed',
+  },
+  {
+    id: 'customers',
+    icon: '👥',
+    title: 'Pelanggan',
+    description: 'Kelola data pelanggan toko dan histori pembelian.',
+    action: 'customers',
+    color: '#0d9488',
+  },
+  {
+    id: 'reports',
+    icon: '📊',
+    title: 'Laporan',
+    description: 'Laporan penjualan, stok, dan kinerja toko.',
+    action: 'reports',
+    color: '#b45309',
+  },
 ];
 
-function ModuleCards({ workspaceId }: { workspaceId: string }) {
+function ModuleCards({ workspaceId, data }: { workspaceId: string; data: FeedStoreDashboardData }) {
   const navigate = useNavigate();
   const dashboardConfig = getWorkspaceDashboardConfig('FeedStore');
   const baseUrl = resolveWorkspaceRoute(dashboardConfig.defaultRoute, workspaceId);
+
+  const masterPakanCount    = getMasterPakanList().length;
+  const produkKomersialCount = getProdukKomersialList().length;
+
+  const cardCountLabels: Record<string, string> = {
+    'daftar-produk':    `${formatNumber(masterPakanCount + produkKomersialCount)} produk`,
+    'manajemen-stok':   `${formatNumber(data.stokItems.length)} item`,
+    'transaksi-masuk':  `${formatNumber(getTransaksiMasuk(data.transactions).length)} transaksi`,
+    'transaksi-keluar': `${formatNumber(getTransaksiKeluar(data.transactions).length)} transaksi`,
+    'supplier':         `${formatNumber(data.suppliers.length)} supplier`,
+    'customers':        `${formatNumber(data.customers.length)} pelanggan`,
+    'reports':          data.salesSummary.monthRevenue > 0
+      ? formatRupiah(data.salesSummary.monthRevenue)
+      : `${formatNumber(data.recentOrders.length)} order`,
+  };
 
   return (
     <Card style={{ marginBottom: 14 }}>
@@ -164,7 +206,15 @@ function ModuleCards({ workspaceId }: { workspaceId: string }) {
               gap: 6,
             }}
           >
-            <span style={{ fontSize: 22 }}>{mod.icon}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+              <span style={{ fontSize: 22 }}>{mod.icon}</span>
+              <span style={{
+                fontSize: 10, fontWeight: 800, color: mod.color,
+                background: `${mod.color}15`, padding: '2px 6px', borderRadius: 4,
+              }}>
+                {cardCountLabels[mod.id] ?? '-'}
+              </span>
+            </div>
             <div>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>
                 {mod.title}
@@ -192,6 +242,39 @@ function LoadingSkeleton() {
         />
       ))}
     </div>
+  );
+}
+
+// ─── Catalog / Master Produk Summary ────────────────────────────────────────────
+// Catalog = Master Produk reference (Master Pakan + Produk Komersial).
+// Ini BUKAN stok — hanya ringkasan katalog master product yang tersedia sebagai
+// referensi untuk Stok Masuk. Stok fisik ditampilkan terpisah di StockSummaryCard.
+
+function CatalogSummaryCard() {
+  const masterPakanCount    = getMasterPakanList().length;
+  const produkKomersialCount = getProdukKomersialList().length;
+  const total               = masterPakanCount + produkKomersialCount;
+
+  return (
+    <Card style={{ marginBottom: 14 }}>
+      <SectionTitle title="Ringkasan Katalog" badge="Live" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+        {[
+          { value: formatNumber(total),         label: 'Total Produk',  icon: '🌾', color: '#166534', bg: '#f0fdf4' },
+          { value: formatNumber(masterPakanCount),    label: 'Master Pakan',  icon: '🌿', color: '#059669',  bg: '#ecfdf5' },
+          { value: formatNumber(produkKomersialCount), label: 'Produk Komersial', icon: '📦', color: '#7c3aed', bg: '#f0fdf4' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{ background: item.bg, borderRadius: 12, padding: '11px 8px', textAlign: 'center' }}
+          >
+            <div style={{ fontSize: 18 }}>{item.icon}</div>
+            <div style={{ marginTop: 3, fontSize: 17, fontWeight: 800, color: item.color }}>{item.value}</div>
+            <div style={{ marginTop: 2, fontSize: 10, color: item.color, fontWeight: 600 }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -482,6 +565,8 @@ function computeFeedStoreDashboardInsight(
   salesSummary: FeedStoreSalesSummaryData,
   orders: FeedStoreOrderDbRow[],
   activities: ActivityLogDbRow[],
+  catalogCount: number,
+  catalogWithStok: number,
 ): AiInsightItem[] {
   const hasStok = stokItems.length > 0;
   const hasTransaction = transactions.length > 0;
@@ -495,6 +580,14 @@ function computeFeedStoreDashboardInsight(
   }
 
   const result: AiInsightItem[] = [];
+
+  if (catalogCount > 0) {
+    const withoutStok = catalogCount - catalogWithStok;
+    result.push({
+      icon: '🌾',
+      text: `${formatNumber(catalogCount)} produk/master tersedia di katalog — ${formatNumber(catalogWithStok)} sudah masuk stok, ${formatNumber(withoutStok)} belum masuk stok.`,
+    });
+  }
 
   const lowStock = getLowStockItems(stokItems);
   const aktifItems = stokItems.filter((i) => i.status === 'Aktif').length;
@@ -573,6 +666,24 @@ export default function FeedStoreDashboard(): React.ReactElement {
 
   const workspaceName = data.workspace?.workspace_name ?? dashboardConfig.title;
 
+  const catalogCount = getMasterPakanList().length + getProdukKomersialList().length;
+  const stokRefIds = useMemo(() => {
+    const set = new Set<string>();
+    data.stokItems.forEach((s) => {
+      let refId: string | null = null;
+      if (s.notes) { try { refId = JSON.parse(s.notes).rid ?? null; } catch { refId = null; } }
+      if (!refId && s.master_pakan_id) refId = s.master_pakan_id;
+      if (refId) set.add(refId);
+    });
+    return set;
+  }, [data.stokItems]);
+
+  const catalogWithStok = getMasterPakanList()
+    .filter((p) => stokRefIds.has(p.id))
+    .length + getProdukKomersialList()
+    .filter((p) => stokRefIds.has(p.id))
+    .length;
+
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '18px 16px 24px', background: 'var(--color-bg)' }}>
 
@@ -608,26 +719,28 @@ export default function FeedStoreDashboard(): React.ReactElement {
       {/* ── Loading ── */}
       {loading && <LoadingSkeleton />}
 
-      {/* ── Content ── */}
-      {!loading && (
-        <>
-          {/* AI Insight Dashboard Toko Pakan */}
-          <Card style={{ marginBottom: 14 }}>
-            <SectionTitle title="AI Insight Dashboard" badge="Live" />
-            <AiInsightCard
-              title="AI Insight Toko Pakan"
-              icon="🤖"
-              items={computeFeedStoreDashboardInsight(
-                data.stokItems,
-                data.transactions,
-                data.suppliers,
-                data.customers,
-                data.salesSummary,
-                data.recentOrders,
-                data.activities,
-              )}
-            />
-          </Card>
+       {/* ── Content ── */}
+       {!loading && (
+         <>
+           {/* AI Insight Dashboard Toko Pakan */}
+           <Card style={{ marginBottom: 14 }}>
+             <SectionTitle title="AI Insight Dashboard" badge="Live" />
+             <AiInsightCard
+               title="AI Insight Toko Pakan"
+               icon="🤖"
+               items={computeFeedStoreDashboardInsight(
+                 data.stokItems,
+                 data.transactions,
+                 data.suppliers,
+                 data.customers,
+                 data.salesSummary,
+                 data.recentOrders,
+                 data.activities,
+                 catalogCount,
+                 catalogWithStok,
+               )}
+             />
+           </Card>
 
            {/* Quick Action */}
            <Card style={{ marginBottom: 14 }}>
@@ -635,31 +748,34 @@ export default function FeedStoreDashboard(): React.ReactElement {
              <QuickActions actions={dashboardConfig.quickActions} workspaceId={routeWorkspaceId} />
            </Card>
 
+           {/* Ringkasan Katalog (Master Produk) — LIVE */}
+           <CatalogSummaryCard />
+
+           {/* Ringkasan Stok — LIVE */}
+           <StockSummaryCard items={data.stokItems} />
+
+           {/* Ringkasan Transaksi Stok — LIVE */}
+           <TransactionSummaryCard items={data.stokItems} transactions={data.transactions} />
+
+           {/* Item Stok Kritis — LIVE */}
+           <LowStockCard items={data.stokItems} />
+
            {/* Modul Toko Pakan — entry point ke seluruh modul yang tersedia */}
-           <ModuleCards workspaceId={routeWorkspaceId} />
+           <ModuleCards workspaceId={routeWorkspaceId} data={data} />
 
            {/* Ringkasan Penjualan — LIVE */}
-          <SalesSummaryCard summary={data.salesSummary} />
+           <SalesSummaryCard summary={data.salesSummary} />
 
-          {/* Pesanan Terbaru — LIVE */}
-          <RecentOrdersCard orders={data.recentOrders} />
+           {/* Pesanan Terbaru — LIVE */}
+           <RecentOrdersCard orders={data.recentOrders} />
 
-          {/* Ringkasan Stok — LIVE */}
-          <StockSummaryCard items={data.stokItems} />
+           {/* Aktivitas Terkini — LIVE */}
+           <div style={{ marginBottom: 14 }}>
+             <RecentActivityCard activities={data.activities} />
+           </div>
 
-          {/* Ringkasan Transaksi Stok — LIVE */}
-          <TransactionSummaryCard items={data.stokItems} transactions={data.transactions} />
-
-          {/* Item Stok Kritis — LIVE */}
-          <LowStockCard items={data.stokItems} />
-
-          {/* Aktivitas Terkini — LIVE */}
-          <div style={{ marginBottom: 14 }}>
-            <RecentActivityCard activities={data.activities} />
-          </div>
-
-        </>
-      )}
+         </>
+       )}
     </main>
   );
 }
