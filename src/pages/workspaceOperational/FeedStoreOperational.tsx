@@ -24,6 +24,13 @@ import {
   formatRelativeTime,
   formatRupiah,
 } from '../../hooks/useFeedStoreDashboardData';
+import { useStokInventaris } from '../../hooks/useStokInventaris';
+import { computeStokAiInsights, type StokInsight } from '../../utils/stokInsight';
+import {
+  recordTambahStok,
+  type RecordTambahStokInput,
+} from '../../services/stokInventarisService';
+import { addInventarisFromTambahStok } from '../../data/stokInventarisData';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
 import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow, FeedStoreSalesDbRow } from '../../types/feedStore';
 import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
@@ -120,9 +127,39 @@ function EmptyState({ icon, message, hint }: { icon: string; message: string; hi
   );
 }
 
+function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 300,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }} onClick={onClose}>
+      <div style={{
+        background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 480,
+        maxHeight: '90vh', overflowY: 'auto',
+      }} onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FieldWrap({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+  return (
+    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#374151' }}>
+      {label}{required ? ' *' : ''}
+      <div style={{ marginTop: 4 }}>{children}</div>
+    </label>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+  fontSize: 14, width: '100%', boxSizing: 'border-box', outline: 'none',
+};
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
-function ProductsDetail({ items }: { items: StokInventarisDbRow[] }) {
+function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
   if (items.length === 0) {
     return (
       <EmptyState
@@ -137,12 +174,13 @@ function ProductsDetail({ items }: { items: StokInventarisDbRow[] }) {
       {items.slice(0, 10).map((item) => (
         <div
           key={item.id}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 12px', borderRadius: 9,
-            background: item.status === 'Aktif' ? '#f0fdf4' : '#f9fafb',
-            border: `1px solid ${item.status === 'Aktif' ? '#bbf7d0' : '#e5e7eb'}`,
-          }}
+           onClick={() => onItemClick(item)}
+           style={{
+             display: 'flex', alignItems: 'center', gap: 10,
+             padding: '10px 12px', borderRadius: 9, cursor: 'pointer',
+             background: item.status === 'Aktif' ? '#f0fdf4' : '#f9fafb',
+             border: `1px solid ${item.status === 'Aktif' ? '#bbf7d0' : '#e5e7eb'}`,
+           }}
         >
           <span style={{ fontSize: 18 }}>🌾</span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -171,10 +209,11 @@ function ProductsDetail({ items }: { items: StokInventarisDbRow[] }) {
   );
 }
 
-function StockDetail({ items }: { items: StokInventarisDbRow[] }) {
+function StockDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
   const lowStock = getLowStockItems(items);
   const aktif    = items.filter((i) => i.status === 'Aktif').length;
   const habis    = items.filter((i) => i.status === 'Habis').length;
+  const insights: StokInsight[] = computeStokAiInsights();
 
   return (
     <div>
@@ -195,8 +234,8 @@ function StockDetail({ items }: { items: StokInventarisDbRow[] }) {
           <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#92400e' }}>
             ⚠️ {lowStock.length} item perlu perhatian
           </p>
-          {lowStock.slice(0, 5).map((item) => (
-            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fffbeb', borderRadius: 8, marginBottom: 5, border: '1px solid #fde68a' }}>
+           {lowStock.slice(0, 5).map((item) => (
+             <div key={item.id} onClick={() => onItemClick(item)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fffbeb', borderRadius: 8, marginBottom: 5, border: '1px solid #fde68a', cursor: 'pointer' }}>
               <span style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 600 }}>{item.item_name}</span>
               <span style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>
                 {formatNumber(item.quantity)} {item.unit ?? ''} / Min: {item.min_stock !== null ? formatNumber(item.min_stock) : '-'}
@@ -207,6 +246,31 @@ function StockDetail({ items }: { items: StokInventarisDbRow[] }) {
       )}
       {items.length === 0 && (
         <EmptyState icon="📦" message="Belum ada item stok." hint="Mulai dengan mencatat stok masuk." />
+      )}
+
+      {items.length > 0 && (
+        <>
+          {insights.length > 0 && (
+            <div style={{ marginTop: 14, marginBottom: 8 }}>
+              <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#0277bd' }}>🤖 AI Insight</p>
+              {insights.slice(0, 4).map((insight, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 6,
+                    background: insight.bg, borderRadius: 8, padding: '7px 9px',
+                    marginBottom: 5, border: '1px solid ' + (insight.color + '20'),
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>{insight.icon}</span>
+                  <p style={{ margin: 0, fontSize: 10, color: insight.color, lineHeight: 1.4 }}>
+                    {insight.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -581,6 +645,323 @@ function AnalysisDetail({
   );
 }
 
+// ─── Stock Item Detail Modal ──────────────────────────────────────────────────
+
+function StockItemDetailModal({
+  item,
+  transactions,
+  onClose,
+}: {
+  item: StokInventarisDbRow;
+  transactions: StokTransactionDbRow[];
+  onClose: () => void;
+}) {
+  const itemTx = transactions
+    .filter((t) => t.stok_id === item.id)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const isLowStock = getLowStockItems([item]).length > 0;
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      {/* AI Insight Baru saja diperbarui */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <span style={{ fontSize: 24 }}>🌾</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--color-text)' }}>
+            {item.item_name}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>
+            {item.source_type} · Stok: {formatNumber(item.quantity)} {item.unit ?? ''} · Min: {item.min_stock !== null ? formatNumber(item.min_stock) : '-'}
+          </p>
+        </div>
+      </div>
+
+      {isLowStock && (
+        <div style={{
+          background: '#fffbeb', border: '1px solid #fde68a',
+          borderRadius: 10, padding: '10px 12px', marginBottom: 14,
+        }}>
+          <p style={{ margin: 0, fontSize: 11, color: '#92400e', fontWeight: 700 }}>
+            ⚠️ Stok di bawah ambang minimum — segera lakukan Tambah Stok.
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 16 }}>
+        {[
+          { label: 'Status',   value: item.status, color: '#166534', bg: '#f0fdf4' },
+          { label: 'Stok',     value: `${formatNumber(item.quantity)} ${item.unit ?? ''}`, color: '#1d4ed8', bg: '#eff6ff' },
+          { label: 'Min Stok', value: item.min_stock !== null ? formatNumber(item.min_stock) : '-', color: '#92400e', bg: '#fffbeb' },
+        ].map((stat) => (
+          <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '9px 7px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 10, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 800, color: stat.color }}>{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {item.purchase_price_per_kg !== null && item.purchase_price_per_kg !== undefined && (
+        <p style={{ margin: '0 0 12px', fontSize: 11, color: 'var(--color-muted)' }}>
+          Harga beli: {formatRupiah(item.purchase_price_per_kg)}/{item.unit ?? 'Kg'}
+        </p>
+      )}
+
+      <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: 'var(--color-text)' }}>📜 Riwayat Transaksi</p>
+      {itemTx.length === 0 ? (
+        <EmptyState icon="📜" message="Belum ada transaksi untuk item ini." />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {itemTx.slice(0, 20).map((tx) => {
+            const isMasuk = tx.transaction_type === 'Masuk';
+            const isPenyesuaian = tx.transaction_type === 'Penyesuaian';
+            const color = isMasuk ? '#166534' : isPenyesuaian ? '#1d4ed8' : '#991b1b';
+            const bg = isMasuk ? '#f0fdf4' : isPenyesuaian ? '#eff6ff' : '#fef2f2';
+            const icon = isMasuk ? '📥' : isPenyesuaian ? '🔄' : '📤';
+            const sign = isMasuk || (isPenyesuaian && tx.quantity_delta > 0) ? '+' : '';
+            return (
+              <div
+                key={tx.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: bg, border: `1px solid ${isMasuk ? '#bbf7d0' : isPenyesuaian ? '#c7d2fe' : '#fecaca'}` }}
+              >
+                <span style={{ fontSize: 16 }}>{icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: 'var(--color-text)' }}>
+                    {tx.reason ?? tx.transaction_type}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                    {tx.transaction_date} · {tx.reference_type ?? '-'}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color }}>{sign}{formatNumber(Math.abs(tx.quantity_delta))}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--color-muted)' }}>{formatRelativeTime(tx.created_at)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={{ background: '#f1f5f9', color: '#374151', padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+          Tutup
+        </button>
+      </div>
+    </ModalOverlay>
+  );
+}
+
+// ─── Stok Masuk Modal ────────────────────────────────────────────────────────
+
+function StokMasukModal({
+  items,
+  workspaceId,
+  onClose,
+  onSaved,
+}: {
+  items: StokInventarisDbRow[];
+  workspaceId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [itemName, setItemName] = useState('');
+  const [unit, setUnit] = useState('Kg');
+  const [jumlah, setJumlah] = useState('');
+  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [supplier, setSupplier] = useState('');
+  const [lokasi, setLokasi] = useState('');
+  const [catatan, setCatatan] = useState('');
+  const [hargaBeli, setHargaBeli] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const matchedItem = items.find(
+    (i) => i.item_name.toLowerCase() === itemName.trim().toLowerCase(),
+  );
+
+  async function handleSubmit() {
+    if (!itemName.trim()) { setError('Nama item wajib diisi.'); return; }
+    if (!jumlah || Number(jumlah) <= 0) { setError('Jumlah harus lebih dari 0.'); return; }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const sumber = matchedItem?.source_type ?? 'Produk Komersial';
+      const itemId = matchedItem?.id ?? '';
+      const kategori = sumber === 'Produk Komersial' ? 'Produk Komersial' : sumber;
+
+      const input: RecordTambahStokInput = {
+        itemId:      itemId,
+        itemName:    itemName.trim(),
+        sumber:      sumber as 'Master Pakan' | 'Produk Komersial' | 'Formula',
+        unit:        unit || 'Kg',
+        jumlah:      Number(jumlah),
+        tanggal:     tanggal,
+        supplier:    supplier || undefined,
+        lokasi:      lokasi || undefined,
+        catatan:     catatan || undefined,
+        hargaBeli:   hargaBeli ? Number(hargaBeli) : undefined,
+        kategori:    kategori,
+      };
+
+      const result = await recordTambahStok(workspaceId, input);
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      // Phase 1: dual-write to in-memory store for immediate UI reactivity
+      const sumberInventaris: 'Master Pakan' | 'Produk Komersial' | 'Hasil Produksi' =
+        sumber === 'Produk Komersial' ? 'Produk Komersial'
+        : sumber === 'Master Pakan' ? 'Master Pakan'
+        : 'Hasil Produksi';
+
+      addInventarisFromTambahStok({
+        referensiId:   matchedItem?.id ?? '',
+        nama:          itemName.trim(),
+        kategori:      kategori,
+        sumber:        sumberInventaris,
+        jumlahStok:    Number(jumlah),
+        satuan:        unit || 'Kg',
+        tanggalMasuk:  tanggal,
+        supplier:      supplier || undefined,
+        lokasiPenyimpanan: lokasi || undefined,
+        hargaBeli:     hargaBeli ? Number(hargaBeli) : undefined,
+         catatan:       catatan || undefined,
+       });
+
+      onSaved();
+      onClose();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan stok.';
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <h2 style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 800, color: 'var(--color-text)' }}>
+        📥 Tambah Stok
+      </h2>
+
+      <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--color-muted)' }}>
+        Workspace: <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{workspaceId.slice(0, 8)}…</span>
+      </p>
+      <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--color-muted)' }}>
+        Data akan tersimpan ke Supabase (stok_inventaris + stok_inventaris_transactions).
+      </p>
+
+      <FieldWrap label="Nama Item" required>
+        <input
+          type="text"
+          value={itemName}
+          onChange={(e) => setItemName(e.target.value)}
+          placeholder="mis. Konsentrat Sapi Pro"
+          style={inputStyle}
+        />
+        {matchedItem && (
+          <p style={{ margin: '4px 0 0', fontSize: 10, color: '#166534' }}>
+            Ditemukan di stok: {matchedItem.item_name} (stok: {formatNumber(matchedItem.quantity)} {matchedItem.unit})
+          </p>
+        )}
+      </FieldWrap>
+
+      <FieldWrap label="Satuan">
+        <input type="text" value={unit} onChange={(e) => setUnit(e.target.value)} style={inputStyle} />
+      </FieldWrap>
+
+      <FieldWrap label="Jumlah" required>
+        <input
+          type="number"
+          value={jumlah}
+          onChange={(e) => setJumlah(e.target.value)}
+          placeholder="mis. 100"
+          style={inputStyle}
+        />
+      </FieldWrap>
+
+      <FieldWrap label="Tanggal" required>
+        <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} style={inputStyle} />
+      </FieldWrap>
+
+      <FieldWrap label="Supplier">
+        <input
+          type="text"
+          value={supplier}
+          onChange={(e) => setSupplier(e.target.value)}
+          placeholder="mis. CV. Sumber Jaya"
+          style={inputStyle}
+        />
+      </FieldWrap>
+
+      <FieldWrap label="Lokasi Penyimpanan">
+        <input
+          type="text"
+          value={lokasi}
+          onChange={(e) => setLokasi(e.target.value)}
+          placeholder="mis. Gudang A"
+          style={inputStyle}
+        />
+      </FieldWrap>
+
+      <FieldWrap label="Harga Beli per Satuan">
+        <input
+          type="number"
+          value={hargaBeli}
+          onChange={(e) => setHargaBeli(e.target.value)}
+          placeholder="mis. 12000"
+          style={inputStyle}
+        />
+      </FieldWrap>
+
+      <FieldWrap label="Catatan">
+        <textarea
+          value={catatan}
+          onChange={(e) => setCatatan(e.target.value)}
+          placeholder="Catatan tambahan (opsional)"
+          rows={3}
+          style={{ ...inputStyle, fontFamily: 'inherit' }}
+        />
+      </FieldWrap>
+
+      {error && (
+        <div style={{
+          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+          padding: '8px 10px', marginBottom: 12,
+        }}>
+          <p style={{ margin: 0, fontSize: 11, color: '#991b1b' }}>{error}</p>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+        <button
+          onClick={onClose}
+          disabled={saving}
+          style={{ background: '#f1f5f9', color: '#374151', padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700 }}
+        >
+          Batal
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          style={{
+            background: '#166534', color: '#fff', padding: '10px 20px',
+            borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700,
+            opacity: saving ? 0.6 : 1,
+          }}
+        >
+          {saving ? 'Menyimpan...' : 'Simpan'}
+        </button>
+      </div>
+    </ModalOverlay>
+  );
+}
+
 // ─── Count Labels ─────────────────────────────────────────────────────────────
 
 function getSectionCountLabel(
@@ -615,13 +996,24 @@ export default function FeedStoreOperational(): ReactElement {
   const { id: workspaceId = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [selectedSection, setSelectedSection] = useState<SectionId>('products');
+  const [itemDetailOpen, setItemDetailOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<StokInventarisDbRow | null>(null);
+  const [stokMasukOpen, setStokMasukOpen] = useState(false);
 
   const config          = getWorkspaceOperationalConfig('FeedStore');
   const dashboardConfig = getWorkspaceDashboardConfig('FeedStore');
-  const { data, loading, error } = useFeedStoreDashboardData(workspaceId);
+  const { data, loading, error, refresh: dataRefresh } = useFeedStoreDashboardData(workspaceId);
+
+  // Populate in-memory stores so computeStokAiInsights() reads production data LIVE.
+  useStokInventaris();
 
   const workspaceName = data.workspace?.workspace_name ?? config.title;
   const selected      = SECTIONS.find((s) => s.id === selectedSection) ?? SECTIONS[0];
+
+  const handleItemClick = (item: StokInventarisDbRow) => {
+    setSelectedItem(item);
+    setItemDetailOpen(true);
+  };
 
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '18px 16px 24px', background: 'var(--color-bg)' }}>
@@ -725,18 +1117,31 @@ export default function FeedStoreOperational(): ReactElement {
 
           {/* ── Detail Panel ── */}
           <section style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 24 }}>{selected.icon}</span>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 15, color: 'var(--color-text)' }}>{selected.title}</h2>
-                <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>{selected.description}</p>
+             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+               <span style={{ fontSize: 24 }}>{selected.icon}</span>
+               <div style={{ flex: 1, minWidth: 0 }}>
+                 <h2 style={{ margin: 0, fontSize: 15, color: 'var(--color-text)' }}>{selected.title}</h2>
+                 <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>{selected.description}</p>
+               </div>
+               {selected.id === 'stock' && (
+                 <button
+                   type="button"
+                   onClick={() => setStokMasukOpen(true)}
+                   style={{
+                     border: '1px solid #166534', borderRadius: 9, background: '#166534',
+                     color: '#fff', padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                     display: 'flex', alignItems: 'center', gap: 4,
+                   }}
+                 >
+                   <span>＋</span> Stok Masuk
+                 </button>
+                )}
               </div>
-            </div>
 
-            {selected.id === 'products' ? (
-              <ProductsDetail items={data.stokItems} />
+             {selected.id === 'products' ? (
+              <ProductsDetail items={data.stokItems} onItemClick={handleItemClick} />
             ) : selected.id === 'stock' ? (
-              <StockDetail items={data.stokItems} />
+              <StockDetail items={data.stokItems} onItemClick={handleItemClick} />
             ) : selected.id === 'incoming' ? (
               <TransactionList transactions={data.transactions} type="Masuk" />
             ) : selected.id === 'outgoing' ? (
@@ -758,8 +1163,28 @@ export default function FeedStoreOperational(): ReactElement {
             ) : selected.id === 'analysis' ? (
               <AnalysisDetail items={data.stokItems} transactions={data.transactions} />
             ) : null}
-          </section>
+         </section>
         </>
+      )}
+
+      {itemDetailOpen && selectedItem && (
+        <StockItemDetailModal
+          item={selectedItem}
+          transactions={data.transactions}
+          onClose={() => {
+            setItemDetailOpen(false);
+            setSelectedItem(null);
+          }}
+        />
+      )}
+
+      {stokMasukOpen && (
+        <StokMasukModal
+          items={data.stokItems}
+          workspaceId={workspaceId}
+          onClose={() => setStokMasukOpen(false)}
+          onSaved={dataRefresh}
+        />
       )}
     </main>
   );
