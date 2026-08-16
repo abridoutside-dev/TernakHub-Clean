@@ -425,6 +425,69 @@ function computeSupplierInsight(suppliers: FeedStoreSupplierDbRow[]): AiInsightI
   return result;
 }
 
+function computeCustomerInsight(customers: FeedStoreCustomerDbRow[]): AiInsightItem[] {
+  if (customers.length === 0) return [];
+
+  const aktif = customers.filter((c) => c.status === 'Aktif');
+  const nonaktif = customers.filter((c) => c.status !== 'Aktif');
+
+  const byType: Record<string, number> = {};
+  customers.forEach((c) => {
+    const t = c.customer_type ?? 'Lain';
+    byType[t] = (byType[t] ?? 0) + 1;
+  });
+
+  const byCity: Record<string, number> = {};
+  customers.forEach((c) => {
+    const city = c.city ?? 'Tidak ada kota';
+    byCity[city] = (byCity[city] ?? 0) + 1;
+  });
+
+  const withContact = customers.filter((c) => c.phone || c.email).length;
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const recent = customers.filter((c) => new Date(c.created_at) >= weekAgo).length;
+
+  const result: AiInsightItem[] = [
+    {
+      icon: '👥',
+      text: `${formatNumber(customers.length)} pelanggan tercatat — ${formatNumber(aktif.length)} aktif, ${formatNumber(nonaktif.length)} tidak aktif.`,
+    },
+  ];
+
+  const topType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0];
+  if (topType) {
+    result.push({
+      icon: '🏷️',
+      text: `Segmen pelanggan terbanyak: ${topType[0]} (${formatNumber(topType[1])} pelanggan).`,
+    });
+  }
+
+  const topCity = Object.entries(byCity).sort((a, b) => b[1] - a[1])[0];
+  if (topCity && Object.keys(byCity).length > 1) {
+    result.push({
+      icon: '📍',
+      text: `Kota dengan pelanggan terbanyak: ${topCity[0]} (${formatNumber(topCity[1])} pelanggan).`,
+    });
+  }
+
+  result.push({
+    icon: '📞',
+    text: `${formatNumber(withContact)} pelanggan punya kontak (${formatNumber(customers.length - withContact)} tanpa kontak).`,
+  });
+
+  if (recent > 0) {
+    result.push({
+      icon: '🆕',
+      text: `${formatNumber(recent)} pelanggan ditambahkan dalam 7 hari terakhir.`,
+      color: '#166534',
+    });
+  }
+
+  return result;
+}
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
 function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
@@ -696,19 +759,23 @@ function CustomerDetail({ customers }: { customers: FeedStoreCustomerDbRow[] }) 
     byType[t] = (byType[t] ?? 0) + 1;
   }
 
-  if (customers.length === 0) {
-    return (
-      <EmptyState
-        icon="👥"
-        message="Belum ada pelanggan yang terdaftar."
-        hint="Tambahkan data pelanggan untuk mencatat pembeli pakan."
-      />
-    );
-  }
-
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+      <AiInsightCard
+        title="AI Insight Pelanggan"
+        icon="🤖"
+        items={computeCustomerInsight(customers)}
+      />
+
+      {customers.length === 0 ? (
+        <EmptyState
+          icon="👥"
+          message="Belum ada pelanggan yang terdaftar."
+          hint="Tambahkan data pelanggan untuk mencatat pembeli pakan."
+        />
+      ) : (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
         {[
           { label: 'Total pelanggan', value: formatNumber(customers.length), color: '#7c3aed', bg: '#f5f3ff' },
           { label: 'Aktif',           value: formatNumber(aktif),            color: '#166534', bg: '#f0fdf4' },
@@ -759,11 +826,13 @@ function CustomerDetail({ customers }: { customers: FeedStoreCustomerDbRow[] }) 
           </div>
         ))}
         {customers.length > 10 && (
-          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
-            ... dan {customers.length - 10} pelanggan lainnya
-          </p>
-        )}
-      </div>
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+              ... dan {customers.length - 10} pelanggan lainnya
+            </p>
+          )}
+        </div>
+        </div>
+      )}
     </div>
   );
 }
