@@ -34,6 +34,7 @@ import { addInventarisFromTambahStok } from '../../data/stokInventarisData';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
 import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow, FeedStoreSalesDbRow } from '../../types/feedStore';
 import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
+import { AiInsightCard, type AiInsightItem } from '../../components/AiInsightCard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,55 +150,6 @@ const inputStyle: React.CSSProperties = {
   padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
   fontSize: 14, width: '100%', boxSizing: 'border-box', outline: 'none',
 };
-
-// ─── AI Insight Card ─────────────────────────────────────────────────────────────
-// Komponen reusable — tiap modul menyediakan item insight spesifiknya.
-
-interface AiInsightItem {
-  icon: string;
-  text: string;
-  color?: string;
-}
-
-interface AiInsightCardProps {
-  title: string;
-  icon: string;
-  items: AiInsightItem[];
-  emptyMessage?: string;
-}
-
-function AiInsightCard({ title, icon, items, emptyMessage = 'Belum ada data yang dapat dianalisis.' }: AiInsightCardProps) {
-  if (items.length === 0) {
-    return (
-      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 18 }}>{icon}</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{title}</span>
-        </div>
-        <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>{emptyMessage}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 18 }}>{icon}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{title}</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {items.map((item, idx) => (
-          <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 11 }}>{item.icon}</span>
-            <p style={{ margin: 0, fontSize: 10, lineHeight: 1.4, color: item.color ?? '#334155' }}>
-              {item.text}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ─── Per-module AI Insight Functions ─────────────────────────────────────────────
 // Setiap fungsi menerima data LIVE dari modul masing-masing dan mengembalikan

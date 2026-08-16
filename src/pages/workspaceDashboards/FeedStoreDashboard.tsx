@@ -25,9 +25,10 @@ import {
 } from '../../hooks/useFeedStoreDashboardData';
 import type { StokInventarisDbRow } from '../../types/stokInventaris';
 import type { ActivityLogDbRow } from '../../types/activityLog';
-import type { FeedStoreOrderDbRow } from '../../types/feedStore';
+import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow } from '../../types/feedStore';
 import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
 import type { StokTransactionDbRow } from '../../types/stokInventaris';
+import { AiInsightCard, type AiInsightItem } from '../../components/AiInsightCard';
 
 // ─── UI Primitives ────────────────────────────────────────────────────────────
 
@@ -471,6 +472,98 @@ function RecentOrdersCard({ orders }: { orders: FeedStoreOrderDbRow[] }) {
   );
 }
 
+// ─── AI Insight Dashboard Toko Pakan ─────────────────────────────────────────────
+
+function computeFeedStoreDashboardInsight(
+  stokItems: StokInventarisDbRow[],
+  transactions: StokTransactionDbRow[],
+  suppliers: FeedStoreSupplierDbRow[],
+  customers: FeedStoreCustomerDbRow[],
+  salesSummary: FeedStoreSalesSummaryData,
+  orders: FeedStoreOrderDbRow[],
+  activities: ActivityLogDbRow[],
+): AiInsightItem[] {
+  const hasStok = stokItems.length > 0;
+  const hasTransaction = transactions.length > 0;
+  const hasSuppliers = suppliers.length > 0;
+  const hasCustomers = customers.length > 0;
+  const hasSales = salesSummary.monthRevenue > 0 || salesSummary.todayRevenue > 0;
+  const hasActivity = activities.length > 0;
+
+  if (!hasStok && !hasTransaction && !hasSuppliers && !hasCustomers && !hasSales && !hasActivity) {
+    return [];
+  }
+
+  const result: AiInsightItem[] = [];
+
+  const lowStock = getLowStockItems(stokItems);
+  const aktifItems = stokItems.filter((i) => i.status === 'Aktif').length;
+
+  if (hasStok) {
+    result.push({
+      icon: '📦',
+      text: `${formatNumber(stokItems.length)} item stok tercatat — ${formatNumber(aktifItems)} aktif, ${formatNumber(lowStock.length)} perlu perhatian.`,
+    });
+  }
+
+  const masukCount = getTransaksiMasuk(transactions).length;
+  const keluarCount = getTransaksiKeluar(transactions).length;
+
+  if (hasTransaction) {
+    const net = masukCount - keluarCount;
+    result.push({
+      icon: '🔄',
+      text: `${formatNumber(masukCount)} transaksi masuk, ${formatNumber(keluarCount)} keluar (saldo: ${net >= 0 ? '+' : ''}${formatNumber(net)}).`,
+    });
+  }
+
+  if (hasSuppliers) {
+    const aktifSuppliers = suppliers.filter((s) => s.status === 'Aktif').length;
+    result.push({
+      icon: '🚚',
+      text: `${formatNumber(suppliers.length)} supplier — ${formatNumber(aktifSuppliers)} aktif.`,
+    });
+  }
+
+  if (hasCustomers) {
+    const aktifCustomers = customers.filter((c) => c.status === 'Aktif').length;
+    result.push({
+      icon: '👥',
+      text: `${formatNumber(customers.length)} pelanggan — ${formatNumber(aktifCustomers)} aktif.`,
+    });
+  }
+
+  if (hasSales) {
+    result.push({
+      icon: '💰',
+      text: `Pendapatan bulan ini: ${formatRupiah(salesSummary.monthRevenue)} (${formatNumber(salesSummary.monthSalesCount)} transaksi).`,
+    });
+  }
+
+  if (orders.length > 0) {
+    const penjualan = orders.filter((o) => o.order_type === 'Penjualan').length;
+    const pembelian = orders.filter((o) => o.order_type === 'Pembelian').length;
+    result.push({
+      icon: '📋',
+      text: `${formatNumber(orders.length)} order terbaru — ${formatNumber(penjualan)} penjualan, ${formatNumber(pembelian)} pembelian.`,
+    });
+  }
+
+  if (hasActivity) {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const recentActivity = activities.filter((a) => new Date(a.created_at) >= weekAgo).length;
+    if (recentActivity > 0) {
+      result.push({
+        icon: '⚡',
+        text: `${formatNumber(recentActivity)} aktivitas dalam 7 hari terakhir.`,
+      });
+    }
+  }
+
+  return result;
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function FeedStoreDashboard(): React.ReactElement {
@@ -518,6 +611,24 @@ export default function FeedStoreDashboard(): React.ReactElement {
       {/* ── Content ── */}
       {!loading && (
         <>
+          {/* AI Insight Dashboard Toko Pakan */}
+          <Card style={{ marginBottom: 14 }}>
+            <SectionTitle title="AI Insight Dashboard" badge="Live" />
+            <AiInsightCard
+              title="AI Insight Toko Pakan"
+              icon="🤖"
+              items={computeFeedStoreDashboardInsight(
+                data.stokItems,
+                data.transactions,
+                data.suppliers,
+                data.customers,
+                data.salesSummary,
+                data.recentOrders,
+                data.activities,
+              )}
+            />
+          </Card>
+
            {/* Quick Action */}
            <Card style={{ marginBottom: 14 }}>
              <SectionTitle title="Quick Action" />
