@@ -214,21 +214,75 @@ function computeStockInsight(): AiInsightItem[] {
   }));
 }
 
+function computeProductsInsight(items: StokInventarisDbRow[]): AiInsightItem[] {
+  if (items.length === 0) return [];
+
+  const aktif = items.filter((i) => i.status === 'Aktif');
+  const habis = items.filter((i) => i.status === 'Habis');
+  const kadaluarsa = items.filter((i) => i.status === 'Kadaluarsa');
+  const diarsipkan = items.filter((i) => i.status === 'Diarsipkan');
+
+  const bySource: Record<string, number> = {};
+  items.forEach((i) => {
+    const s = i.source_type ?? 'Lain';
+    bySource[s] = (bySource[s] ?? 0) + 1;
+  });
+
+  const result: AiInsightItem[] = [
+    {
+      icon: '📦',
+      text: `${formatNumber(items.length)} jenis produk tercatat — ${formatNumber(aktif.length)} aktif, ${formatNumber(habis.length)} habis.`,
+    },
+  ];
+
+  if (kadaluarsa.length > 0 || diarsipkan.length > 0) {
+    result.push({
+      icon: '⚠️',
+      text: `${formatNumber(kadaluarsa.length)} kadaluarsa, ${formatNumber(diarsipkan.length)} diarsipkan.`,
+      color: '#92400e',
+    });
+  }
+
+  const topSource = Object.entries(bySource).sort((a, b) => b[1] - a[1])[0];
+  if (topSource) {
+    result.push({
+      icon: '🏷️',
+      text: `Sumber terbanyak: ${topSource[0]} (${formatNumber(topSource[1])} item).`,
+    });
+  }
+
+  const lowStock = items.filter((i) => i.min_stock !== null && i.quantity <= i.min_stock);
+  if (lowStock.length > 0) {
+    result.push({
+      icon: '📉',
+      text: `${formatNumber(lowStock.length)} produk di bawah stok minimum.`,
+      color: '#c62828',
+    });
+  }
+
+  return result;
+}
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
 function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon="🌾"
-        message="Belum ada item stok tercatat di workspace ini."
-        hint="Gunakan menu Stok Masuk untuk mulai mencatat inventaris."
-      />
-    );
-  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {items.slice(0, 10).map((item) => (
+    <div>
+      <AiInsightCard
+        title="AI Insight Daftar Produk"
+        icon="🤖"
+        items={computeProductsInsight(items)}
+      />
+
+      {items.length === 0 ? (
+        <EmptyState
+          icon="🌾"
+          message="Belum ada item stok tercatat di workspace ini."
+          hint="Gunakan menu Stok Masuk untuk mulai mencatat inventaris."
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {items.slice(0, 10).map((item) => (
         <div
           key={item.id}
            onClick={() => onItemClick(item)}
@@ -257,10 +311,12 @@ function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; 
           </span>
         </div>
       ))}
-      {items.length > 10 && (
-        <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
-          ... dan {items.length - 10} item lainnya
-        </p>
+          {items.length > 10 && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+              ... dan {items.length - 10} item lainnya
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
