@@ -488,6 +488,59 @@ function computeCustomerInsight(customers: FeedStoreCustomerDbRow[]): AiInsightI
   return result;
 }
 
+function computeLaporanInsight(
+  salesSummary: FeedStoreSalesSummaryData,
+  recentOrders: FeedStoreOrderDbRow[],
+  recentSales: FeedStoreSalesDbRow[],
+  stokItems: StokInventarisDbRow[],
+  transactions: StokTransactionDbRow[],
+): AiInsightItem[] {
+  const hasSales = salesSummary.monthRevenue > 0;
+  const hasOrders = recentOrders.length > 0;
+  const hasTransactions = transactions.length > 0;
+
+  if (!hasSales && !hasOrders && !hasTransactions) return [];
+
+  const penjualanOrders = recentOrders.filter((o) => o.order_type === 'Penjualan');
+  const pembelianOrders = recentOrders.filter((o) => o.order_type === 'Pembelian');
+  const masukCount = getTransaksiMasuk(transactions).length;
+  const keluarCount = getTransaksiKeluar(transactions).length;
+
+  const result: AiInsightItem[] = [];
+
+  if (hasSales) {
+    result.push({
+      icon: '💰',
+      text: `Pendapatan bulan ini: ${formatRupiah(salesSummary.monthRevenue)} dari ${formatNumber(salesSummary.monthSalesCount)} catatan penjualan.`,
+    });
+
+    if (salesSummary.todayRevenue > 0) {
+      result.push({
+        icon: '📈',
+        text: `Penjualan hari ini: ${formatRupiah(salesSummary.todayRevenue)} (${formatNumber(salesSummary.todayOrderCount)} order).`,
+      });
+    }
+  }
+
+  if (hasOrders) {
+    const totalTyped = penjualanOrders.length + pembelianOrders.length;
+    const ratio = totalTyped > 0 ? (penjualanOrders.length / totalTyped) * 100 : 0;
+    result.push({
+      icon: '📋',
+      text: `Distribusi order: ${formatNumber(penjualanOrders.length)} penjualan (${ratio > 0 ? Math.round(ratio) : 0}%), ${formatNumber(pembelianOrders.length)} pembelian.`,
+    });
+  }
+
+  if (hasTransactions && stokItems.length > 0) {
+    result.push({
+      icon: '📦',
+      text: `Aktivitas stok: ${formatNumber(masukCount)} masuk, ${formatNumber(keluarCount)} keluar, ${formatNumber(stokItems.length)} item tercatat.`,
+    });
+  }
+
+  return result;
+}
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
 function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
@@ -852,7 +905,7 @@ function ReportsDetail({
   stokItems: StokInventarisDbRow[];
   transactions: StokTransactionDbRow[];
 }) {
-  const totalStokValue  = 0; // harga beli tidak ada di stok_inventaris
+  const totalStokValue  = 0;
   const masukCount      = getTransaksiMasuk(transactions).length;
   const keluarCount     = getTransaksiKeluar(transactions).length;
   const penjualanOrders = recentOrders.filter((o) => o.order_type === 'Penjualan');
@@ -860,6 +913,13 @@ function ReportsDetail({
 
   return (
     <div>
+      {/* AI Insight Laporan — setelah header, sebelum ringkasan */}
+      <AiInsightCard
+        title="AI Insight Laporan"
+        icon="🤖"
+        items={computeLaporanInsight(salesSummary, recentOrders, recentSales, stokItems, transactions)}
+      />
+
       {/* Ringkasan Finansial */}
       <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: 'var(--color-text)' }}>💰 Ringkasan Finansial</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
@@ -946,7 +1006,7 @@ function ReportsDetail({
 
       {totalStokValue === 0 && (
         <p style={{ margin: '12px 0 0', fontSize: 10, color: 'var(--color-muted)', fontStyle: 'italic' }}>
-          * Nilai stok tidak tersedia — tabel stok_inventaris tidak menyimpan harga satuan.
+          * Nilai stok belum tersedia.
         </p>
       )}
     </div>
