@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../utils/useDebounce';
 import { usePaginatedList } from '../utils/usePaginatedList';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import {
@@ -144,8 +144,7 @@ function EmptyListingSaya({ onBuatListing }: { onBuatListing: () => void }) {
 export default function MarketplaceListingSaya() {
   useMarketplace(); // FLOW-003M27: hydrate listings from Supabase on mount
   const navigate = useNavigate();
-  const ws = getActiveWorkspace();
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, workspaces } = useWorkspace();
 
   const [inputSearch, setInputSearch] = useState('');
   const search = useDebounce(inputSearch, 300);
@@ -153,12 +152,13 @@ export default function MarketplaceListingSaya() {
   const [sortMode, setSortMode] = useState<SortMode>('terbaru');
 
   // After DB hydration, listing.workspaceId = workspace_uuid (Supabase UUID).
-  // Use workspace_uuid as primary filter, with legacy id as fallback for seed data.
-  const wsFilter = activeWorkspace?.workspace_uuid ?? ws.id;
+  // Filter strictly by the active workspace UUID — never fall back to the
+  // legacy hardcoded Farm workspace that would leak across workspaces.
+  const wsFilter = activeWorkspace?.workspace_uuid ?? null;
   const myListing = useMemo(
-    () => getAllListing().filter((l) => l.workspaceId === wsFilter || l.workspaceId === ws.id),
+    () => getAllListing().filter((l) => l.workspaceId === wsFilter),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [wsFilter, ws.id],
+    [wsFilter],
   );
 
   const ringkasan = useMemo(() => ({
@@ -205,12 +205,18 @@ export default function MarketplaceListingSaya() {
     <div style={{ padding: '16px 16px 32px', maxWidth: 480, margin: '0 auto' }}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text)', margin: 0 }}>Listing Saya</h2>
-          <div style={{ fontSize: 11.5, color: 'var(--color-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {ws.icon} {ws.name} ({ws.type})
-          </div>
+      <div style={{ minWidth: 0 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text)', margin: 0 }}>Listing Saya</h2>
+        <div style={{ fontSize: 11.5, color: 'var(--color-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {activeWorkspace ? (
+            <>
+              {getWorkspaceIcon(activeWorkspace)} {activeWorkspace.workspace_name} ({getWorkspaceTypeLabel(activeWorkspace)})
+            </>
+          ) : (
+            'Tidak ada workspace aktif'
+          )}
         </div>
+      </div>
         <button
           type="button"
           onClick={() => navigate('/marketplace/buat')}

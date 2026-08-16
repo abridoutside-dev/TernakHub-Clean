@@ -14,7 +14,8 @@
 
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import {
   submitLaporan,
   ALASAN_LAPORAN_LIST,
@@ -25,7 +26,6 @@ import { buatKasusModerasi } from '../data/marketplaceModerasiData';
 import { getAllListing, type ListingItem } from '../data/marketplaceListingData';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { recordBuatLaporan } from '../services/marketplaceService';
-import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +77,17 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 export default function MarketplaceBuatLaporan() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
 
   // Resolve listing dari query param
   const listingUuidParam = searchParams.get('listingUuid') ?? '';
@@ -94,7 +104,7 @@ export default function MarketplaceBuatLaporan() {
   // Guard: listing sendiri tidak bisa dilaporkan
   const isSelfListing =
     prefilledListing !== undefined &&
-    prefilledListing.workspaceId === activeWs.id;
+    prefilledListing.workspaceId === activeWs!.workspace_uuid;
 
   function handleSubmit() {
     setErrorMsg('');
@@ -123,8 +133,8 @@ export default function MarketplaceBuatLaporan() {
       listingKategoriSlug: prefilledListing.kategoriSlug,
       workspaceIdTerlapor: prefilledListing.workspaceId,
       workspaceNamaTerlapor: prefilledListing.workspaceNama,
-      workspaceIdPelapor: activeWs.id,
-      workspaceNamaPelapor: activeWs.name,
+      workspaceIdPelapor: activeWs!.workspace_uuid,
+      workspaceNamaPelapor: activeWs!.workspace_name,
       alasan: alasan as AlasanLaporan,
       keterangan,
       lampiran,
@@ -306,7 +316,7 @@ export default function MarketplaceBuatLaporan() {
         <InfoRow label="Judul Listing" value={prefilledListing.judul} />
         <InfoRow label="Workspace Terlapor" value={prefilledListing.workspaceNama} />
         <InfoRow label="Kategori" value={prefilledListing.kategoriSlug} />
-        <InfoRow label="Pelapor (Anda)" value={`${activeWs.icon} ${activeWs.name}`} />
+        <InfoRow label="Pelapor (Anda)" value={`${getWorkspaceIcon(activeWs)} ${activeWs!.workspace_name}`} />
         <InfoRow label="Tanggal Laporan" value={(() => {
           const BULAN_SINGKAT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
           const d = new Date();

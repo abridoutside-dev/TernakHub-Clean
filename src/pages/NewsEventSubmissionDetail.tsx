@@ -3,7 +3,7 @@
 // Revisi, dan Aksi kontekstual sesuai status (Constitution → AKSI).
 
 import { useNavigate, useParams } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import {
   archiveSubmission,
   getJenisEventLabel,
@@ -64,7 +64,17 @@ const SectionCard = ({ title, children }: { title: string; children: React.React
 export default function NewsEventSubmissionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const rec = id ? getSubmissionById(id) : undefined;
 
   if (!rec) {
@@ -87,7 +97,7 @@ export default function NewsEventSubmissionDetail() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
           <StatusBadge status={rec.status} />
           <span style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>
-            {rec.tipeKonten} · {ws.name}
+            {rec.tipeKonten} · {ws.workspace_name}
           </span>
         </div>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--color-text)' }}>{judul}</h3>

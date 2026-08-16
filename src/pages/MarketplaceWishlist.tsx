@@ -10,7 +10,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../utils/useDebounce';
 import { usePaginatedList } from '../utils/usePaginatedList';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 import {
@@ -362,7 +363,17 @@ function WishlistCard({ row, onLihat, onHapus, onNegosiasi }: WishlistCardProps)
 export default function MarketplaceWishlist() {
   useMarketplace(); // FLOW-003M27: hydrate listings from Supabase on mount
   const navigate = useNavigate();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
 
   const [tick, setTick] = useState(0);
   const [inputSearch, setInputSearch] = useState('');
@@ -372,14 +383,14 @@ export default function MarketplaceWishlist() {
 
   // Ambil wishlist + join listing (live setiap render + tick)
   const allRows: WishlistRow[] = useMemo(() => {
-    const wishes = getWishlistByWorkspace(activeWs.id);
+    const wishes = getWishlistByWorkspace(activeWs.workspace_uuid);
     return wishes.flatMap((w) => {
       const listing = getListingByUuid(w.listingUuid);
       if (!listing) return [];
       return [{ wish: w, listing }];
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWs.id, tick]);
+  }, [activeWs.workspace_uuid, tick]);
 
   // Ringkasan (dari seluruh wishlist, sebelum filter/search)
   const ringkasan = useMemo(() => ({
@@ -444,10 +455,10 @@ export default function MarketplaceWishlist() {
         borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: 14,
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <span style={{ fontSize: 20 }}>{activeWs.icon}</span>
+        <span style={{ fontSize: 20 }}>{getWorkspaceIcon(activeWs)}</span>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }}>
-            {activeWs.name}
+            {activeWs.workspace_name}
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>Workspace Aktif</div>
         </div>
@@ -585,7 +596,7 @@ export default function MarketplaceWishlist() {
               key={row.wish.id}
               row={row}
               onLihat={() => handleLihat(row.listing)}
-              onHapus={() => handleHapus(activeWs.id, row.listing.uuid)}
+              onHapus={() => handleHapus(activeWs.workspace_uuid, row.listing.uuid)}
               onNegosiasi={() => handleNegosiasi(row.listing)}
             />
           ))}

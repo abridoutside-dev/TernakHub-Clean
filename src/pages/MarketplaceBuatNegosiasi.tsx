@@ -13,7 +13,8 @@
 
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { getAllListing, type ListingItem } from '../data/marketplaceListingData';
 import { addNegosiasi } from '../data/marketplaceNegosiasiData';
 import { useMarketplace, } from '../hooks/useMarketplace';
@@ -21,7 +22,6 @@ import {
   recordCreateNegosiasi,
   getListingSupabaseId,
 } from '../services/marketplaceService';
-import { useWorkspace } from '../contexts/WorkspaceContext';
 import { getQtyTersediaTransaksi } from '../data/marketplaceTransaksiData';
 import { useAuth } from '../contexts/AuthContext';
 import { isEmailVerified } from '../utils/emailVerification';
@@ -77,13 +77,23 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 export default function MarketplaceBuatNegosiasi() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const { currentUser } = useAuth();
 
   const listingUuidParam = searchParams.get('listingUuid') ?? '';
   const listing = listingUuidParam ? resolveListingByUuid(listingUuidParam) : undefined;
 
-  const isSeller = listing !== undefined && listing.workspaceId === activeWs.id;
+  const isSeller = listing !== undefined && listing.workspaceId === activeWs!.workspace_uuid;
   const tersedia = listing ? getQtyTersediaTransaksi(listing.uuid) : 0;
   const isNotAktif = listing !== undefined && listing.status !== 'Aktif';
 
@@ -118,9 +128,9 @@ export default function MarketplaceBuatNegosiasi() {
       // ── Draft Negosiasi dibuat via modul Negosiasi yang sudah ada (MPK-010) ──
       const negosiasi = addNegosiasi({
         listingUuid: listing.uuid,
-        namaPembeli: activeWs.name,
-        workspaceIdPembeli: activeWs.id,
-        workspaceNamaPembeli: activeWs.name,
+        namaPembeli: activeWs!.workspace_name,
+        workspaceIdPembeli: activeWs!.workspace_uuid,
+        workspaceNamaPembeli: activeWs!.workspace_name,
         hargaPenawaran: harga,
         qtyPenawaran: qty,
         catatan: catatan.trim() || undefined,
@@ -246,7 +256,7 @@ export default function MarketplaceBuatNegosiasi() {
         <InfoRow label="Harga Listing" value={`Rp ${listing.harga.toLocaleString('id-ID')} / ${listing.satuanHarga}`} />
         <InfoRow label="Qty Tersedia" value={`${tersedia} ${listing.satuanHarga}`} />
         <InfoRow label="Penjual" value={listing.workspaceNama} />
-        <InfoRow label="Pembeli (Anda)" value={`${activeWs.icon} ${activeWs.name}`} />
+        <InfoRow label="Pembeli (Anda)" value={`${getWorkspaceIcon(activeWs)} ${activeWs!.workspace_name}`} />
       </SectionCard>
 
       <SectionCard title="💰 Form Penawaran Awal">

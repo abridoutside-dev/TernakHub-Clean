@@ -6,7 +6,8 @@
 import { useState, useMemo } from 'react';
 import { useDebounce } from '../utils/useDebounce';
 import { usePaginatedList } from '../utils/usePaginatedList';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import {
   getAllAktivitas,
   getRingkasanAktivitas,
@@ -452,8 +453,18 @@ function mapSeverityToIcon(severity: string): string {
 }
 
 export default function MarketplaceRiwayatAktivitas() {
-  const ws = getActiveWorkspace();
-  const workspaceId = ws?.id ?? 'w1';
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
+  const workspaceId = ws?.workspace_uuid;
 
   const [inputSearch, setInputSearch] = useState('');
   const search = useDebounce(inputSearch, 300);
@@ -482,7 +493,7 @@ export default function MarketplaceRiwayatAktivitas() {
           nomorReferensi: row.entity_id ?? row.id.slice(0, 8).toUpperCase(),
           judulReferensi: row.description ?? row.action,
           workspaceId: row.workspace_id ?? workspaceId,
-          workspaceNama: ws?.name ?? '',
+          workspaceNama: ws?.workspace_name ?? '',
           ringkasan: row.description ?? row.action,
           waktu: row.created_at,
           status: row.status,
@@ -494,7 +505,7 @@ export default function MarketplaceRiwayatAktivitas() {
     return [...memAktivitas, ...fromDb].sort((a, b) =>
       b.waktu.localeCompare(a.waktu),
     );
-  }, [memAktivitas, dbRows, workspaceId, ws?.name]);
+  }, [memAktivitas, dbRows, workspaceId, ws?.workspace_name]);
 
   // Search + Filter (search uses debounced value)
   const filtered = useMemo(() => {
@@ -545,7 +556,7 @@ export default function MarketplaceRiwayatAktivitas() {
           }}>
             <span style={{ fontSize: 12 }}>🏢</span>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-text)', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {ws?.name ?? 'Workspace'}
+              {ws?.workspace_name ?? 'Workspace'}
             </span>
           </div>
         </div>

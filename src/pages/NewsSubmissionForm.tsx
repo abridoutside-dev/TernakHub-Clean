@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import FeatureGate from '../components/subscription/FeatureGate';
 import {
   createDraftNews,
@@ -54,7 +54,17 @@ export default function NewsSubmissionForm() {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id && id !== 'baru';
   const navigate = useNavigate();
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
 
   const existing = isEdit ? getSubmissionById(id!) : undefined;
   const [form, setForm] = useState<NewsForm>(existing?.news ?? emptyNewsForm());
@@ -85,7 +95,7 @@ export default function NewsSubmissionForm() {
       updateDraftNews(existing.id, form);
       return existing.id;
     }
-    const rec = createDraftNews(ws.id, ws.name, form);
+    const rec = createDraftNews(ws!.workspace_uuid, ws!.workspace_name, form);
     return rec.id;
   }
 

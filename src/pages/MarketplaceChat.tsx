@@ -23,7 +23,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { recordSendMessage } from '../services/marketplaceService';
-import { getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
 import {
   sendMessage,
   markChatAsRead,
@@ -216,8 +215,17 @@ import { TransportBar, TransportSheet } from '../components/marketplace/ChatTran
 export default function MarketplaceChat() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const activeWs = getActiveWorkspace();
   const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   useMarketplace(); // FLOW-003M27: hydrate marketplace data from Supabase on mount
   const [tick, setTick] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
@@ -232,21 +240,21 @@ export default function MarketplaceChat() {
 
   // Permission check: only active participants may enter
   const canAccess = room
-    ? hasPermission(room.id, activeWs.id, 'view_room_info') ||
-      (room.workspaceIdPembeli === activeWs.id || room.workspaceIdPenjual === activeWs.id)
+    ? hasPermission(room.id, activeWs!.workspace_uuid, 'view_room_info') ||
+      (room.workspaceIdPembeli === activeWs!.workspace_uuid || room.workspaceIdPenjual === activeWs!.workspace_uuid)
     : false;
 
-  const myRole      = room ? getMyRole(room.id, activeWs.id) : null;
-  const canSend     = room ? hasPermission(room.id, activeWs.id, 'send_message') : false;
-  const canDeal     = room ? hasPermission(room.id, activeWs.id, 'create_deal') : false;
-  const canViewDeal = room ? hasPermission(room.id, activeWs.id, 'view_deal') : false;
-  const canInvite   = room ? hasPermission(room.id, activeWs.id, 'invite_participant') : false;
-  const canRemove   = room ? hasPermission(room.id, activeWs.id, 'remove_participant') : false;
+  const myRole      = room ? getMyRole(room.id, activeWs!.workspace_uuid) : null;
+  const canSend     = room ? hasPermission(room.id, activeWs!.workspace_uuid, 'send_message') : false;
+  const canDeal     = room ? hasPermission(room.id, activeWs!.workspace_uuid, 'create_deal') : false;
+  const canViewDeal = room ? hasPermission(room.id, activeWs!.workspace_uuid, 'view_deal') : false;
+  const canInvite   = room ? hasPermission(room.id, activeWs!.workspace_uuid, 'invite_participant') : false;
+  const canRemove   = room ? hasPermission(room.id, activeWs!.workspace_uuid, 'remove_participant') : false;
 
   // Mark as read on open + seed Room Timeline's creation event
   useEffect(() => {
     if (room && canAccess) {
-      markChatAsRead(room.id, activeWs.id);
+      markChatAsRead(room.id, activeWs!.workspace_uuid);
       // Log RoomCreated event once (idempotent — skipped if already logged)
       const seller = room.participants.find(p => p.role === 'Penjual');
       logRoomCreated({
@@ -259,7 +267,7 @@ export default function MarketplaceChat() {
       setTick(t => t + 1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room?.id, activeWs.id]);
+  }, [room?.id, activeWs!.workspace_uuid]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -268,7 +276,7 @@ export default function MarketplaceChat() {
 
   function handleSend(konten: string, tipe: ChatMessageTipe) {
     if (!room || !canSend) return;
-    sendMessage({ chatId: room.id, fromWorkspaceId: activeWs.id, tipe, konten });
+    sendMessage({ chatId: room.id, fromWorkspaceId: activeWs!.workspace_uuid, tipe, konten });
     // Fire-and-forget: persist message to Supabase (FLOW-003M27)
     if (activeWorkspace?.workspace_uuid && myRole && (myRole === 'Pembeli' || myRole === 'Penjual')) {
       void recordSendMessage(room.id, activeWorkspace.workspace_uuid, myRole, konten);
@@ -418,7 +426,7 @@ export default function MarketplaceChat() {
           <QuotationBar
             chatId={room.id}
             nonEscrowInvitations={nonEscrow}
-            activeWorkspaceId={activeWs.id}
+            activeWorkspaceId={activeWs!.workspace_uuid}
             onOpen={() => setShowQuotation(true)}
           />
         );
@@ -459,7 +467,7 @@ export default function MarketplaceChat() {
                   <MessageBubble
                     key={msg.id}
                     msg={msg}
-                    isSelf={msg.fromWorkspaceId === activeWs.id}
+                    isSelf={msg.fromWorkspaceId === activeWs!.workspace_uuid}
                   />
                 ))}
               </div>
@@ -487,7 +495,7 @@ export default function MarketplaceChat() {
           deal={deal}
           listing={listing}
           room={room}
-          activeWorkspaceId={activeWs.id}
+          activeWorkspaceId={activeWs!.workspace_uuid}
           onClose={() => { setShowDeal(false); setTick(t => t + 1); }}
           onTick={() => setTick(t => t + 1)}
         />
@@ -497,7 +505,7 @@ export default function MarketplaceChat() {
       {showParticipants && (
         <ParticipantsSheet
           room={room}
-          activeWorkspaceId={activeWs.id}
+          activeWorkspaceId={activeWs!.workspace_uuid}
           myRole={myRole}
           canInvite={canInvite}
           canRemove={canRemove}
@@ -513,7 +521,7 @@ export default function MarketplaceChat() {
           <QuotationSheet
             chatId={room.id}
             room={room}
-            activeWorkspaceId={activeWs.id}
+            activeWorkspaceId={activeWs!.workspace_uuid}
             nonEscrowInvitations={nonEscrow}
             onClose={() => { setShowQuotation(false); setTick(t => t + 1); }}
             onTick={() => setTick(t => t + 1)}
@@ -526,7 +534,7 @@ export default function MarketplaceChat() {
         <EscrowSheet
           chatId={room.id}
           deal={deal}
-          activeWorkspaceId={activeWs.id}
+          activeWorkspaceId={activeWs!.workspace_uuid}
           escrowParticipantId={
             getJoinedServiceParticipants(room.id).find(p => p.serviceRole === 'Escrow')?.targetWorkspaceId ?? null
           }
@@ -540,7 +548,7 @@ export default function MarketplaceChat() {
         <TransportSheet
           chatId={room.id}
           deal={deal}
-          activeWorkspaceId={activeWs.id}
+          activeWorkspaceId={activeWs!.workspace_uuid}
           myRole={myRole}
           onClose={() => { setShowTransport(false); setTick(t => t + 1); }}
           onTick={() => setTick(t => t + 1)}

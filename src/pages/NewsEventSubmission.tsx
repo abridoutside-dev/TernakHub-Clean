@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import {
   deleteDraft,
   getJenisEventLabel,
@@ -148,7 +148,17 @@ const btnSecondary: React.CSSProperties = { ...btnBase, border: '1.5px solid var
 const btnDanger: React.CSSProperties = { ...btnBase, border: '1.5px solid #f0c4c4', background: '#fff', color: '#a02020' };
 
 export default function NewsEventSubmission() {
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const { hasFeature, plan } = useSubscription();
   // ── Gating: single source of truth via FEATURE_GATE → hasFeature() ──────
   // canWorkspaceSubmit() / WORKSPACE_TIER_MAP sudah TIDAK digunakan untuk
@@ -160,8 +170,8 @@ export default function NewsEventSubmission() {
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<SubmissionStatus | 'Semua'>('Semua');
 
-  const semuaSubmission = getSubmissionsByWorkspace(ws.id);
-  const ringkasan = getRingkasanCounts(ws.id);
+  const semuaSubmission = getSubmissionsByWorkspace(ws.workspace_uuid);
+  const ringkasan = getRingkasanCounts(ws.workspace_uuid);
 
   const daftar = useMemo(() => {
     const kw = query.trim().toLowerCase();
@@ -197,7 +207,7 @@ export default function NewsEventSubmission() {
             Upgrade ke Pro untuk mempublikasikan News &amp; Event.
           </div>
           <p style={{ margin: 0, fontSize: 12.5, color: '#8a7238', lineHeight: 1.6 }}>
-            Workspace <strong>{ws.name}</strong> saat ini menggunakan paket <strong>{plan}</strong>. Paket Pro dan
+            Workspace <strong>{ws.workspace_name}</strong> saat ini menggunakan paket <strong>{plan}</strong>. Paket Pro dan
             Enterprise dapat mengirim News maupun Event untuk ditinjau AI Validation dan Admin sebelum dipublikasikan.
           </p>
         </div>
@@ -211,7 +221,7 @@ export default function NewsEventSubmission() {
       <div>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--color-text)' }}>Workspace Submission</h1>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-muted)' }}>
-          {ws.name} · Paket {plan} — Ajukan News &amp; Event untuk ditinjau AI Validation &amp; Admin.
+          {ws.workspace_name} · Paket {plan} — Ajukan News &amp; Event untuk ditinjau AI Validation &amp; Admin.
         </p>
       </div>
 

@@ -10,7 +10,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import TransactionTabBar from '../components/TransactionTabBar';
 import { getEscrowByTransaksiId } from '../data/transaksiEscrowData';
 import {
@@ -99,7 +100,17 @@ function ConversationHeader({
   showSearch: boolean;
 }) {
   const badge = STATUS_BADGE[room.transaksiStatus];
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
 
   return (
     <div style={{
@@ -160,7 +171,7 @@ function ConversationHeader({
             {room.judulListing}
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 1 }}>
-            {ws.icon} {ws.name}
+            {getWorkspaceIcon(ws)} {ws.workspace_name}
           </div>
         </div>
       </div>
@@ -706,7 +717,8 @@ function Composer({
 export default function MarketplaceConversation() {
   const { transaksiId } = useParams<{ transaksiId: string }>();
   const navigate = useNavigate();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;
 
   const [room, setRoom]               = useState<ConversationRoom | null>(null);
   const [participants, setParticipants] = useState<ConversationParticipant[]>([]);
@@ -729,7 +741,7 @@ export default function MarketplaceConversation() {
     setParticipants(getConversationParticipants(r.id));
     const msgs = getConversationMessages(r.id);
     setMessages(msgs);
-    markConversationAsRead(r.id, activeWs.id);
+    markConversationAsRead(r.id, activeWs!.workspace_uuid);
   }, [transaksiId, tick]);
 
   // Auto-scroll ke bawah saat pesan baru masuk
@@ -749,7 +761,7 @@ export default function MarketplaceConversation() {
 
   function handleSend(konten: string, tipe: ConversationMessageTipe, fileName?: string, fileSize?: string) {
     if (!room) return;
-    sendConversationMessage(room.id, activeWs.id, tipe, konten, fileName, fileSize);
+    sendConversationMessage(room.id, activeWs!.workspace_uuid, tipe, konten, fileName, fileSize);
     setTick((t) => t + 1);
   }
 
@@ -864,7 +876,7 @@ export default function MarketplaceConversation() {
         )}
 
         {displayMessages.map((msg, idx) => {
-          const isSelf = msg.fromWorkspaceId === activeWs.id;
+          const isSelf = msg.fromWorkspaceId === activeWs!.workspace_uuid;
           const prevMsg = displayMessages[idx - 1];
           const showDateSep = !prevMsg || !sameDay(prevMsg.timestamp, msg.timestamp);
 

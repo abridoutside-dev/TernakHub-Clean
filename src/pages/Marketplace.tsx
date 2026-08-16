@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../utils/useDebounce';
 import { useAuth } from '../contexts/AuthContext';
 import { useMarketplace } from '../hooks/useMarketplace';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import { getAllListing, type ListingItem } from '../data/marketplaceListingData';
 import { KATEGORI_MARKETPLACE } from '../data/marketplaceKategoriData';
 import { applyMarketplaceFilter, DEFAULT_MARKETPLACE_FILTER } from '../data/marketplaceFilterData';
@@ -237,7 +237,18 @@ export default function Marketplace() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   useMarketplace(); // FLOW-003M27: hydrate listings from Supabase on mount
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;
+
+  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -246,9 +257,9 @@ export default function Marketplace() {
 
   // Unread notification count
   const unreadCount = useMemo(() => {
-    const notifs = getNotifikasi(ws.id);
+    const notifs = getNotifikasi(ws.workspace_uuid);
     return notifs.filter((n) => !n.dibaca).length;
-  }, [ws.id]);
+  }, [ws.workspace_uuid]);
 
   // All active listings from data layer
   const allListings = useMemo(() => {
@@ -282,10 +293,10 @@ export default function Marketplace() {
       navigate('/login', { state: { from: { pathname: '/marketplace' } } });
       return;
     }
-    if (isInWishlist(ws.id, uuid)) {
-      removeFromWishlist(ws.id, uuid);
+    if (isInWishlist(ws!.workspace_uuid, uuid)) {
+      removeFromWishlist(ws!.workspace_uuid, uuid);
     } else {
-      addToWishlist(ws.id, uuid);
+      addToWishlist(ws!.workspace_uuid, uuid);
     }
     setTick((t) => t + 1);
   }
@@ -445,7 +456,7 @@ export default function Marketplace() {
             <ListingCard
               key={item.uuid}
               item={item}
-              workspaceId={ws.id}
+              workspaceId={ws.workspace_uuid}
               tick={tick}
               onToggleFav={handleToggleFav}
               onClick={() => handleListingClick(item)}

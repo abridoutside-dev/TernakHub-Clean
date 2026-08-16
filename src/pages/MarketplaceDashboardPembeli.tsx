@@ -3,7 +3,8 @@
 // Hanya menampilkan data Marketplace — bukan Dashboard Workspace.
 
 import { useNavigate } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { getDashboardPembeli, type ChatRoomDisplay, type WishlistDisplay } from '../data/marketplaceBuyerDashboardData';
 import type { ListingItem } from '../data/marketplaceListingData';
@@ -374,8 +375,18 @@ function ChatRow({ room, last, onClick }: { room: ChatRoomDisplay; last: boolean
 export default function MarketplaceDashboardPembeli() {
   useMarketplace(); // FLOW-003M27: hydrate buyer data from Supabase on mount
   const navigate = useNavigate();
-  const ws = getActiveWorkspace();
-  const data = getDashboardPembeli(ws.id);
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
+  const data = getDashboardPembeli(ws.workspace_uuid);
 
   const { ringkasan, aiInsight, rekomendasi, transaksiTerbaru, negosiasiTerbaru, chatTerbaru, wishlist } = data;
 
@@ -397,15 +408,15 @@ export default function MarketplaceDashboardPembeli() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 22, flexShrink: 0,
           }}>
-            {ws.icon}
+            {getWorkspaceIcon(ws)}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, opacity: 0.8 }}>Workspace</div>
             <div style={{ fontSize: 14, fontWeight: 800,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {ws.name}
+              {ws.workspace_name}
             </div>
-            <div style={{ fontSize: 10.5, opacity: 0.75 }}>{ws.type}</div>
+            <div style={{ fontSize: 10.5, opacity: 0.75 }}>{getWorkspaceTypeLabel(ws)}</div>
           </div>
           <div style={{
             fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 12,

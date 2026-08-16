@@ -23,7 +23,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getActiveWorkspace, WORKSPACES } from '../../components/TopAppBar';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { WORKSPACES } from '../../components/TopAppBar';
 import {
   sendMessage,
   markChatAsRead,

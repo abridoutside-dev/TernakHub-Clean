@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { isEmailVerified } from '../utils/emailVerification';
 import EmailVerificationDialog from '../components/EmailVerificationDialog';
-import { getActiveWorkspace } from '../components/TopAppBar';
-import { useMarketplace } from '../hooks/useMarketplace';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { mapWorkspaceTypeToJenis, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
+import { useMarketplace } from '../hooks/useMarketplace';
 import { recordCreateListing } from '../services/marketplaceService';
 import { getCreateListingMenu, type CreateListingMenuItem } from '../data/marketplaceCreateListingMenuData';
 import {
@@ -294,9 +294,12 @@ function LivestockDetailPills({ d }: { d: LivestockDetailFields }) {
 export default function MarketplaceBuatListing() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
   const { currentUser } = useAuth();
-  const menu = getCreateListingMenu(ws.type);
+
+  const ws = activeWorkspace;
+  const wsType = ws ? mapWorkspaceTypeToJenis(ws.workspace_type) : ('' as never);
+  const menu = getCreateListingMenu(wsType);
 
   const initialModul = params.get('modul') as ListingSumberModul | null;
   const initialItem = menu.find((m) => m.modulAsal === initialModul) ?? null;
@@ -310,8 +313,9 @@ export default function MarketplaceBuatListing() {
   const modul = menuItem?.modulAsal ?? null;
   const jasaModul = modul ? isJasaModul(modul) : false;
 
-  // MPK-024: pass ws.id so service workspace getAsetOptions can filter by owner
-  const asetOptions = useMemo(() => (modul ? getAsetOptions(modul, ws.id) : []), [modul, ws.id]);
+  // MPK-024: pass ws.workspace_uuid so service workspace getAsetOptions can filter by owner
+
+  const asetOptions = useMemo(() => (modul && ws ? getAsetOptions(modul, ws.workspace_uuid) : []), [modul, ws?.workspace_uuid]);
 
   // ── Form state ──────────────────────────────────────────────────────────────
   const initialJasaIcon = initialIsJasa && initialItem ? initialItem.icon : '📦';
@@ -324,6 +328,26 @@ export default function MarketplaceBuatListing() {
   const [thumbnail, setThumbnail] = useState(initialJasaIcon);
   const [gallery, setGallery] = useState<string[]>(initialIsJasa ? [initialJasaIcon] : []);
   const [submitted, setSubmitted] = useState(false);
+
+  // ── Auth guard: must have active workspace ───────────────────────────────────
+  if (!ws) {
+    return (
+      <div style={{ padding: 24, maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 13, color: 'var(--color-muted)' }}>Tidak ada workspace aktif. Pilih workspace terlebih dahulu.</p>
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          style={{ marginTop: 12, padding: '9px 18px', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+        >
+          ← Kembali ke Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  const wsUuid = ws.workspace_uuid;
+  const wsName = ws.workspace_name;
 
   function resetFormFor(pickedAset: AsetWorkspaceOption) {
     setJudul(pickedAset.brand ? `${pickedAset.nama} — ${pickedAset.brand}` : pickedAset.nama);
@@ -395,14 +419,14 @@ export default function MarketplaceBuatListing() {
     // menyaring item Nonaktif/Diarsipkan/habis, tapi doPublish tetap
     // memvalidasi ulang sebelum menulis listing, tanpa membaca modul lain.
     if (modul === 'StokPakan' && aset) {
-      const eligibility = getStokPakanEligibility(aset.id, ws.type);
+       const eligibility = getStokPakanEligibility(aset.id, wsType);
       if (!eligibility.eligible) {
         window.alert(eligibility.reason ?? 'Aset Stok Pakan ini tidak bisa dijadikan Listing.');
         return;
       }
     }
     if (modul === 'StokObat' && aset) {
-      const eligibility = getStokObatEligibility(aset.id, ws.type);
+       const eligibility = getStokObatEligibility(aset.id, wsType);
       if (!eligibility.eligible) {
         window.alert(eligibility.reason ?? 'Aset Stok Obat ini tidak bisa dijadikan Listing.');
         return;
@@ -410,21 +434,21 @@ export default function MarketplaceBuatListing() {
     }
     // MPK-024: lapisan pertahanan eligibility untuk Workspace Layanan
     if (modul === 'Transportasi' && aset) {
-      const eligibility = getLayananTransportEligibility(aset.id, ws.type, ws.id);
+       const eligibility = getLayananTransportEligibility(aset.id, wsType, wsUuid);
       if (!eligibility.eligible) {
         window.alert(eligibility.reason ?? 'Layanan Transport ini tidak bisa dijadikan Listing.');
         return;
       }
     }
     if (modul === 'DokterHewan' && aset) {
-      const eligibility = getLayananDokterHewanEligibility(aset.id, ws.type, ws.id);
+       const eligibility = getLayananDokterHewanEligibility(aset.id, wsType, wsUuid);
       if (!eligibility.eligible) {
         window.alert(eligibility.reason ?? 'Layanan Dokter Hewan ini tidak bisa dijadikan Listing.');
         return;
       }
     }
     if (modul === 'KlinikHewan' && aset) {
-      const eligibility = getLayananKlinikHewanEligibility(aset.id, ws.type, ws.id);
+       const eligibility = getLayananKlinikHewanEligibility(aset.id, wsType, wsUuid);
       if (!eligibility.eligible) {
         window.alert(eligibility.reason ?? 'Layanan Klinik Hewan ini tidak bisa dijadikan Listing.');
         return;
@@ -436,9 +460,9 @@ export default function MarketplaceBuatListing() {
     const satuanHarga = aset?.satuan ?? (jasaModul ? 'jasa' : 'unit');
 
     const listing = addListing({
-      workspaceId: ws.id,
-      workspaceNama: ws.name,
-      ownerId: `owner-${ws.id}-${Date.now().toString(36)}`,
+      workspaceId: wsUuid,
+      workspaceNama: wsName,
+      ownerId: `owner-${wsUuid}-${Date.now().toString(36)}`,
       kategoriSlug,
       subKategoriUuid: undefined,
       subKategoriSlug: undefined,
@@ -453,9 +477,9 @@ export default function MarketplaceBuatListing() {
       kabupaten: lokasi.trim(),
       provinsi: '',
       brand: aset?.brand,
-      penjual: ws.name,
+       penjual: wsName,
       targetTernak: aset?.targetTernakDefault,
-      sumber: { modul, sumberId: aset?.id ?? `${modul.toUpperCase()}-${ws.id}` },
+       sumber: { modul, sumberId: aset?.id ?? `${modul.toUpperCase()}-${wsUuid}` },
       status,
     });
     setPublishedTitle(listing.judul);
@@ -532,7 +556,7 @@ export default function MarketplaceBuatListing() {
         <SectionCard title="Pilih Jenis Listing">
           <div style={{ fontSize: 11.5, color: 'var(--color-muted)', marginBottom: 14, lineHeight: 1.5, paddingBottom: 4 }}>
             Menampilkan jenis listing yang sesuai Workspace aktif:{' '}
-            <strong style={{ color: 'var(--color-text)' }}>{ws.name} ({ws.type})</strong>.
+            <strong style={{ color: 'var(--color-text)' }}>{ws.workspace_name} ({getWorkspaceTypeLabel(ws)})</strong>.
           </div>
           {menu.length === 0 ? (
             <p style={{ fontSize: 12.5, color: 'var(--color-muted)', textAlign: 'center', padding: '14px 0' }}>
@@ -565,7 +589,7 @@ export default function MarketplaceBuatListing() {
       {step === 'aset' && modul && (
         <SectionCard title="Pilih Aset dari Workspace">
           <div style={{ fontSize: 11.5, color: 'var(--color-muted)', marginBottom: 14, lineHeight: 1.5 }}>
-            Hanya aset yang benar-benar dimiliki <strong style={{ color: 'var(--color-text)' }}>{ws.name}</strong> yang bisa dijadikan listing.
+            Hanya aset yang benar-benar dimiliki <strong style={{ color: 'var(--color-text)' }}>{ws.workspace_name}</strong> yang bisa dijadikan listing.
           </div>
           {asetOptions.length === 0 ? (
             <p style={{ fontSize: 12.5, color: 'var(--color-muted)', textAlign: 'center', padding: '14px 0' }}>
@@ -807,7 +831,7 @@ export default function MarketplaceBuatListing() {
                 ['Qty Dijual', `${qtyNum} ${aset?.satuan ?? ''}`],
                 ['Kondisi', kondisi || '—'],
                 ['Lokasi Penyerahan', lokasi],
-                ['Penjual', ws.name],
+                ['Penjual', ws.workspace_name],
                 ['Jenis Listing', aset?.kategoriHint ?? menuItem?.label ?? ''],
               ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--color-border)', fontSize: 12.5 }}>

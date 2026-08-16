@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 import { isEmailVerified } from '../utils/emailVerification';
@@ -20,11 +21,12 @@ import {
 } from '../data/marketplaceKategoriData';
 import { computeDetailListingAiInsight } from '../data/marketplaceAiInsightData';
 import { getTrustLevel, getTrustLevelBadge, formatBergabungSejak } from '../data/marketplaceTrustData';
-import { HeaderActionPortal, getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
+import { HeaderActionPortal } from '../components/TopAppBar';
 import { getOriginDetail } from '../data/marketplaceOriginDetailData';
 import { getOrCreateChat } from '../data/marketplaceChatData';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '../data/marketplaceWishlistData';
 import { getQtyTersediaTransaksi } from '../data/marketplaceTransaksiData';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 
 // ─── Marketplace — Halaman Detail Listing (MPK-006) ──────────────────────────
 // Baca-saja. Tidak ada transaksi/chat/pembayaran/negosiasi — hanya Breadcrumb,
@@ -128,20 +130,22 @@ function Breadcrumb({ item }: { item: ListingItem }) {
 
 /** Aksi header (Bagikan/Simpan ke Wishlist) — overlay tetap di atas TopAppBar bersama. */
 function HeaderOverlayActions({ item }: { item: ListingItem }) {
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [inWish, setInWish] = useState(() => isInWishlist(activeWs.id, item.uuid));
-  const isSeller = item.workspaceId === activeWs.id;
+  const activeWsId = activeWorkspace?.workspace_uuid ?? null;
+  const [inWish, setInWish] = useState(() => activeWsId ? isInWishlist(activeWsId, item.uuid) : false);
+  const isSeller = item.workspaceId === activeWsId;
 
   function toggleWishlist() {
     // PLATFORM-001: guests must login before using wishlist
     if (!currentUser) { navigate('/login', { state: { from: { pathname: window.location.pathname } } }); return; }
     if (isSeller) return;
+    if (!activeWsId) return;
     if (inWish) {
-      removeFromWishlist(activeWs.id, item.uuid);
+      removeFromWishlist(activeWsId, item.uuid);
     } else {
-      addToWishlist(activeWs.id, item.uuid);
+      addToWishlist(activeWsId, item.uuid);
     }
     setInWish(!inWish);
   }
@@ -229,20 +233,22 @@ function FieldRow({ label, value }: { label: string; value: string }) {
 
 /** Tombol Simpan/Hapus Wishlist — self-contained dengan state sendiri. */
 function WishlistButton({ item }: { item: ListingItem }) {
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const isSeller = item.workspaceId === activeWs.id;
-  const [inWish, setInWish] = useState(() => isInWishlist(activeWs.id, item.uuid));
+  const activeWsId = activeWorkspace?.workspace_uuid ?? null;
+  const isSeller = item.workspaceId === activeWsId;
+  const [inWish, setInWish] = useState(() => activeWsId ? isInWishlist(activeWsId, item.uuid) : false);
 
   function toggle() {
     // PLATFORM-001: guests must login before using wishlist
     if (!currentUser) { navigate('/login', { state: { from: { pathname: window.location.pathname } } }); return; }
     if (isSeller) return;
+    if (!activeWsId) return;
     if (inWish) {
-      removeFromWishlist(activeWs.id, item.uuid);
+      removeFromWishlist(activeWsId, item.uuid);
     } else {
-      addToWishlist(activeWs.id, item.uuid);
+      addToWishlist(activeWsId, item.uuid);
     }
     setInWish(!inWish);
   }
@@ -290,8 +296,9 @@ export default function MarketplaceDetailListing() {
   }
 
   // ── Derived from item (safe after early return) ───────────────────────────
-  const activeWs = getActiveWorkspace();
-  const isSeller = item.workspaceId === activeWs.id;
+  const { activeWorkspace, workspaces } = useWorkspace();
+  const activeWsId = activeWorkspace?.workspace_uuid ?? null;
+  const isSeller = item.workspaceId === activeWsId;
   const tersediaNego = getQtyTersediaTransaksi(item.uuid);
   const bisaNego = !isSeller && item.status === 'Aktif' && tersediaNego > 0;
 
@@ -347,7 +354,7 @@ export default function MarketplaceDetailListing() {
   }
 
   const kategori = getKategoriMarketplaceBySlug(item.kategoriSlug);
-  const workspace = WORKSPACES.find((w) => w.id === item.workspaceId);
+  const workspace = workspaces.find((w) => w.workspace_uuid === item.workspaceId);
   const sellerTrust = useMarketplaceVerifikasi(item.workspaceId);
   const trustScore = sellerTrust.trustScore;
   const trustBadge = trustScore !== null ? getTrustLevelBadge(getTrustLevel(trustScore)) : null;
@@ -402,16 +409,16 @@ export default function MarketplaceDetailListing() {
         {/* Workspace identity row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <span style={{
-            width: 40, height: 40, borderRadius: '50%', background: 'var(--color-primary-light)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
-          }}>
-            {workspace?.icon ?? '🏪'}
-          </span>
+             width: 40, height: 40, borderRadius: '50%', background: 'var(--color-primary-light)',
+             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
+           }}>
+             {workspace ? getWorkspaceIcon(workspace) : '🏪'}
+           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>
               {item.workspaceNama}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{workspace?.type ?? '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{workspace ? getWorkspaceTypeLabel(workspace) : '—'}</div>
           </div>
         </div>
 
@@ -442,7 +449,7 @@ export default function MarketplaceDetailListing() {
 
         {/* Detail rows */}
         <FieldRow label="Nama Workspace" value={item.workspaceNama} />
-        <FieldRow label="Jenis Workspace" value={workspace?.type ?? '—'} />
+        <FieldRow label="Jenis Workspace" value={workspace ? getWorkspaceTypeLabel(workspace) : '—'} />
         <FieldRow label="Status Verifikasi" value={
           (() => {
             const v = sellerStatusView(sellerTrust.status);
@@ -549,7 +556,7 @@ export default function MarketplaceDetailListing() {
             const chat = getOrCreateChat({
               listingUuid: item.uuid,
               workspaceIdPenjual: item.workspaceId,
-              workspaceIdPembeli: activeWs.id,
+              workspaceIdPembeli: activeWsId ?? '',
             });
             navigate(`/marketplace/chat/${chat.id}`);
           }}

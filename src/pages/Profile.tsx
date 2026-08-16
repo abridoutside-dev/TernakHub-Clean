@@ -12,12 +12,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { resetOnboarding } from '../data/onboardingData';
 import { formatTanggalPendek } from '../utils/profileFormatDate';
 import {
   getUserProfile,
-  getActiveWorkspaceInfo,
-  getTotalWorkspace,
   PROFILE_MENU,
   MEMBERSHIP_CONFIG,
   STATUS_AKUN_CONFIG,
@@ -53,7 +53,8 @@ function MembershipBadge({ tier }: { tier: keyof typeof MEMBERSHIP_CONFIG }) {
 
 function ProfileHeaderCard() {
   const user = getUserProfile();
-  const ws   = getActiveWorkspaceInfo();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;
 
   return (
     <div
@@ -124,50 +125,50 @@ function ProfileHeaderCard() {
       {/* Divider */}
       <div style={{ height: 1, width: '100%', background: 'var(--color-border)', margin: '4px 0' }} />
 
-      {/* Workspace Aktif — informasi saja, BUKAN switcher */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 14px',
-          background: 'var(--color-bg)',
-          borderRadius: 'var(--radius-sm, 8px)',
-          border: '1px solid var(--color-border)',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
-        <span style={{ fontSize: 20 }}>{ws.icon}</span>
-        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-          <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1 }}>Workspace Aktif</div>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--color-text)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              marginTop: 2,
-            }}
-          >
-            {ws.name}
-          </div>
-        </div>
-        <span
-          style={{
-            fontSize: 11,
-            color: 'var(--color-muted)',
-            background: 'var(--color-border)',
-            padding: '2px 6px',
-            borderRadius: 4,
-            flexShrink: 0,
-          }}
-        >
-          {ws.type}
-        </span>
-      </div>
+       {/* Workspace Aktif — informasi saja, BUKAN switcher */}
+       <div
+         style={{
+           display: 'flex',
+           alignItems: 'center',
+           gap: 8,
+           padding: '8px 14px',
+           background: 'var(--color-bg)',
+           borderRadius: 'var(--radius-sm, 8px)',
+           border: '1px solid var(--color-border)',
+           width: '100%',
+           boxSizing: 'border-box',
+         }}
+       >
+         <span style={{ fontSize: 20 }}>{ws ? getWorkspaceIcon(ws) : '🏢'}</span>
+         <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+           <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1 }}>Workspace Aktif</div>
+           <div
+             style={{
+               fontSize: 13,
+               fontWeight: 600,
+               color: 'var(--color-text)',
+               whiteSpace: 'nowrap',
+               overflow: 'hidden',
+               textOverflow: 'ellipsis',
+               marginTop: 2,
+             }}
+           >
+             {ws?.workspace_name ?? 'Tidak ada workspace aktif'}
+           </div>
+         </div>
+         <span
+           style={{
+             fontSize: 11,
+             color: 'var(--color-muted)',
+             background: 'var(--color-border)',
+             padding: '2px 6px',
+             borderRadius: 4,
+             flexShrink: 0,
+           }}
+         >
+           {ws ? getWorkspaceTypeLabel(ws) : '—'}
+         </span>
+       </div>
     </div>
   );
 }
@@ -206,7 +207,8 @@ function QuickStat({ icon, value, label }: QuickStatProps) {
 
 function QuickSummary() {
   const user      = getUserProfile();
-  const totalWs   = getTotalWorkspace();
+  const { workspaces } = useWorkspace();
+  const totalWs   = workspaces.length;
   const statusCfg = STATUS_AKUN_CONFIG[user.statusAkun];
 
   return (

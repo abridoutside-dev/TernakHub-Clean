@@ -3,7 +3,8 @@
 // Hanya menampilkan data Marketplace — bukan Dashboard Workspace.
 
 import { useNavigate } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { useMarketplaceVerifikasi } from '../hooks/useMarketplaceVerifikasi';
 import { getDashboardPenjual, type GrafikHarian } from '../data/marketplaceDashboardData';
@@ -322,10 +323,20 @@ function SectionHeader({ title, action, onAction }: { title: string; action?: st
 export default function MarketplaceDashboard() {
   useMarketplace(); // FLOW-003M27: hydrate listings/transaksi from Supabase on mount
   const navigate = useNavigate();
-  const ws = getActiveWorkspace();
-  const dbVerifikasi = useMarketplaceVerifikasi(ws.id);
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
+  const dbVerifikasi = useMarketplaceVerifikasi(ws.workspace_uuid);
   const badge = statusView(dbVerifikasi.status);
-  const data = getDashboardPenjual(ws.id);
+  const data = getDashboardPenjual(ws.workspace_uuid);
 
   const { ringkasan, statistik, aiInsight, listingTerbaru, transaksiTerbaru, negosiasiTerbaru, grafikTransaksi } = data;
 
@@ -348,15 +359,15 @@ export default function MarketplaceDashboard() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 20, flexShrink: 0,
           }}>
-            {ws.icon}
+            {getWorkspaceIcon(ws)}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10, opacity: 0.8, lineHeight: 1.2 }}>Workspace</div>
             <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {ws.name}
+              {ws.workspace_name}
             </div>
-            <div style={{ fontSize: 10.5, opacity: 0.75, lineHeight: 1.2 }}>{ws.type}</div>
+            <div style={{ fontSize: 10.5, opacity: 0.75, lineHeight: 1.2 }}>{getWorkspaceTypeLabel(ws)}</div>
           </div>
           {/* Badge Verifikasi */}
           <span style={{

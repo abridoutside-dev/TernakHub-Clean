@@ -4,7 +4,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../utils/useDebounce';
-import { getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { WORKSPACES } from '../components/TopAppBar';
 import { useMarketplace } from '../hooks/useMarketplace';
 import {
   getChatRoomsByWorkspace,
@@ -137,18 +138,28 @@ type TabKey = 'Semua' | 'Sebagai Pembeli' | 'Sebagai Penjual';
 export default function MarketplaceChatList() {
   useMarketplace(); // FLOW-003M27: hydrate marketplace data from Supabase on mount
   const navigate = useNavigate();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const [tab, setTab] = useState<TabKey>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  const allRooms = getChatRoomsByWorkspace(activeWs.id);
+  const allRooms = getChatRoomsByWorkspace(activeWs.workspace_uuid);
   const tabs: TabKey[] = ['Semua', 'Sebagai Pembeli', 'Sebagai Penjual'];
 
   const filtered = allRooms.filter(r => {
     const byTab =
-      tab === 'Sebagai Pembeli' ? r.workspaceIdPembeli === activeWs.id :
-      tab === 'Sebagai Penjual' ? r.workspaceIdPenjual === activeWs.id :
+      tab === 'Sebagai Pembeli' ? r.workspaceIdPembeli === activeWs.workspace_uuid :
+      tab === 'Sebagai Penjual' ? r.workspaceIdPenjual === activeWs.workspace_uuid :
       true;
     if (!byTab) return false;
 
@@ -156,7 +167,7 @@ export default function MarketplaceChatList() {
     if (debouncedSearchQuery.trim()) {
       const q = debouncedSearchQuery.trim().toLowerCase();
       const listing = getListingByUuid(r.listingUuid);
-      const lawanId = r.workspaceIdPembeli === activeWs.id
+      const lawanId = r.workspaceIdPembeli === activeWs.workspace_uuid
         ? r.workspaceIdPenjual
         : r.workspaceIdPembeli;
       const lawanNama = getWorkspaceName(lawanId).toLowerCase();
@@ -245,7 +256,7 @@ export default function MarketplaceChatList() {
             <ChatItem
               key={room.id}
               room={room}
-              activeWsId={activeWs.id}
+              activeWsId={activeWs.workspace_uuid}
               onOpen={() => navigate(`/marketplace/chat/${room.id}`)}
             />
           ))}

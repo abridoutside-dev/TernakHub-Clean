@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
 import { useMarketplace } from '../hooks/useMarketplace';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import {
   getListingByUuid,
   getListingBySlug,
@@ -69,7 +69,7 @@ export default function MarketplaceKelolaListing() {
   useMarketplace(); // FLOW-003M27: hydrate listings from Supabase on mount
   const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
   const [, forceRerender] = useState(0);
 
   const listing = uuid ? (getListingByUuid(uuid) ?? getListingBySlug(uuid)) : undefined;
@@ -105,12 +105,12 @@ export default function MarketplaceKelolaListing() {
     );
   }
 
-  if (listing.workspaceId !== ws.id) {
+  if (listing.workspaceId !== activeWorkspace?.workspace_uuid) {
     return (
       <div style={{ padding: 24, maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ fontSize: 40, marginBottom: 10 }}>🚫</div>
         <p style={{ fontSize: 13, color: 'var(--color-muted)' }}>
-          Listing ini bukan milik Workspace aktif ({ws.name}).
+          Listing ini bukan milik Workspace aktif ({activeWorkspace?.workspace_name ?? '—'}).
         </p>
         <button
           type="button"

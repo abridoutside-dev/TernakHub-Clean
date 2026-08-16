@@ -27,7 +27,7 @@ import {
   repoGetTransaksiByWorkspace,
   repoGetNegosiasiByWorkspace,
 } from '../repositories/marketplaceRepository';
-import { populateListingsFromDb } from '../data/marketplaceListingData';
+import { populateListingsFromDb, clearLegacySeedListings } from '../data/marketplaceListingData';
 import { populateTransaksiFromDb } from '../data/marketplaceTransaksiData';
 import { populateNegosiasiFromDb } from '../data/marketplaceNegosiasiData';
 import { populateLaporanFromDb } from '../data/marketplaceLaporanData';
@@ -91,6 +91,8 @@ export function useMarketplace(): UseMarketplaceResult {
       if (listingRows.length > 0) {
         populateListingsFromDb(listingRows);
         registerListingSupabaseIds(listingRows);
+      } else {
+        clearLegacySeedListings();
       }
 
       // Transactions/Negotiations: always merge (empty = no transactions, keep seed)

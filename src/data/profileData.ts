@@ -9,7 +9,6 @@
 // Business Insight dibaca live dari modul lain — tidak disimpan di sini.
 // Audit Trail disediakan untuk perubahan data sensitif.
 
-import { getActiveWorkspace, WORKSPACES } from '../components/TopAppBar';
 import { generateUUID } from '../utils/uuid';
 import { repoUpsertUserProfile } from '../repositories/userProfileRepository';
 import type { User } from '@supabase/supabase-js';
@@ -138,16 +137,6 @@ export function updateUserProfile(
       console.error('[profileData] Failed to persist profile update:', err);
     });
   }
-}
-
-/** Jumlah Workspace yang terdaftar di registry Global Header (read-only). */
-export function getTotalWorkspace(): number {
-  return WORKSPACES.length;
-}
-
-/** Workspace yang sedang aktif — hanya untuk tampilan info, bukan switcher. */
-export function getActiveWorkspaceInfo() {
-  return getActiveWorkspace();
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────

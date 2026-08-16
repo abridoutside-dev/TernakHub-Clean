@@ -9,7 +9,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import TransactionTabBar from '../components/TransactionTabBar';
 import {
   getEscrowByTransaksiId,
@@ -861,7 +862,17 @@ function NoEscrowPanel({ transaksiId }: { transaksiId: string }) {
 export default function MarketplaceEscrowDetail() {
   const { transaksiId } = useParams<{ transaksiId: string }>();
   const navigate        = useNavigate();
-  const activeWs        = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
 
   const [room,   setRoom]   = useState<ConversationRoom | null>(null);
   const [escrow, setEscrow] = useState<EscrowRecord | undefined>(undefined);
@@ -919,7 +930,7 @@ export default function MarketplaceEscrowDetail() {
               <EscrowStatusCard escrow={escrow} />
 
               {/* Actions */}
-              <ActionPanel escrow={escrow} activeWsId={activeWs.id} onAction={refresh} />
+              <ActionPanel escrow={escrow} activeWsId={activeWs.workspace_uuid} onAction={refresh} />
 
               {/* Dispute */}
               {escrow.status === 'Dispute' && (

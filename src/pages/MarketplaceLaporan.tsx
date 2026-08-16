@@ -6,7 +6,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../utils/useDebounce';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import { useMarketplace } from '../hooks/useMarketplace';
 import {
   queryLaporan,
@@ -150,7 +151,17 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 export default function MarketplaceLaporan() {
   useMarketplace(); // FLOW-003M27: hydrate marketplace data from Supabase on mount
   const navigate = useNavigate();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [filterTab, setFilterTab] = useState<FilterTab>('Semua');
@@ -181,7 +192,7 @@ export default function MarketplaceLaporan() {
           <div>
             <div style={{ fontSize: 14, fontWeight: 800 }}>Laporan Marketplace</div>
             <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
-              {activeWs.icon} {activeWs.name}
+              {getWorkspaceIcon(activeWs)} {activeWs.workspace_name}
             </div>
           </div>
         </div>

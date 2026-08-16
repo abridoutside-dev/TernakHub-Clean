@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePaginatedList } from '../utils/usePaginatedList';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import {
   getNotifikasi,
   getRingkasanNotifikasi,
@@ -15,6 +15,7 @@ import {
   type NotifikasiSumber,
 } from '../data/marketplaceNotifikasiData';
 import { useMarketplaceNotifikasi } from '../hooks/useMarketplaceNotifikasi';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -195,17 +196,29 @@ function dbRowToNotifikasiItem(row: {
 
 export default function MarketplaceNotifikasi() {
   const navigate = useNavigate();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;
+
+  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const [filter, setFilter] = useState<FilterKey>('Semua');
   const [tick, setTick] = useState(0);
 
   // DB notifications (supplements the in-memory aggregated items)
   const { notifikasi: dbNotif, markRead: dbMarkRead, markAllRead: dbMarkAllRead } =
-    useMarketplaceNotifikasi(activeWs.id);
+    useMarketplaceNotifikasi(activeWs.workspace_uuid);
 
   function refresh() { setTick(t => t + 1); }
 
-  const memItems = getNotifikasi(activeWs.id);
+  const memItems = getNotifikasi(activeWs.workspace_uuid);
 
   // Merge: DB rows come first (newest), then in-memory items not already in DB
   const dbIds = useMemo(() => new Set(dbNotif.map((r) => `db-${r.id}`)), [dbNotif]);
@@ -217,7 +230,7 @@ export default function MarketplaceNotifikasi() {
     );
   }, [dbNotif, memItems, dbIds]);
 
-  const ringkasan = getRingkasanNotifikasi(activeWs.id);
+  const ringkasan = getRingkasanNotifikasi(activeWs.workspace_uuid);
 
   const filtered = filter === 'Semua'
     ? allItems
@@ -236,7 +249,7 @@ export default function MarketplaceNotifikasi() {
 
   async function handleTandaiSemuaDibaca() {
     await dbMarkAllRead();
-    tandaiSemuaDibaca(activeWs.id);
+    tandaiSemuaDibaca(activeWs!.workspace_uuid);
     refresh();
   }
 

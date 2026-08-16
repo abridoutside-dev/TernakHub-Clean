@@ -835,6 +835,16 @@ export function populateListingsFromDb(rows: MarketplaceListingDbRowForPopulate[
   LISTING_LIST.push(...hydrated);
 }
 
+const LEGACY_SEED_WORKSPACE_IDS = new Set(['w1', 'w2', 'w3', 'w4', 'w5', 'w6']);
+
+export function clearLegacySeedListings(): void {
+  for (let i = LISTING_LIST.length - 1; i >= 0; i--) {
+    if (LEGACY_SEED_WORKSPACE_IDS.has(LISTING_LIST[i].workspaceId)) {
+      LISTING_LIST.splice(i, 1);
+    }
+  }
+}
+
 /**
  * Status tampilan efektif suatu listing. Jika aset sumbernya kehabisan stok
  * fisik (Stok Tersedia Untuk Listing turun ≤ 0 karena dipakai/dikurangi di

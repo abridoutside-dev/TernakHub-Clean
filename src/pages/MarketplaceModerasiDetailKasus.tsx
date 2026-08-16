@@ -6,7 +6,8 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import {
   getKasusModerasiById,
   ambilTindakanModerasi,
@@ -422,10 +423,20 @@ export default function MarketplaceModerasiDetailKasus() {
   const { kasusId } = useParams<{ kasusId: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const activeWs = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const activeWs = activeWorkspace;  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const [, setTick] = useState(0);
 
-  const isModerator = !!currentUser && MODERATOR_WORKSPACE_IDS.has(activeWs.id);
+  const isModerator = !!currentUser && MODERATOR_WORKSPACE_IDS.has(activeWs.workspace_uuid);
 
   // Force re-read after tindakan saved
   const kasus: KasusModerasiRecord | undefined =

@@ -12,7 +12,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getActiveWorkspace } from '../components/TopAppBar';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { getWorkspaceIcon, getWorkspaceTypeLabel } from '../utils/workspaceMapper';
 import TransactionTabBar from '../components/TransactionTabBar';
 import { getEscrowByTransaksiId } from '../data/transaksiEscrowData';
 import {
@@ -331,7 +332,17 @@ function AddEvidenceForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const ws = getActiveWorkspace();
+  const { activeWorkspace } = useWorkspace();
+  const ws = activeWorkspace;  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   const [category, setCategory] = useState<EvidenceCategory>('Payment');
   const [fileType, setFileType]  = useState<EvidenceFileType>('Image');
   const [fileName, setFileName]  = useState('');
@@ -348,9 +359,9 @@ function AddEvidenceForm({
         fileType,
         fileName: fileName.trim(),
         caption:  caption.trim(),
-        uploadedBy:     ws.id,
+        uploadedBy:     ws!.workspace_uuid,
         uploadedByRole: 'Buyer', // default — sesuai workspace aktif
-        uploadedByNama: ws.name,
+        uploadedByNama: ws!.workspace_name,
       });
       setSaving(false);
       onDone();
