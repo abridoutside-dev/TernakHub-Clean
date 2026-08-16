@@ -849,11 +849,8 @@ function StokMasukModal({
         📥 Tambah Stok
       </h2>
 
-      <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--color-muted)' }}>
-        Workspace: <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{workspaceId.slice(0, 8)}…</span>
-      </p>
       <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--color-muted)' }}>
-        Data akan tersimpan ke Supabase (stok_inventaris + stok_inventaris_transactions).
+        Lengkapi form di bawah untuk mencatat penambahan stok ke sistem.
       </p>
 
       <FieldWrap label="Nama Item" required>
