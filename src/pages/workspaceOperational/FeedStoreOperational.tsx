@@ -263,6 +263,55 @@ function computeProductsInsight(items: StokInventarisDbRow[]): AiInsightItem[] {
   return result;
 }
 
+function computeTransactionsMasukInsight(transactions: StokTransactionDbRow[]): AiInsightItem[] {
+  const masuk = transactions.filter((t) => t.transaction_type === 'Masuk');
+  if (masuk.length === 0) return [];
+
+  const totalQty = masuk.reduce((sum, t) => sum + Math.abs(t.quantity_delta), 0);
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const hariIni = masuk.filter((t) => {
+    const d = new Date(t.created_at);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === today.getTime();
+  }).length;
+
+  const mingguIni = masuk.filter((t) => new Date(t.created_at) >= weekAgo).length;
+
+  const byMonth: Record<string, number> = {};
+  masuk.forEach((t) => {
+    const m = t.transaction_date.slice(0, 7);
+    byMonth[m] = (byMonth[m] ?? 0) + 1;
+  });
+
+  const currentMonth = today.toISOString().slice(0, 7);
+  const currentMonthCount = byMonth[currentMonth] ?? 0;
+
+  const result: AiInsightItem[] = [
+    {
+      icon: '📥',
+      text: `${formatNumber(masuk.length)} transaksi masuk, total ${formatNumber(totalQty)} unit ditambahkan.`,
+    },
+    {
+      icon: '📅',
+      text: `${formatNumber(hariIni)} transaksi masuk hari ini, ${formatNumber(mingguIni)} dalam 7 hari terakhir.`,
+    },
+  ];
+
+  if (currentMonthCount > 0) {
+    result.push({
+      icon: '📆',
+      text: `Bulan ini: ${formatNumber(currentMonthCount)} transaksi masuk tercatat.`,
+    });
+  }
+
+  return result;
+}
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
 function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
@@ -377,57 +426,65 @@ function StockDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onI
 function TransactionList({ transactions, type }: { transactions: StokTransactionDbRow[]; type: 'Masuk' | 'Keluar' | 'all' }) {
   const filtered = type === 'all' ? transactions : transactions.filter((t) => t.transaction_type === type);
 
-  if (filtered.length === 0) {
-    return (
-      <EmptyState
-        icon={type === 'Masuk' ? '📥' : type === 'Keluar' ? '📤' : '🔄'}
-        message={`Belum ada transaksi ${type === 'all' ? 'stok' : type.toLowerCase()} yang tercatat.`}
-        hint="Data akan muncul setelah transaksi stok dicatat."
-      />
-    );
-  }
-
   const sorted = [...filtered].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      {sorted.slice(0, 15).map((tx) => {
-        const isMasuk = tx.transaction_type === 'Masuk';
-        const isPenyesuaian = tx.transaction_type === 'Penyesuaian';
-        const color = isMasuk ? '#166534' : isPenyesuaian ? '#1d4ed8' : '#991b1b';
-        const bg    = isMasuk ? '#f0fdf4'  : isPenyesuaian ? '#eff6ff'  : '#fef2f2';
-        const icon  = isMasuk ? '📥'       : isPenyesuaian ? '🔄'       : '📤';
-        const sign  = isMasuk || (isPenyesuaian && tx.quantity_delta > 0) ? '+' : '';
+    <div>
+      {type === 'Masuk' && (
+        <AiInsightCard
+          title="AI Insight Transaksi Masuk"
+          icon="🤖"
+          items={computeTransactionsMasukInsight(transactions)}
+        />
+      )}
 
-        return (
-          <div
-            key={tx.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 9, background: bg, border: `1px solid ${isMasuk ? '#bbf7d0' : isPenyesuaian ? '#c7d2fe' : '#fecaca'}` }}
-          >
-            <span style={{ fontSize: 17 }}>{icon}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: 'var(--color-text)' }}>
-                {tx.reason ?? tx.transaction_type}
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
-                {tx.transaction_date} · {tx.reference_type ?? '-'}
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color }}>
-                {sign}{formatNumber(Math.abs(tx.quantity_delta))}
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--color-muted)' }}>
-                {formatRelativeTime(tx.created_at)}
-              </p>
-            </div>
-          </div>
-        );
-      })}
-      {filtered.length > 15 && (
-        <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
-          ... dan {filtered.length - 15} transaksi lainnya
-        </p>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={type === 'Masuk' ? '📥' : type === 'Keluar' ? '📤' : '🔄'}
+          message={`Belum ada transaksi ${type === 'all' ? 'stok' : type.toLowerCase()} yang tercatat.`}
+          hint="Data akan muncul setelah transaksi stok dicatat."
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {sorted.slice(0, 15).map((tx) => {
+            const isMasuk = tx.transaction_type === 'Masuk';
+            const isPenyesuaian = tx.transaction_type === 'Penyesuaian';
+            const color = isMasuk ? '#166534' : isPenyesuaian ? '#1d4ed8' : '#991b1b';
+            const bg    = isMasuk ? '#f0fdf4'  : isPenyesuaian ? '#eff6ff'  : '#fef2f2';
+            const icon  = isMasuk ? '📥'       : isPenyesuaian ? '🔄'       : '📤';
+            const sign  = isMasuk || (isPenyesuaian && tx.quantity_delta > 0) ? '+' : '';
+
+            return (
+              <div
+                key={tx.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 9, background: bg, border: `1px solid ${isMasuk ? '#bbf7d0' : isPenyesuaian ? '#c7d2fe' : '#fecaca'}` }}
+              >
+                <span style={{ fontSize: 17 }}>{icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: 'var(--color-text)' }}>
+                    {tx.reason ?? tx.transaction_type}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                    {tx.transaction_date} · {tx.reference_type ?? '-'}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color }}>
+                    {sign}{formatNumber(Math.abs(tx.quantity_delta))}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--color-muted)' }}>
+                    {formatRelativeTime(tx.created_at)}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length > 15 && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+              ... dan {filtered.length - 15} transaksi lainnya
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
