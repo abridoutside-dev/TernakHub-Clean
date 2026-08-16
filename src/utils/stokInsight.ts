@@ -275,6 +275,11 @@ export function computeStokAiInsights(): StokInsight[] {
   const items = getInventarisList();
   const entries = getAllRiwayatEntries();
 
+  // When there is no stok data at all (workspace has no inventory and no
+  // transaction history), return empty so the caller can show an empty state
+  // instead of meaningless "0 items" messages.
+  if (items.length === 0 && entries.length === 0) return [];
+
   return [
     ...insightRingkasan(items),
     ...insightPeringatan(items, entries),

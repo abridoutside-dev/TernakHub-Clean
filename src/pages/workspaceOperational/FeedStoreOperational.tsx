@@ -1322,7 +1322,8 @@ export default function FeedStoreOperational(): ReactElement {
   const { data, loading, error, refresh: dataRefresh } = useFeedStoreDashboardData(workspaceId);
 
   // Populate in-memory stores so computeStokAiInsights() reads production data LIVE.
-  useStokInventaris();
+  // clearOnEmpty: Supabase is the sole source of truth — no seed fallback in production.
+  useStokInventaris({ clearOnEmpty: true });
 
   const workspaceName = data.workspace?.workspace_name ?? config.title;
   const selected      = SECTIONS.find((s) => s.id === selectedSection) ?? SECTIONS[0];

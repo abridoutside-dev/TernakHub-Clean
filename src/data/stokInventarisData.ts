@@ -818,15 +818,24 @@ export function addPerubahanStok(input: AddPerubahanStokInput): PerubahanStokRec
 /**
  * Replaces the in-memory RAW_INVENTARIS with rows fetched from Supabase.
  * Called by useStokInventaris() on workspace change or refresh.
- * If rows array is empty, existing seed data is kept intact.
+ *
+ * By default (clearOnEmpty=false): if rows array is empty, existing seed data
+ * is kept intact (used by StokPakan — Farm workspace reference data).
+ *
+ * When clearOnEmpty=true (Toko Pakan production path): the store is always
+ * cleared — Supabase is the sole source of truth; no seed fallback.
  *
  * After this call all in-memory item IDs become Supabase UUIDs —
  * stokInventarisService.ts can then use those IDs for direct lookups.
  */
 export function populateInventarisFromDb(
   rows: Omit<InventarisItem, 'status'>[],
+  clearOnEmpty: boolean = false,
 ): void {
-  if (rows.length === 0) return;
+  if (rows.length === 0) {
+    if (clearOnEmpty) RAW_INVENTARIS.splice(0, RAW_INVENTARIS.length);
+    return;
+  }
   RAW_INVENTARIS.splice(0, RAW_INVENTARIS.length, ...rows);
 }
 
@@ -874,12 +883,23 @@ function deriveKeluar(reason: string | null): { sumberPerubahan: StokSumber; jen
 /**
  * Hydrates RIWAYAT_MASUK and RIWAYAT_PERUBAHAN from Supabase stok_inventaris_transactions rows.
  * MUST be called AFTER populateInventarisFromDb() so stok satuan can be resolved from in-memory items.
- * If rows is empty, seed data and in-session mutations are preserved intact.
+ *
+ * By default (clearOnEmpty=false): if rows is empty, seed data and in-session
+ * mutations are preserved intact (used by StokPakan — Farm workspace).
+ *
+ * When clearOnEmpty=true (Toko Pakan production path): the store is always
+ * cleared — Supabase is the sole source of truth; no seed fallback.
  *
  * Called by useStokInventaris() immediately after populating the main inventaris list.
  */
-export function populateTransactionsFromDb(rows: TransactionDbRow[]): void {
-  if (rows.length === 0) return;
+export function populateTransactionsFromDb(rows: TransactionDbRow[], clearOnEmpty: boolean = false): void {
+  if (rows.length === 0) {
+    if (clearOnEmpty) {
+      RIWAYAT_MASUK.splice(0, RIWAYAT_MASUK.length);
+      RIWAYAT_PERUBAHAN.splice(0, RIWAYAT_PERUBAHAN.length);
+    }
+    return;
+  }
 
   // DB is the authoritative source — replace all seed/session data
   RIWAYAT_MASUK.splice(0, RIWAYAT_MASUK.length);

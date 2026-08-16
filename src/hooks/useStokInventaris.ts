@@ -10,7 +10,10 @@
 //  - Re-fetches whenever the active workspace changes.
 //  - Uses an abort flag to prevent stale-closure races.
 //  - If DB returns 0 rows (DB not connected, table empty, or no auth), the
-//    in-memory seed data is preserved intact.
+//    in-memory seed data is preserved intact (default behaviour — StokPakan Farm).
+//
+//  - When clearOnEmpty=true (Toko Pakan production path): the store is cleared
+//    on empty DB results — Supabase is the sole source of truth; no seed fallback.
 //
 // Notes metadata round-trip:
 //  - stokInventarisService serialises display fields (brand, supplier, lokasiPenyimpanan,
@@ -121,11 +124,21 @@ export interface UseStokInventarisResult {
   refresh: () => void;
 }
 
-export function useStokInventaris(): UseStokInventarisResult {
+export interface UseStokInventarisOptions {
+  /**
+   * When true (Toko Pakan production path): Supabase is the sole source of truth.
+   * If DB returns 0 rows, the in-memory store is cleared — no seed fallback.
+   * Default false preserves backward compatibility (StokPakan Farm seed data).
+   */
+  clearOnEmpty?: boolean;
+}
+
+export function useStokInventaris(opts?: UseStokInventarisOptions): UseStokInventarisResult {
   const { activeWorkspace } = useWorkspace();
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
   const [, setTick]           = useState(0);
+  const clearOnEmpty          = opts?.clearOnEmpty ?? false;
 
   const fetchData = useCallback(async (aborted: { current: boolean }) => {
     if (!activeWorkspace?.workspace_uuid) return;
@@ -137,13 +150,11 @@ export function useStokInventaris(): UseStokInventarisResult {
         repoGetTransactionsByWorkspace(activeWorkspace.workspace_uuid),
       ]);
       if (aborted.current) return;
-      if (rows.length > 0) {
-        // Populate main inventaris first — populateTransactionsFromDb resolves satuan from it
-        populateInventarisFromDb(rows.map(toRawItem));
-        populateTransactionsFromDb(txRows);
-        setTick(t => t + 1);
-      }
-      // rows.length === 0 → DB empty or not connected; keep seed data intact
+      // Always call populate — populateInventarisFromDb/populateTransactionsFromDb
+      // handle the clearOnEmpty logic internally.
+      populateInventarisFromDb(rows.map(toRawItem), clearOnEmpty);
+      populateTransactionsFromDb(txRows, clearOnEmpty);
+      setTick(t => t + 1);
     } catch (err) {
       if (!aborted.current) {
         const msg = err instanceof Error ? err.message : 'Gagal memuat stok inventaris.';

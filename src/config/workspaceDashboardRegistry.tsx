@@ -153,7 +153,6 @@ const WORKSPACE_DASHBOARD_REGISTRY: Record<WorkspaceKind, WorkspaceDashboardConf
     subtitle:           WORKSPACE_REGISTRY.FeedStore.deskripsi,
     icon:               WORKSPACE_REGISTRY.FeedStore.icon,
     quickActions: [
-      { id: 'tambah-produk', label: 'Tambah Produk', icon: '＋', route: `${WORKSPACE_REGISTRY.FeedStore.routeUtama}?tab=operational&action=tambah-produk` },
       { id: 'stok-masuk',    label: 'Stok Masuk',    icon: '📥', route: `${WORKSPACE_REGISTRY.FeedStore.routeUtama}?tab=operational&action=stok-masuk` },
       { id: 'stok-keluar',   label: 'Stok Keluar',   icon: '📤', route: `${WORKSPACE_REGISTRY.FeedStore.routeUtama}?tab=operational&action=stok-keluar` },
       { id: 'penjualan',     label: 'Buat Penjualan', icon: '🧾', route: `${WORKSPACE_REGISTRY.FeedStore.routeUtama}?tab=operational&action=penjualan` },
