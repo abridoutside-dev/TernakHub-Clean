@@ -1,11 +1,23 @@
 import { useNavigate } from 'react-router-dom';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
+import {
+  useFeedStoreDashboardData,
+  getLowStockItems,
+  formatNumber,
+  formatRupiah,
+  type FeedStoreSalesSummaryData,
+} from '../../hooks/useFeedStoreDashboardData';
+import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
+import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow } from '../../types/feedStore';
+import type { ActivityLogDbRow } from '../../types/activityLog';
+import { AiInsightCard, type AiInsightItem } from '../AiInsightCard';
 import {
   getAiGeneratedSummary,
   getTopInsights,
   CATEGORY_META,
   PRIORITY_META,
   formatRelativeTime,
-  type AiInsightItem,
+  type AiInsightItem as DashboardAiInsightItem,
 } from '../../data/aiInsightData';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,6 +36,82 @@ import {
 // navigasi, logic bisnis tetap berada di modul asal.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─── Home Dashboard AI Insight ──────────────────────────────────────────────────
+// Insight level Dashboard Home (Control Center) — mengagregasi status operasional
+// workspace aktif secara keseluruhan. Untuk workspace Toko Pakan, menggunakan
+// data Feed Store yang bersumber langsung dari Supabase (workspace-scoped).
+// Insight ini BERBEDA dari AI Insight Dashboard Toko Pakan — level lebih tinggi,
+// fokus pada kesehatan operasional workspace secara cross-module.
+
+function computeHomeDashboardInsight(
+  wsType: string | undefined,
+  stokItems: StokInventarisDbRow[],
+  transactions: StokTransactionDbRow[],
+  suppliers: FeedStoreSupplierDbRow[],
+  customers: FeedStoreCustomerDbRow[],
+  salesSummary: FeedStoreSalesSummaryData,
+  activities: ActivityLogDbRow[],
+): AiInsightItem[] {
+  if (wsType !== 'FeedStore') return [];
+
+  const hasStok = stokItems.length > 0;
+  const hasTransaction = transactions.length > 0;
+  const hasSuppliers = suppliers.length > 0;
+  const hasCustomers = customers.length > 0;
+  const hasSales = salesSummary.monthRevenue > 0;
+  const hasActivity = activities.length > 0;
+
+  if (!hasStok && !hasTransaction && !hasSuppliers && !hasCustomers && !hasSales && !hasActivity) {
+    return [];
+  }
+
+  const result: AiInsightItem[] = [];
+
+  const lowStockCount = getLowStockItems(stokItems).length;
+  const aktifItems = stokItems.filter((i) => i.status === 'Aktif').length;
+
+  if (hasStok) {
+    if (lowStockCount > 0) {
+      result.push({
+        icon: '⚠️',
+        text: `${formatNumber(lowStockCount)} item stok perlu restock — segera lakukan Tambah Stok.`,
+        color: '#c62828',
+      });
+    } else if (aktifItems === stokItems.length) {
+      result.push({
+        icon: '✅',
+        text: `Stok sehat: ${formatNumber(stokItems.length)} item semuanya aktif, tidak ada yang perlu restock.`,
+      });
+    }
+  }
+
+  const aktifSuppliers = suppliers.filter((s) => s.status === 'Aktif').length;
+  const aktifCustomers = customers.filter((c) => c.status === 'Aktif').length;
+
+  if (hasSuppliers && hasCustomers) {
+    result.push({
+      icon: '🏪',
+      text: `Pasokan & pelanggan: ${formatNumber(aktifSuppliers)} supplier aktif, ${formatNumber(aktifCustomers)} pelanggan aktif teregistrasi.`,
+    });
+  }
+
+  if (hasSales) {
+    result.push({
+      icon: '💼',
+      text: `Toko Pakan berjalan: pendapatan bulan ini ${formatRupiah(salesSummary.monthRevenue)} dari ${formatNumber(salesSummary.monthSalesCount)} transaksi.`,
+    });
+  } else if (hasTransaction) {
+    const masukCount = transactions.filter((t) => t.transaction_type === 'Masuk').length;
+    const keluarCount = transactions.filter((t) => t.transaction_type === 'Keluar').length;
+    result.push({
+      icon: '📊',
+      text: `Aktivitas stok aktif: ${formatNumber(masukCount)} masuk, ${formatNumber(keluarCount)} keluar — belum ada penjualan tercatat.`,
+    });
+  }
+
+  return result;
+}
+
 function AiSummaryPanel() {
   const summary = getAiGeneratedSummary();
   return (
@@ -41,7 +129,7 @@ function AiSummaryPanel() {
 
 // HOME-002 — Setiap card WAJIB: Icon, Priority, Category, Judul,
 // Deskripsi singkat, Source Module, Relative Time, Tombol "Buka Modul".
-function TopInsightRow({ item, onOpen }: { item: AiInsightItem; onOpen: (item: AiInsightItem) => void }) {
+function TopInsightRow({ item, onOpen }: { item: DashboardAiInsightItem; onOpen: (item: DashboardAiInsightItem) => void }) {
   const categoryMeta = CATEGORY_META[item.category];
   const priorityMeta = PRIORITY_META[item.priority];
 
@@ -114,9 +202,23 @@ function TopInsightRow({ item, onOpen }: { item: AiInsightItem; onOpen: (item: A
  */
 export default function AiInsightSection() {
   const navigate = useNavigate();
+  const { activeWorkspace } = useWorkspace();
+  const wsUuid = activeWorkspace?.workspace_uuid ?? '';
+  const wsType = activeWorkspace?.workspace_type;
+
+  const { data: feedStoreData } = useFeedStoreDashboardData(wsUuid);
+  const homeInsight = computeHomeDashboardInsight(
+    wsType,
+    feedStoreData.stokItems,
+    feedStoreData.transactions,
+    feedStoreData.suppliers,
+    feedStoreData.customers,
+    feedStoreData.salesSummary,
+    feedStoreData.activities,
+  );
   const topInsights = getTopInsights();
 
-  const handleOpen = (item: AiInsightItem) => {
+  const handleOpen = (item: DashboardAiInsightItem) => {
     // Insight hanya menavigasi ke modul asal — tidak ada logic bisnis di sini.
     const action = item.actions.find((a) => a.type === 'buka-modul') ?? item.actions.find((a) => a.to);
     if (action?.to) navigate(action.to);
@@ -136,6 +238,16 @@ export default function AiInsightSection() {
       }}
     >
       <AiSummaryPanel />
+
+      {homeInsight.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <AiInsightCard
+            title="AI Insight Dashboard"
+            icon="🤖"
+            items={homeInsight}
+          />
+        </div>
+      )}
 
       {topInsights.length === 0 ? (
         <div style={{ paddingTop: 12, borderTop: '1px solid var(--color-border)', marginTop: 12, fontSize: 12, color: 'var(--color-muted)' }}>
