@@ -224,7 +224,8 @@ function computeProductsInsight(
   // Count katalog items that have stok fisik in workspace
   const stokMap = new Map<string, StokInventarisDbRow>();
   stokItems.forEach((s) => {
-    const refId = s.notes ? JSON.parse(s.notes).rid : null;
+    let refId: string | null = null;
+    if (s.notes) { try { refId = JSON.parse(s.notes).rid ?? null; } catch { refId = null; } }
     if (refId) stokMap.set(refId, s);
   });
   const withStok = masterProduk.filter((p) => stokMap.has(p.referensiId));
