@@ -37,7 +37,7 @@ import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboar
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SectionId = 'products' | 'stock' | 'incoming' | 'outgoing' | 'movements' | 'supplier' | 'customers' | 'reports' | 'analysis';
+type SectionId = 'products' | 'stock' | 'incoming' | 'outgoing' | 'movements' | 'supplier' | 'customers' | 'reports';
 
 interface Section {
   id: SectionId;
@@ -106,13 +106,6 @@ const SECTIONS: Section[] = [
     description: 'Laporan penjualan, stok, dan kinerja toko.',
     blocked: false,
   },
-  {
-    id: 'analysis',
-    icon: '📐',
-    title: 'Analysis',
-    description: 'Ringkasan rule-based dari data stok dan transaksi.',
-    blocked: false,
-  },
 ];
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -156,6 +149,70 @@ const inputStyle: React.CSSProperties = {
   padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
   fontSize: 14, width: '100%', boxSizing: 'border-box', outline: 'none',
 };
+
+// ─── AI Insight Card ─────────────────────────────────────────────────────────────
+// Komponen reusable — tiap modul menyediakan item insight spesifiknya.
+
+interface AiInsightItem {
+  icon: string;
+  text: string;
+  color?: string;
+}
+
+interface AiInsightCardProps {
+  title: string;
+  icon: string;
+  items: AiInsightItem[];
+  emptyMessage?: string;
+}
+
+function AiInsightCard({ title, icon, items, emptyMessage = 'Belum ada data yang dapat dianalisis.' }: AiInsightCardProps) {
+  if (items.length === 0) {
+    return (
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 18 }}>{icon}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{title}</span>
+        </div>
+        <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>{emptyMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 18 }}>{icon}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{title}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {items.map((item, idx) => (
+          <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 11 }}>{item.icon}</span>
+            <p style={{ margin: 0, fontSize: 10, lineHeight: 1.4, color: item.color ?? '#334155' }}>
+              {item.text}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Per-module AI Insight Functions ─────────────────────────────────────────────
+// Setiap fungsi menerima data LIVE dari modul masing-masing dan mengembalikan
+// insight item yang spesifik. AiInsightCard bersifat reusable, namun sumber
+// datanya tetap spesifik per modul.
+
+function computeStockInsight(): AiInsightItem[] {
+  const insights: StokInsight[] = computeStokAiInsights();
+  const active = insights.slice(0, 6);
+  return active.map((insight) => ({
+    icon: insight.icon,
+    text: insight.text,
+    color: insight.color,
+  }));
+}
 
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
@@ -213,10 +270,19 @@ function StockDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onI
   const lowStock = getLowStockItems(items);
   const aktif    = items.filter((i) => i.status === 'Aktif').length;
   const habis    = items.filter((i) => i.status === 'Habis').length;
-  const insights: StokInsight[] = computeStokAiInsights();
+  const stockInsights: AiInsightItem[] = computeStockInsight();
 
   return (
     <div>
+      {/* AI Insight Manajemen Stok — setelah header, sebelum ringkasan */}
+      <AiInsightCard
+        title="AI Insight Manajemen Stok"
+        icon="🤖"
+        items={stockInsights}
+        emptyMessage={items.length === 0 ? 'Belum ada data yang dapat dianalisis.' : undefined}
+      />
+
+      {/* Ringkasan */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
         {[
           { label: 'Total item',      value: formatNumber(items.length),    color: '#1d4ed8', bg: '#eff6ff' },
@@ -229,13 +295,14 @@ function StockDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onI
           </div>
         ))}
       </div>
+
       {lowStock.length > 0 && (
         <>
           <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#92400e' }}>
             ⚠️ {lowStock.length} item perlu perhatian
           </p>
            {lowStock.slice(0, 5).map((item) => (
-             <div key={item.id} onClick={() => onItemClick(item)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fffbeb', borderRadius: 8, marginBottom: 5, border: '1px solid #fde68a', cursor: 'pointer' }}>
+            <div key={item.id} onClick={() => onItemClick(item)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fffbeb', borderRadius: 8, marginBottom: 5, border: '1px solid #fde68a', cursor: 'pointer' }}>
               <span style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 600 }}>{item.item_name}</span>
               <span style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>
                 {formatNumber(item.quantity)} {item.unit ?? ''} / Min: {item.min_stock !== null ? formatNumber(item.min_stock) : '-'}
@@ -246,31 +313,6 @@ function StockDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onI
       )}
       {items.length === 0 && (
         <EmptyState icon="📦" message="Belum ada item stok." hint="Mulai dengan mencatat stok masuk." />
-      )}
-
-      {items.length > 0 && (
-        <>
-          {insights.length > 0 && (
-            <div style={{ marginTop: 14, marginBottom: 8 }}>
-              <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#0277bd' }}>🤖 AI Insight</p>
-              {insights.slice(0, 4).map((insight, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 6,
-                    background: insight.bg, borderRadius: 8, padding: '7px 9px',
-                    marginBottom: 5, border: '1px solid ' + (insight.color + '20'),
-                  }}
-                >
-                  <span style={{ fontSize: 13 }}>{insight.icon}</span>
-                  <p style={{ margin: 0, fontSize: 10, color: insight.color, lineHeight: 1.4 }}>
-                    {insight.text}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
       )}
     </div>
   );
@@ -598,49 +640,6 @@ function ReportsDetail({
           * Nilai stok tidak tersedia — tabel stok_inventaris tidak menyimpan harga satuan.
         </p>
       )}
-    </div>
-  );
-}
-
-// ─── Analysis Detail ───────────────────────────────────────────────────────────
-
-function AnalysisDetail({
-  items,
-  transactions,
-}: {
-  items: StokInventarisDbRow[];
-  transactions: StokTransactionDbRow[];
-}) {
-  const lowStockCount = getLowStockItems(items).length;
-  const incomingCount = getTransaksiMasuk(transactions).length;
-  const outgoingCount = getTransaksiKeluar(transactions).length;
-  return (
-    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 20 }}>📐</span>
-        <div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#166534' }}>Analysis Feed Store</p>
-          <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '2px 7px', borderRadius: 5 }}>
-            live
-          </span>
-        </div>
-      </div>
-      <p style={{ margin: '0 0 10px', fontSize: 11, color: '#166534', lineHeight: 1.6 }}>
-        Ringkasan dihitung langsung dari data stok dan transaksi yang sedang dimuat. Tidak ada
-        provider atau layanan eksternal yang dipanggil.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {[
-          { label: 'Stok perlu perhatian', value: `${formatNumber(lowStockCount)} item` },
-          { label: 'Transaksi masuk', value: `${formatNumber(incomingCount)} transaksi` },
-          { label: 'Transaksi keluar', value: `${formatNumber(outgoingCount)} transaksi` },
-        ].map((insight) => (
-          <div key={insight.label} style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', border: '1px solid #dcfce7' }}>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#166534' }}>{insight.label}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 10, color: '#15803d' }}>{insight.value}</p>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -982,7 +981,6 @@ function getSectionCountLabel(
     case 'supplier':   return `${formatNumber(suppliers.length)} supplier`;
     case 'customers':  return `${formatNumber(customers.length)} pelanggan`;
     case 'reports':    return salesSummary.todayRevenue > 0 ? formatRupiah(salesSummary.todayRevenue) : `${formatNumber(recentOrders.length)} order`;
-    case 'analysis':    return 'rule-based';
     default: return '-';
   }
 }
@@ -1177,17 +1175,15 @@ export default function FeedStoreOperational(): ReactElement {
               <SupplierDetail suppliers={data.suppliers} />
             ) : selected.id === 'customers' ? (
               <CustomerDetail customers={data.customers} />
-            ) : selected.id === 'reports' ? (
-              <ReportsDetail
-                salesSummary={data.salesSummary}
-                recentOrders={data.recentOrders}
-                recentSales={data.recentSales}
-                stokItems={data.stokItems}
-                transactions={data.transactions}
-              />
-            ) : selected.id === 'analysis' ? (
-              <AnalysisDetail items={data.stokItems} transactions={data.transactions} />
-            ) : null}
+             ) : selected.id === 'reports' ? (
+               <ReportsDetail
+                 salesSummary={data.salesSummary}
+                 recentOrders={data.recentOrders}
+                 recentSales={data.recentSales}
+                 stokItems={data.stokItems}
+                 transactions={data.transactions}
+               />
+             ) : null}
          </section>
         </>
       )}
