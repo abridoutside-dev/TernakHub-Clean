@@ -361,6 +361,70 @@ function computeTransactionsKeluarInsight(transactions: StokTransactionDbRow[]):
   return result;
 }
 
+function computeSupplierInsight(suppliers: FeedStoreSupplierDbRow[]): AiInsightItem[] {
+  if (suppliers.length === 0) return [];
+
+  const aktif = suppliers.filter((s) => s.status === 'Aktif');
+  const nonaktif = suppliers.filter((s) => s.status !== 'Aktif');
+
+  const byCity: Record<string, number> = {};
+  suppliers.forEach((s) => {
+    const city = s.city ?? 'Tidak ada kota';
+    byCity[city] = (byCity[city] ?? 0) + 1;
+  });
+
+  const byProvince: Record<string, number> = {};
+  suppliers.forEach((s) => {
+    const prov = s.province ?? 'Tidak ada provinsi';
+    byProvince[prov] = (byProvince[prov] ?? 0) + 1;
+  });
+
+  const withContact = suppliers.filter((s) => s.phone || s.contact_name).length;
+  const withEmail = suppliers.filter((s) => s.email).length;
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const recent = suppliers.filter((s) => new Date(s.created_at) >= weekAgo).length;
+
+  const result: AiInsightItem[] = [
+    {
+      icon: '🚚',
+      text: `${formatNumber(suppliers.length)} supplier tercatat — ${formatNumber(aktif.length)} aktif, ${formatNumber(nonaktif.length)} tidak aktif.`,
+    },
+  ];
+
+  const topCity = Object.entries(byCity).sort((a, b) => b[1] - a[1])[0];
+  if (topCity) {
+    result.push({
+      icon: '📍',
+      text: `Kota dengan supplier terbanyak: ${topCity[0]} (${formatNumber(topCity[1])} supplier).`,
+    });
+  }
+
+  const topProvince = Object.entries(byProvince).sort((a, b) => b[1] - a[1])[0];
+  if (topProvince && Object.keys(byProvince).length > 1) {
+    result.push({
+      icon: '🗺️',
+      text: `Provinsi dengan supplier terbanyak: ${topProvince[0]} (${formatNumber(topProvince[1])} supplier).`,
+    });
+  }
+
+  result.push({
+    icon: '📞',
+    text: `${formatNumber(withContact)} supplier punya kontak (${formatNumber(withEmail)} punya email).`,
+  });
+
+  if (recent > 0) {
+    result.push({
+      icon: '🆕',
+      text: `${formatNumber(recent)} supplier ditambahkan dalam 7 hari terakhir.`,
+      color: '#166534',
+    });
+  }
+
+  return result;
+}
+
 // ─── Section Detail Views ─────────────────────────────────────────────────────
 
 function ProductsDetail({ items, onItemClick }: { items: StokInventarisDbRow[]; onItemClick: (item: StokInventarisDbRow) => void }) {
@@ -553,65 +617,71 @@ function SupplierDetail({ suppliers }: { suppliers: FeedStoreSupplierDbRow[] }) 
   const aktif    = suppliers.filter((s) => s.status === 'Aktif').length;
   const nonaktif = suppliers.filter((s) => s.status !== 'Aktif').length;
 
-  if (suppliers.length === 0) {
-    return (
-      <EmptyState
-        icon="🚚"
-        message="Belum ada supplier yang terdaftar."
-        hint="Tambahkan supplier untuk mencatat pemasok pakan."
-      />
-    );
-  }
-
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
-        {[
-          { label: 'Total supplier', value: formatNumber(suppliers.length), color: '#1d4ed8', bg: '#eff6ff' },
-          { label: 'Aktif',          value: formatNumber(aktif),            color: '#166534', bg: '#f0fdf4' },
-          { label: 'Nonaktif',       value: formatNumber(nonaktif),         color: '#6b7280', bg: '#f9fafb' },
-        ].map((stat) => (
-          <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '9px 7px', textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 10, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+      <AiInsightCard
+        title="AI Insight Supplier"
+        icon="🤖"
+        items={computeSupplierInsight(suppliers)}
+      />
+
+      {suppliers.length === 0 ? (
+        <EmptyState
+          icon="🚚"
+          message="Belum ada supplier yang terdaftar."
+          hint="Tambahkan supplier untuk mencatat pemasok pakan."
+        />
+      ) : (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+            {[
+              { label: 'Total supplier', value: formatNumber(suppliers.length), color: '#1d4ed8', bg: '#eff6ff' },
+              { label: 'Aktif',          value: formatNumber(aktif),            color: '#166534', bg: '#f0fdf4' },
+              { label: 'Nonaktif',       value: formatNumber(nonaktif),         color: '#6b7280', bg: '#f9fafb' },
+            ].map((stat) => (
+              <div key={stat.label} style={{ background: stat.bg, borderRadius: 10, padding: '9px 7px', textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 10, color: stat.color, fontWeight: 600 }}>{stat.label}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {suppliers.slice(0, 10).map((sup) => (
-          <div
-            key={sup.id}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 12px', borderRadius: 9,
-              background: sup.status === 'Aktif' ? '#f0fdf4' : '#f9fafb',
-              border: `1px solid ${sup.status === 'Aktif' ? '#bbf7d0' : '#e5e7eb'}`,
-            }}
-          >
-            <span style={{ fontSize: 20 }}>🚚</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {sup.name}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {suppliers.slice(0, 10).map((sup) => (
+              <div
+                key={sup.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 9,
+                  background: sup.status === 'Aktif' ? '#f0fdf4' : '#f9fafb',
+                  border: `1px solid ${sup.status === 'Aktif' ? '#bbf7d0' : '#e5e7eb'}`,
+                }}
+              >
+                <span style={{ fontSize: 20 }}>🚚</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {sup.name}
+                  </p>
+                  <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
+                    {[sup.contact_name, sup.phone, sup.city].filter(Boolean).join(' · ') || 'Tidak ada kontak'}
+                  </p>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, flexShrink: 0,
+                  color: sup.status === 'Aktif' ? '#166534' : '#6b7280',
+                  background: sup.status === 'Aktif' ? '#dcfce7' : '#f3f4f6',
+                }}>
+                  {sup.status}
+                </span>
+              </div>
+            ))}
+            {suppliers.length > 10 && (
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
+                ... dan {suppliers.length - 10} supplier lainnya
               </p>
-              <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
-                {[sup.contact_name, sup.phone, sup.city].filter(Boolean).join(' · ') || 'Tidak ada kontak'}
-              </p>
-            </div>
-            <span style={{
-              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, flexShrink: 0,
-              color: sup.status === 'Aktif' ? '#166534' : '#6b7280',
-              background: sup.status === 'Aktif' ? '#dcfce7' : '#f3f4f6',
-            }}>
-              {sup.status}
-            </span>
+            )}
           </div>
-        ))}
-        {suppliers.length > 10 && (
-          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center' }}>
-            ... dan {suppliers.length - 10} supplier lainnya
-          </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
