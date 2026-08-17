@@ -67,8 +67,8 @@ const TREND_AMBANG_STABIL_PERSEN = 3; // di bawah ini dianggap "Stabil", bukan N
  * menjadi arah Naik/Stabil/Turun untuk visualisasi — tidak ada formula
  * bisnis baru, hanya perbandingan nilai yang sudah tersedia.
  */
-function hitungTrendIndicator(): TrendIndicator {
-  const bulanan = getRecentMonthlyPoints(2);
+function hitungTrendIndicator(activeWorkspaceId?: string): TrendIndicator {
+  const bulanan = getRecentMonthlyPoints(2, activeWorkspaceId);
   if (bulanan.length < 2) return null;
   const [prev, current] = bulanan;
   if (prev.margin === 0 && current.margin === 0) return 'Stabil';
@@ -84,9 +84,9 @@ function hitungTrendIndicator(): TrendIndicator {
  * Empty state dipicu bila Business Insight belum punya data sama sekali
  * (dataLengkap === false DAN seluruh nilai inti masih nol).
  */
-export function getBusinessSnapshot(): BusinessSnapshotResult {
+export function getBusinessSnapshot(activeWorkspaceId?: string): BusinessSnapshotResult {
   try {
-    const ringkasan = getRingkasanBI('bulan-ini');
+    const ringkasan = getRingkasanBI('bulan-ini', activeWorkspaceId);
     const batchAktif = Object.values(BATCH_DB).filter((b) => b.status === 'Aktif').length;
 
     const belumAdaDataSamaSekali =
@@ -99,7 +99,7 @@ export function getBusinessSnapshot(): BusinessSnapshotResult {
       return { state: 'empty', metrics: [] };
     }
 
-    const trend = hitungTrendIndicator();
+    const trend = hitungTrendIndicator(activeWorkspaceId);
 
     const metrics: BusinessSnapshotMetric[] = [
       {

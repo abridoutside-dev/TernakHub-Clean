@@ -53,7 +53,7 @@ export interface SummaryCardData {
   state: SummaryCardState;
 }
 
-type CardBuilder = () => SummaryCardData;
+type CardBuilder = (activeWorkspaceId?: string) => SummaryCardData;
 
 const LIVE_LABEL = 'Live';
 
@@ -63,7 +63,7 @@ function emptyOrValue(n: number): { value: string; state: SummaryCardState } {
 
 // ─── 1. Health Cases ← Livestock (status kesehatan per-animal, sudah ada) ──
 
-function buildHealthCard(): SummaryCardData {
+function buildHealthCard(_activeWorkspaceId?: string): SummaryCardData {
   const aktif = buildIndividuList();
   const luar = buildOutsideIndividu();
   const all = [...aktif, ...luar];
@@ -200,7 +200,7 @@ function buildBusinessCard(ringkasan: ReturnType<typeof getRingkasanBI>): Summar
 // yang benar-benar ada di data (bukan daftar tetap Fattening/Breeding/
 // Karantina yang di-hardcode), sehingga tidak melanggar larangan Hardcode.
 
-function buildActiveBatchCard(): SummaryCardData {
+function buildActiveBatchCard(_activeWorkspaceId?: string): SummaryCardData {
   const aktif = Object.values(BATCH_DB).filter((b) => b.status === 'Aktif');
 
   if (aktif.length === 0) {
@@ -237,10 +237,10 @@ function buildActiveBatchCard(): SummaryCardData {
 
 const CARD_BUILDERS: Record<string, CardBuilder> = {
   health:    buildHealthCard,
-  livestock: () => buildLivestockCard(getRingkasanBI('hari-ini')),
-  feed:      () => buildFeedCard(getRingkasanBI('hari-ini')),
-  medicine:  () => buildMedicineCard(getRingkasanBI('hari-ini')),
-  business:  () => buildBusinessCard(getRingkasanBI('hari-ini')),
+  livestock: (id?: string) => buildLivestockCard(getRingkasanBI('hari-ini', id)),
+  feed:      (id?: string) => buildFeedCard(getRingkasanBI('hari-ini', id)),
+  medicine:  (id?: string) => buildMedicineCard(getRingkasanBI('hari-ini', id)),
+  business:  (id?: string) => buildBusinessCard(getRingkasanBI('hari-ini', id)),
   batch:     buildActiveBatchCard,
 };
 
@@ -263,9 +263,9 @@ const CARD_FALLBACK_META: Record<string, { icon: string; title: string; route: s
   batch:     { icon: '📦', title: 'Active Batch',            route: '/batch', label: 'Buka Modul' },
 };
 
-function safeBuild(id: SummaryCardId, builder: CardBuilder): SummaryCardData {
+function safeBuild(id: SummaryCardId, builder: CardBuilder, activeWorkspaceId?: string): SummaryCardData {
   try {
-    return builder();
+    return builder(activeWorkspaceId);
   } catch {
     const meta = CARD_FALLBACK_META[id] ?? { icon: '⚠️', title: id, route: '/', label: 'Lihat Detail' as const };
     return {
@@ -277,8 +277,8 @@ function safeBuild(id: SummaryCardId, builder: CardBuilder): SummaryCardData {
 }
 
 /** Live-computed list of Summary Cards, urut sesuai SUMMARY_CARD_ORDER. */
-export function getSummaryCards(): SummaryCardData[] {
+export function getSummaryCards(activeWorkspaceId?: string): SummaryCardData[] {
   return SUMMARY_CARD_ORDER
     .filter((id) => CARD_BUILDERS[id])
-    .map((id) => safeBuild(id, CARD_BUILDERS[id]));
+    .map((id) => safeBuild(id, CARD_BUILDERS[id], activeWorkspaceId));
 }

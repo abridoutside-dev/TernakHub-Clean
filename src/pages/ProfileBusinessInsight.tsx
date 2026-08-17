@@ -21,6 +21,7 @@ import {
   type KontribusiBulan,
 } from '../data/businessInsightData';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import UpgradeDialog from '../components/subscription/UpgradeDialog';
 import {
   downloadBIExportCSV,
@@ -992,13 +993,28 @@ export default function ProfileBusinessInsight() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const { hasFeature } = useSubscription();
+  const { activeWorkspace } = useWorkspace();
   const canExport      = hasFeature('reports_export_excel');
 
-  const ringkasan       = getRingkasanBI(periode);
-  const breakdown       = getModuleBreakdown(periode);
-  const monthly         = getMonthlyData(periode);
-  const laporan         = getLaporanBulanan(periode);
-  const tahunanInsight  = getTahunanInsight();
+  const activeWorkspaceId = activeWorkspace?.workspace_uuid ?? null;
+
+  if (!activeWorkspaceId) {
+    return (
+      <div style={{ paddingTop: 'calc(var(--top-app-bar-height) + 16px)', paddingBottom: 40, minHeight: '100dvh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)', fontSize: 14 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
+        <div style={{ fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>Belum ada Workspace Aktif</div>
+        <div style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.6, maxWidth: 280 }}>
+          Pilih atau buat workspace terlebih dahulu untuk melihat Business Insight.
+        </div>
+      </div>
+    );
+  }
+
+  const ringkasan       = getRingkasanBI(periode, activeWorkspaceId);
+  const breakdown       = getModuleBreakdown(periode, activeWorkspaceId);
+  const monthly         = getMonthlyData(periode, activeWorkspaceId);
+  const laporan         = getLaporanBulanan(periode, activeWorkspaceId);
+  const tahunanInsight  = getTahunanInsight(activeWorkspaceId);
 
   function handleExport(fmt: ExportFormat) {
     const input = { tab: activeTab, ringkasan, monthly, breakdown, laporan };

@@ -166,9 +166,9 @@ export function getLivestockEstimasiNilai(): number {
 
 // ─── Ringkasan ────────────────────────────────────────────────────────────────
 
-export function getRingkasanBI(key: PeriodeKey): RingkasanBI {
+export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string): RingkasanBI {
   const { from, to } = getPeriodRange(key);
-  const activeId     = getActiveWorkspace().id;
+  const activeId = activeWorkspaceId ?? getActiveWorkspace().id;
 
   // ── Livestock ──
   const aktif       = buildIndividuList();
@@ -235,8 +235,8 @@ export function getRingkasanBI(key: PeriodeKey): RingkasanBI {
 
 // ─── Module Breakdown ────────────────────────────────────────────────────────
 
-export function getModuleBreakdown(key: PeriodeKey): ModuleBreakdown {
-  const activeId = getActiveWorkspace().id;
+export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string): ModuleBreakdown {
+  const activeId = activeWorkspaceId ?? getActiveWorkspace().id;
   const { from, to } = getPeriodRange(key);
 
   // ── Livestock ──
@@ -334,9 +334,9 @@ export function getModuleBreakdown(key: PeriodeKey): ModuleBreakdown {
 // Use this for widgets that need a fixed look-back window (e.g. trend arrows),
 // NOT for the Business Insight page which uses getMonthlyData(PeriodeKey).
 
-export function getRecentMonthlyPoints(numMonths: number): MonthlyDataPoint[] {
+export function getRecentMonthlyPoints(numMonths: number, activeWorkspaceId?: string): MonthlyDataPoint[] {
   const now      = new Date();
-  const activeId = getActiveWorkspace().id;
+  const activeId = activeWorkspaceId ?? getActiveWorkspace().id;
   const allTrx   = getAllTransaksi();
   return Array.from({ length: numMonths }, (_, i) => {
     const date = new Date(now.getFullYear(), now.getMonth() - (numMonths - 1 - i), 1);
@@ -390,9 +390,9 @@ function buildPoint(
 //
 // Changing the period will always produce a different dataset/shape.
 
-export function getMonthlyData(key: PeriodeKey): MonthlyDataPoint[] {
+export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string): MonthlyDataPoint[] {
   const now      = new Date();
-  const activeId = getActiveWorkspace().id;
+  const activeId = activeWorkspaceId ?? getActiveWorkspace().id;
   const allTrx   = getAllTransaksi();
   const { from: periodFrom, to: periodTo } = getPeriodRange(key);
 
@@ -468,9 +468,9 @@ export interface LaporanBulananRow {
   transaksi:  number;
 }
 
-export function getLaporanBulanan(key: PeriodeKey): LaporanBulananRow[] {
+export function getLaporanBulanan(key: PeriodeKey, activeWorkspaceId?: string): LaporanBulananRow[] {
   const now      = new Date();
-  const activeId = getActiveWorkspace().id;
+  const activeId = activeWorkspaceId ?? getActiveWorkspace().id;
   const allTrx   = getAllTransaksi();
   const { from: periodFrom, to: periodTo } = getPeriodRange(key);
 
@@ -591,11 +591,11 @@ export interface TahunanInsight {
   kontribusiBulanan:     KontribusiBulan[];
 }
 
-export function getTahunanInsight(): TahunanInsight {
+export function getTahunanInsight(activeWorkspaceId?: string): TahunanInsight {
   const now      = new Date();
   const year     = now.getFullYear();
   const prevYear = year - 1;
-  const activeId = getActiveWorkspace().id;
+  const activeId = activeWorkspaceId ?? getActiveWorkspace().id;
   const allTrx   = getAllTransaksi();
   const today    = now.toISOString().split('T')[0];
 

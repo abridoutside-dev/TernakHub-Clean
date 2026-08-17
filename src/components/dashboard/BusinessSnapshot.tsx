@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 import {
   getBusinessSnapshot,
   type BusinessSnapshotMetric,
@@ -99,7 +100,8 @@ function SnapshotErrorState({ onRetry }: { onRetry: () => void }) {
 export default function BusinessSnapshotSection() {
   const navigate = useNavigate();
   const [, forceRerender] = useState(0);
-  const result = getBusinessSnapshot();
+  const { activeWorkspace } = useWorkspace();
+  const result = getBusinessSnapshot(activeWorkspace?.workspace_uuid);
 
   return (
     <div

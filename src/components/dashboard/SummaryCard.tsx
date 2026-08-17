@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { getSummaryCards, type SummaryCardData } from '../../data/dashboardSummaryData';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,11 +130,9 @@ function SummaryCardEmptyState() {
  * getSummaryCards(); komponen ini tidak menghitung ataupun menyimpan data.
  */
 export default function SummaryCardSection() {
-  // Tick lokal hanya untuk memicu re-render saat "Coba Lagi" ditekan — tidak
-  // menyimpan data apapun, karena getSummaryCards() selalu membaca ulang
-  // dari modul asal setiap kali dipanggil.
   const [, forceRerender] = useState(0);
-  const cards = getSummaryCards();
+  const { activeWorkspace } = useWorkspace();
+  const cards = getSummaryCards(activeWorkspace?.workspace_uuid);
 
   if (cards.length === 0) {
     return <SummaryCardEmptyState />;
