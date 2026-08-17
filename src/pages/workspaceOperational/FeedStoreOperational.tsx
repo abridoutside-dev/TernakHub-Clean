@@ -1673,7 +1673,7 @@ function StokMasukModal({
               {filteredProduk.length === 0 ? (
                 <p style={{ margin: '8px 10px', fontSize: 11, color: 'var(--color-muted)' }}>Tidak ditemukan.</p>
               ) : (
-                filteredProduk.slice(0, 10).map((prod) => (
+                filteredProduk.map((prod) => (
                   <div
                     key={prod.id}
                     onClick={() => handleProductSelect(prod)}
