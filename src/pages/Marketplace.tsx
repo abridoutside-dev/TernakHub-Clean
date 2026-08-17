@@ -240,16 +240,6 @@ export default function Marketplace() {
   const { activeWorkspace } = useWorkspace();
   const ws = activeWorkspace;
 
-  if (!ws) {
-    return (
-      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
-        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
-        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
-        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
-      </div>
-    );
-  }
-
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [activeCategory, setActiveCategory] = useState<string>('semua');
@@ -257,14 +247,16 @@ export default function Marketplace() {
 
   // Unread notification count
   const unreadCount = useMemo(() => {
+    if (!ws) return 0;
     const notifs = getNotifikasi(ws.workspace_uuid);
     return notifs.filter((n) => !n.dibaca).length;
-  }, [ws.workspace_uuid]);
+  }, [ws?.workspace_uuid]);
 
   // All active listings from data layer
   const allListings = useMemo(() => {
+    if (!ws) return [];
     return getAllListing().filter((l) => l.status === 'Aktif' && l.workspaceId === ws.workspace_uuid);
-  }, [ws.workspace_uuid]);
+  }, [ws?.workspace_uuid]);
 
   // Apply category filter then search
   const displayedListings = useMemo(() => {
@@ -286,6 +278,16 @@ export default function Marketplace() {
 
     return items;
   }, [allListings, activeCategory, debouncedSearchQuery]);
+
+  if (!ws) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
 
   function handleToggleFav(uuid: string) {
     // PLATFORM-001: guests must log in before using wishlist

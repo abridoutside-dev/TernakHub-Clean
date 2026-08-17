@@ -364,16 +364,7 @@ export default function MarketplaceWishlist() {
   useMarketplace(); // FLOW-003M27: hydrate listings from Supabase on mount
   const navigate = useNavigate();
   const { activeWorkspace } = useWorkspace();
-  const activeWs = activeWorkspace;  if (!activeWs) {
-    return (
-      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
-        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
-        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
-        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
-      </div>
-    );
-  }
-
+  const activeWs = activeWorkspace;
 
   const [tick, setTick] = useState(0);
   const [inputSearch, setInputSearch] = useState('');
@@ -383,6 +374,7 @@ export default function MarketplaceWishlist() {
 
   // Ambil wishlist + join listing (live setiap render + tick)
   const allRows: WishlistRow[] = useMemo(() => {
+    if (!activeWs) return [];
     const wishes = getWishlistByWorkspace(activeWs.workspace_uuid);
     return wishes.flatMap((w) => {
       const listing = getListingByUuid(w.listingUuid);
@@ -390,7 +382,7 @@ export default function MarketplaceWishlist() {
       return [{ wish: w, listing }];
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWs.workspace_uuid, tick]);
+  }, [activeWs?.workspace_uuid, tick]);
 
   // Ringkasan (dari seluruh wishlist, sebelum filter/search)
   const ringkasan = useMemo(() => ({
@@ -430,6 +422,16 @@ export default function MarketplaceWishlist() {
   }, [allRows, filter, search, sort]);
 
   const { visible: visibleRows, hasMore: wishHasMore, sentinelRef: wishSentinel, total: wishTotal } = usePaginatedList(filteredRows);
+
+  if (!activeWs) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🏢</div>
+        <p style={{ fontSize: 14, fontWeight: 600 }}>Workspace tidak ditemukan</p>
+        <p style={{ fontSize: 12 }}>Pilih atau buat workspace terlebih dahulu.</p>
+      </div>
+    );
+  }
 
   function handleHapus(workspaceId: string, listingUuid: string) {
     removeFromWishlist(workspaceId, listingUuid);

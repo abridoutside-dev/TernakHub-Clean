@@ -279,6 +279,10 @@ export default function MarketplaceDetailListing() {
   const { kategoriSlug, slug } = useParams<{ kategoriSlug: string; slug: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { activeWorkspace, workspaces } = useWorkspace();
+  const activeWsId = activeWorkspace?.workspace_uuid ?? null;
+  const sellerTrust = useMarketplaceVerifikasi(slug ? (getListingBySlug(slug)?.workspaceId ?? '') : '');
+
   // AUTH-007 — dialog shown when unverified user taps "Mulai Negosiasi"
   const [showVerifDialog, setShowVerifDialog] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -296,13 +300,9 @@ export default function MarketplaceDetailListing() {
   }
 
   // ── Derived from item (safe after early return) ───────────────────────────
-  const { activeWorkspace, workspaces } = useWorkspace();
-  const activeWsId = activeWorkspace?.workspace_uuid ?? null;
   const isSeller = item.workspaceId === activeWsId;
   const tersediaNego = getQtyTersediaTransaksi(item.uuid);
   const bisaNego = !isSeller && item.status === 'Aktif' && tersediaNego > 0;
-
-  // ── Share / Copy handlers ─────────────────────────────────────────────────
   function handleShare() {
     const url = window.location.href;
     const shareData = {
@@ -355,7 +355,6 @@ export default function MarketplaceDetailListing() {
 
   const kategori = getKategoriMarketplaceBySlug(item.kategoriSlug);
   const workspace = workspaces.find((w) => w.workspace_uuid === item.workspaceId);
-  const sellerTrust = useMarketplaceVerifikasi(item.workspaceId);
   const trustScore = sellerTrust.trustScore;
   const trustBadge = trustScore !== null ? getTrustLevelBadge(getTrustLevel(trustScore)) : null;
   const bergabung = sellerTrust.workspaceCreatedAt;
