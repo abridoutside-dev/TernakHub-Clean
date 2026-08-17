@@ -360,12 +360,12 @@ export default function MarketplaceDetailListing() {
   const trustBadge = trustScore !== null ? getTrustLevelBadge(getTrustLevel(trustScore)) : null;
   const bergabung = sellerTrust.workspaceCreatedAt;
   const originDetail = getOriginDetail(item);
-  const aiInsight = computeDetailListingAiInsight(item, getAllListing());
+  const aiInsight = computeDetailListingAiInsight(item, getAllListing().filter((l) => l.workspaceId === activeWsId));
 
   // Listing Serupa: hanya tampilkan status Aktif agar pembeli tidak melihat
   // listing Draft/Ditahan/Terjual/Ditutup/Diarsipkan sebagai "tersedia".
   const aktifSerupa = getListingByKategori(item.kategoriSlug).filter(
-    (l) => l.uuid !== item.uuid && l.status === 'Aktif',
+    (l) => l.uuid !== item.uuid && l.status === 'Aktif' && l.workspaceId === activeWsId,
   );
   const serupaSamaSub = item.subKategoriSlug
     ? aktifSerupa.filter((l) => l.subKategoriSlug === item.subKategoriSlug)

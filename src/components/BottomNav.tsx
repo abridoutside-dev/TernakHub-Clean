@@ -22,7 +22,7 @@ export default function BottomNav() {
   const workspaceKind: WorkspaceKind = activeWorkspace
     ? getWorkspaceConfigByDbType(activeWorkspace.workspace_type).kind
     : 'Farm';
-  const workspaceId  = activeWorkspace?.workspace_uuid ?? 'w7';
+  const workspaceId  = activeWorkspace?.workspace_uuid ?? '';
   const navConfig    = getWorkspaceNavConfig(workspaceKind);
   const registryItems = getResolvedNavItems(workspaceKind, workspaceId);
 

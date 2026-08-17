@@ -173,7 +173,7 @@ export default function MarketplaceListingSaya() {
     const q = search.trim().toLowerCase();
     if (!q) return myListing;
     return myListing.filter((l) => {
-      const namaAset = resolveNamaAset(l.sumber.modul, l.sumber.sumberId, l.jenisListing);
+      const namaAset = resolveNamaAset(l.sumber.modul, l.sumber.sumberId, l.jenisListing, l.workspaceId);
       return (
         l.judul.toLowerCase().includes(q) ||
         l.uuid.toLowerCase().includes(q) ||

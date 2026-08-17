@@ -23,7 +23,7 @@ import { getInventarisList } from './stokInventarisData';
 import { STOK_OBAT_ITEMS, getStatusStok } from './stokObatData';
 import { getObatByUuid } from './obatData';
 import { getObatKategoriBySlug } from './masterObatKategoriData';
-import { WORKSPACES, type WorkspaceJenis } from '../components/TopAppBar';
+import type { WorkspaceJenis } from '../components/TopAppBar';
 // MPK-024 — Layanan service workspace modules (read-only)
 import { getLayananTransportByWorkspace } from './layananTransportData';
 import { getLayananDokterHewanByWorkspace } from './layananDokterHewanData';
@@ -219,31 +219,22 @@ export function getQtyTersediaAset(modul: ListingSumberModul, sumberId: string, 
  * jatuh ke `fallback` (biasanya `jenisListing` milik listing itu sendiri).
  * Baca-saja — tidak pernah mengubah data modul asal.
  */
-export function resolveNamaAset(modul: ListingSumberModul, sumberId: string, fallback: string): string {
-  // MPK-021/022/023: modul dengan aset fisik — lookup via getAsetOptions (tanpa workspaceId; semua daftar diambil)
+export function resolveNamaAset(modul: ListingSumberModul, sumberId: string, fallback: string, workspaceId?: string): string {
   if (modul === 'Livestock' || modul === 'StokPakan' || modul === 'StokObat') {
     const found = getAsetOptions(modul).find((o) => o.id === sumberId);
     if (found) return found.nama;
   }
-  // MPK-024: modul layanan jasa — cari di seluruh workspace yang relevan
-  // menggunakan WORKSPACES agar tidak bergantung pada ID yang di-hardcode.
-  if (modul === 'Transportasi') {
-    for (const ws of WORKSPACES.filter((w) => w.type === 'Transporter')) {
-      const found = getLayananTransportByWorkspace(ws.id).find((r) => r.uuid === sumberId);
-      if (found) return found.nama;
-    }
+  if (modul === 'Transportasi' && workspaceId) {
+    const found = getLayananTransportByWorkspace(workspaceId).find((r) => r.uuid === sumberId);
+    if (found) return found.nama;
   }
-  if (modul === 'DokterHewan') {
-    for (const ws of WORKSPACES.filter((w) => w.type === 'Dokter Hewan')) {
-      const found = getLayananDokterHewanByWorkspace(ws.id).find((r) => r.uuid === sumberId);
-      if (found) return found.nama;
-    }
+  if (modul === 'DokterHewan' && workspaceId) {
+    const found = getLayananDokterHewanByWorkspace(workspaceId).find((r) => r.uuid === sumberId);
+    if (found) return found.nama;
   }
-  if (modul === 'KlinikHewan') {
-    for (const ws of WORKSPACES.filter((w) => w.type === 'Klinik Hewan')) {
-      const found = getLayananKlinikHewanByWorkspace(ws.id).find((r) => r.uuid === sumberId);
-      if (found) return found.nama;
-    }
+  if (modul === 'KlinikHewan' && workspaceId) {
+    const found = getLayananKlinikHewanByWorkspace(workspaceId).find((r) => r.uuid === sumberId);
+    if (found) return found.nama;
   }
   return fallback;
 }

@@ -263,8 +263,8 @@ export default function Marketplace() {
 
   // All active listings from data layer
   const allListings = useMemo(() => {
-    return getAllListing().filter((l) => l.status === 'Aktif');
-  }, []);
+    return getAllListing().filter((l) => l.status === 'Aktif' && l.workspaceId === ws.workspace_uuid);
+  }, [ws.workspace_uuid]);
 
   // Apply category filter then search
   const displayedListings = useMemo(() => {

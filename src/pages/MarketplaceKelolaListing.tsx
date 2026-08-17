@@ -131,7 +131,7 @@ export default function MarketplaceKelolaListing() {
   // modul sumbernya sendiri.
   const overQuotaWarning = getStokPakanOverQuotaWarning(listing) ?? getStokObatOverQuotaWarning(listing);
   const statusStyle = STATUS_COLOR[efektif] ?? STATUS_COLOR[listing.status];
-  const namaAset = resolveNamaAset(listing.sumber.modul, listing.sumber.sumberId, listing.jenisListing);
+  const namaAset = resolveNamaAset(listing.sumber.modul, listing.sumber.sumberId, listing.jenisListing, listing.workspaceId);
   const dilihat = getPlaceholderJumlahDilihat(listing);
   const maksQty = tersedia === null ? null : tersedia + listing.qtyDijual;
 
