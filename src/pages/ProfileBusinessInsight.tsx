@@ -22,6 +22,9 @@ import {
 } from '../data/businessInsightData';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useStokInventaris } from '../hooks/useStokInventaris';
+import { useStokObat } from '../hooks/useStokObat';
+import { useLivestock } from '../hooks/useLivestock';
 import UpgradeDialog from '../components/subscription/UpgradeDialog';
 import {
   downloadBIExportCSV,
@@ -995,6 +998,10 @@ export default function ProfileBusinessInsight() {
   const { hasFeature } = useSubscription();
   const { activeWorkspace } = useWorkspace();
   const canExport      = hasFeature('reports_export_excel');
+
+  useStokInventaris({ clearOnEmpty: true });
+  useStokObat();
+  useLivestock();
 
   const activeWorkspaceId = activeWorkspace?.workspace_uuid ?? null;
 

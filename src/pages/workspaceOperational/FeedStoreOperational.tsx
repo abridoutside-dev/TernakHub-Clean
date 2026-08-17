@@ -8,7 +8,8 @@
 //   Listing        = hanya dari stok fisik yang tersedia
 
 import { useState, useEffect, useMemo, type ReactElement } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
 import { getWorkspaceDashboardConfig } from '../../config/workspaceDashboardRegistry';
 import { resolveWorkspaceRoute } from '../../config/workspaceRegistry';
@@ -30,6 +31,7 @@ import {
   type RecordPerubahanStokInput,
 } from '../../services/stokInventarisService';
 import { addInventarisFromTambahStok, addPerubahanStok } from '../../data/stokInventarisData';
+import { getMasterPakanList, type MasterPakanItem } from '../../data/masterPakanData';
 import { buildAllMasterPakanPickerItems } from '../../data/masterPakanPickerData';
 import { getProdukKomersialList, type ProdukKomersialItem, KATEGORI_PRODUK_KOMERSIAL } from '../../data/produkKomersialData';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
@@ -131,21 +133,29 @@ const KOMERSIAL_KATEGORI_NAMA: Record<string, string> = Object.fromEntries(
 );
 
 function getMasterProdukList(): MasterProdukItem[] {
-  const fromPakan = buildAllMasterPakanPickerItems().map((p): MasterProdukItem => ({
-    id: p.referensiId,
-    nama: p.nama,
-    sumber: 'Master Pakan',
-    kategori: p.kategori,
-    subKategori: p.subKategori,
-    icon: p.icon,
-    satuanDefault: p.satuan,
-    referensiId: p.referensiId,
-  }));
+  const pickerItems = buildAllMasterPakanPickerItems();
+  const mpList = getMasterPakanList();
+  const mpByName = new Map(mpList.map((p) => [p.name.toLowerCase(), p]));
+
+  const fromPakan = pickerItems.map((p): MasterProdukItem => {
+    const mpMatch = mpByName.get(p.nama.toLowerCase());
+    return {
+      id: p.referensiId,
+      nama: p.nama,
+      sumber: 'Master Pakan' as MasterProdukSumber,
+      kategori: p.kategori,
+      subKategori: p.subKategori,
+      icon: p.icon,
+      satuanDefault: p.satuan,
+      referensiId: p.referensiId,
+      estimasiHarga: mpMatch?.estimasiHarga ?? undefined,
+    };
+  });
 
   const fromKomersial = getProdukKomersialList().map((p: ProdukKomersialItem): MasterProdukItem => ({
     id: p.id,
     nama: p.nama,
-    sumber: 'Produk Komersial',
+    sumber: 'Produk Komersial' as MasterProdukSumber,
     kategori: KOMERSIAL_KATEGORI_NAMA[p.kategoriSlug] ?? p.kategoriSlug,
     subKategori: p.seri ?? p.jenisProduk,
     icon: '📦',
@@ -2027,7 +2037,8 @@ function getSectionCountLabel(
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function FeedStoreOperational(): ReactElement {
-  const { id: workspaceId = '' } = useParams<{ id: string }>();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.workspace_uuid ?? '';
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedSection, setSelectedSection] = useState<SectionId>('products');
