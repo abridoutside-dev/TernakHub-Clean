@@ -30,7 +30,6 @@ import {
   type RecordPerubahanStokInput,
 } from '../../services/stokInventarisService';
 import { addInventarisFromTambahStok, addPerubahanStok } from '../../data/stokInventarisData';
-import { getMasterPakanList, type MasterPakanItem } from '../../data/masterPakanData';
 import { buildAllMasterPakanPickerItems } from '../../data/masterPakanPickerData';
 import { getProdukKomersialList, type ProdukKomersialItem, KATEGORI_PRODUK_KOMERSIAL } from '../../data/produkKomersialData';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';

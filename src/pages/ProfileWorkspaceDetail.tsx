@@ -278,6 +278,117 @@ function NotFound({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
   );
 }
 
+// ─── Subscription Section ──────────────────────────────────────────────────────
+
+function SubscriptionSection() {
+  const { plan: currentPlan } = useSubscription();
+  const currentCfg = PLAN_CONFIG[currentPlan] ?? PLAN_CONFIG.Free;
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [targetPlan, setTargetPlan] = useState<WorkspacePlan | null>(null);
+
+  const currentIdx = PLAN_ORDER.indexOf(currentPlan);
+  const canUpgrade = currentIdx < PLAN_ORDER.length - 1;
+  const canDowngrade = currentIdx > 0;
+
+  function handleRequestChange(plan: WorkspacePlan) {
+    setTargetPlan(plan);
+    setChangeOpen(true);
+  }
+
+  function handleConfirmChange() {
+    if (!targetPlan) return;
+    alert(`Permintaan perubahan paket ke ${PLAN_CONFIG[targetPlan].label} telah dicatat. Hubungi administrator platform untuk proses selanjutnya.`);
+    setChangeOpen(false);
+    setTargetPlan(null);
+  }
+
+  return (
+    <>
+      <SectionCard title="LANGGANAN & PAKET">
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Current Plan */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: currentCfg.bg, border: `1.5px solid ${currentCfg.border}`, borderRadius: 12 }}>
+            <div style={{ fontSize: 28 }}>{currentCfg.badge ?? '📋'}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: currentCfg.color, marginBottom: 2 }}>
+                PAKET SAAT INI
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: currentCfg.color }}>
+                {currentCfg.label}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>
+                {currentCfg.description}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: currentCfg.color, marginTop: 4 }}>
+                {currentCfg.price_label}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {canUpgrade && (
+              <button onClick={() => handleRequestChange(PLAN_ORDER[currentIdx + 1])} style={{ flex: 1, padding: '10px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                ⬆️ Upgrade
+              </button>
+            )}
+            {canDowngrade && (
+              <button onClick={() => handleRequestChange(PLAN_ORDER[currentIdx - 1])} style={{ flex: 1, padding: '10px', background: 'transparent', color: 'var(--color-text)', border: '1.5px solid var(--color-border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                ⬇️ Downgrade
+              </button>
+            )}
+          </div>
+
+          {/* All Plans */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {PLAN_ORDER.map((planKey) => {
+              const cfg = PLAN_CONFIG[planKey];
+              const isCurrent = planKey === currentPlan;
+              return (
+                <div key={planKey} style={{ padding: '10px 12px', background: isCurrent ? cfg.bg : 'var(--color-bg)', border: `1px solid ${isCurrent ? cfg.border : 'var(--color-border)'}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 18 }}>{cfg.badge ?? '📋'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? cfg.color : 'var(--color-text)' }}>
+                      {cfg.label} {isCurrent && <span style={{ fontSize: 10, fontWeight: 600, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '1px 6px', color: cfg.color }}>AKTIF</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 1 }}>{cfg.price_label}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'var(--color-bg)', borderRadius: 8 }}>
+            ℹ️ Perubahan paket dilakukan oleh administrator platform. Hubungi admin untuk upgrade atau downgrade paket Workspace ini.
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Plan Change Confirmation Dialog */}
+      {changeOpen && targetPlan && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setChangeOpen(false)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text)', marginBottom: 8 }}>Konfirmasi Perubahan Paket</div>
+            <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+              Anda akan mengajukan perubahan paket dari <strong>{currentCfg.label}</strong> ke <strong>{PLAN_CONFIG[targetPlan].label}</strong>.
+              <br /><br />
+              Perubahan paket hanya dapat dilakukan oleh administrator platform. Hubungi admin untuk melanjutkan.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setChangeOpen(false)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Batal
+              </button>
+              <button onClick={handleConfirmChange} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Ajukan Perubahan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfileWorkspaceDetail() {
@@ -298,7 +409,6 @@ export default function ProfileWorkspaceDetail() {
   const [deleteLoading,  setDeleteLoading]  = useState(false);
   const [saving,         setSaving]         = useState(false);
   const [toast,          setToast]          = useState<{ msg: string; ok: boolean } | null>(null);
-  const [planChangeOpen, setPlanChangeOpen] = useState(false);
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok });
@@ -403,117 +513,6 @@ export default function ProfileWorkspaceDetail() {
     showToast(result.ok ? 'Workspace tidak ditemukan.' : result.errors.map((error) => error.message).join(' · '), false);
   }
 
-  // ── Subscription Section ──────────────────────────────────────────────────────
-
-  function SubscriptionSection({ ws: wsProp }: { ws: WorkspaceRecord }) {
-    const { plan: currentPlan } = useSubscription();
-    const currentCfg = PLAN_CONFIG[currentPlan] ?? PLAN_CONFIG.Free;
-    const [changeOpen, setChangeOpen] = useState(false);
-    const [targetPlan, setTargetPlan] = useState<WorkspacePlan | null>(null);
-
-    const currentIdx = PLAN_ORDER.indexOf(currentPlan);
-    const canUpgrade = currentIdx < PLAN_ORDER.length - 1;
-    const canDowngrade = currentIdx > 0;
-
-    function handleRequestChange(plan: WorkspacePlan) {
-      setTargetPlan(plan);
-      setChangeOpen(true);
-    }
-
-    function handleConfirmChange() {
-      if (!targetPlan) return;
-      showToast(`Permintaan perubahan paket ke ${PLAN_CONFIG[targetPlan].label} telah dicatat. Hubungi administrator platform untuk proses selanjutnya.`, true);
-      setChangeOpen(false);
-      setTargetPlan(null);
-    }
-
-    return (
-      <>
-        <SectionCard title="LANGGANAN & PAKET">
-          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Current Plan */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: currentCfg.bg, border: `1.5px solid ${currentCfg.border}`, borderRadius: 12 }}>
-              <div style={{ fontSize: 28 }}>{currentCfg.badge ?? '📋'}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: currentCfg.color, marginBottom: 2 }}>
-                  PAKET SAAT INI
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: currentCfg.color }}>
-                  {currentCfg.label}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>
-                  {currentCfg.description}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: currentCfg.color, marginTop: 4 }}>
-                  {currentCfg.price_label}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              {canUpgrade && (
-                <button onClick={() => handleRequestChange(PLAN_ORDER[currentIdx + 1])} style={{ flex: 1, padding: '10px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  ⬆️ Upgrade
-                </button>
-              )}
-              {canDowngrade && (
-                <button onClick={() => handleRequestChange(PLAN_ORDER[currentIdx - 1])} style={{ flex: 1, padding: '10px', background: 'transparent', color: 'var(--color-text)', border: '1.5px solid var(--color-border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  ⬇️ Downgrade
-                </button>
-              )}
-            </div>
-
-            {/* All Plans */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {PLAN_ORDER.map((planKey) => {
-                const cfg = PLAN_CONFIG[planKey];
-                const isCurrent = planKey === currentPlan;
-                return (
-                  <div key={planKey} style={{ padding: '10px 12px', background: isCurrent ? cfg.bg : 'var(--color-bg)', border: `1px solid ${isCurrent ? cfg.border : 'var(--color-border)'}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ fontSize: 18 }}>{cfg.badge ?? '📋'}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? cfg.color : 'var(--color-text)' }}>
-                        {cfg.label} {isCurrent && <span style={{ fontSize: 10, fontWeight: 600, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '1px 6px', color: cfg.color }}>AKTIF</span>}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 1 }}>{cfg.price_label}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{ fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'var(--color-bg)', borderRadius: 8 }}>
-              ℹ️ Perubahan paket dilakukan oleh administrator platform. Hubungi admin untuk upgrade atau downgrade paket Workspace ini.
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Plan Change Confirmation Dialog */}
-        {changeOpen && targetPlan && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setChangeOpen(false)}>
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text)', marginBottom: 8 }}>Konfirmasi Perubahan Paket</div>
-              <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>
-                Anda akan mengajukan perubahan paket dari <strong>{currentCfg.label}</strong> ke <strong>{PLAN_CONFIG[targetPlan].label}</strong>.
-                <br /><br />
-                Perubahan paket hanya dapat dilakukan oleh administrator platform. Hubungi admin untuk melanjutkan.
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button onClick={() => setChangeOpen(false)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  Batal
-                </button>
-                <button onClick={handleConfirmChange} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  Ajukan Perubahan
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
-
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -574,8 +573,7 @@ export default function ProfileWorkspaceDetail() {
         )}
       </SectionCard>
 
-      {/* Subscription */}
-      <SubscriptionSection ws={ws} />
+      <SubscriptionSection />
 
       {/* Lokasi & Kontak */}
       <SectionCard title="LOKASI & KONTAK">
