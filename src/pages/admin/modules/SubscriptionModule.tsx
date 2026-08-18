@@ -3,9 +3,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../layout/AdminLayout';
+import { supabase } from '../../../lib/supabase';
 import {
   assignSubscriptionPackage,
   activateSubscription,
+  approveSubscriptionChangeRequest,
   cancelSubscription,
   changeSubscriptionPackage,
   createSubscriptionPackage,
@@ -15,8 +17,10 @@ import {
   getPackageEntitlements,
   getSubscriptionAdmin,
   getSubscriptionAudit,
+  getSubscriptionChangeRequests,
   getSubscriptionHistory,
   getSubscriptionPackageDeletePreflight,
+  rejectSubscriptionChangeRequest,
   setSubscriptionPackageStatus,
   updateSubscriptionPackage,
   upsertPackageEntitlements,
@@ -33,6 +37,7 @@ import type {
   SubscriptionPreflight,
   SubscriptionRecordAdmin,
 } from '../../../types/subscriptionAdmin';
+import type { SubscriptionChangeRequest } from '../../../types/subscriptionChangeRequest';
 import { SUBSCRIPTION_FEATURE_POLICY } from '../../../data/subscriptionFeaturePolicy';
 
 
@@ -406,6 +411,84 @@ function ChangePackageDialog({
   </div></div>;
 }
 
+function RequestsTable({
+  items, loading, onRefresh, onNotice, workspaces,
+}: {
+  items: SubscriptionChangeRequest[];
+  loading: boolean;
+  onRefresh: () => void;
+  onNotice: (notice: Notice) => void;
+  workspaces: SubscriptionAdminData['workspaces'];
+}) {
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const approve = async (req: SubscriptionChangeRequest) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const result = await approveSubscriptionChangeRequest(req.id, (await supabase.auth.getUser()).data.user?.id ?? '');
+      if (!result.ok) {
+        setActionError(result.error.message);
+        onNotice({ kind: 'error', message: result.error.message });
+        return;
+      }
+      onNotice({ kind: 'success', message: `Paket ${req.from_plan_key} → ${req.to_plan_key} berhasil di-approve.` });
+      onRefresh();
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'Gagal memproses permintaan.';
+      setActionError(msg);
+      onNotice({ kind: 'error', message: msg });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reject = async (req: SubscriptionChangeRequest) => {
+    const reason = window.prompt('Alasan penolakan (opsional):');
+    setBusy(true);
+    setActionError(null);
+    try {
+      const result = await rejectSubscriptionChangeRequest(req.id, (await supabase.auth.getUser()).data.user?.id ?? '');
+      if (!result.ok) {
+        setActionError(result.error.message);
+        onNotice({ kind: 'error', message: result.error.message });
+        return;
+      }
+      onNotice({ kind: 'success', message: 'Permintaan perubahan paket ditolak.' });
+      onRefresh();
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'Gagal memproses permintaan.';
+      setActionError(msg);
+      onNotice({ kind: 'error', message: msg });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <div>
+    {actionError && <div style={{ ...errorBox, marginBottom: 12 }}>{actionError}</div>}
+    {loading ? (
+      <div style={{ padding: 40, textAlign: 'center', color: muted }}>Memuat permintaan…</div>
+    ) : items.length === 0 ? (
+      <div style={{ padding: 40, textAlign: 'center', color: muted }}>Tidak ada permintaan perubahan paket yang menunggu.</div>
+    ) : (
+      <div style={tableWrap}><table style={table}><thead><tr>{['Workspace', 'Pemilik', 'Dari', 'Ke', 'Diajukan', 'Aksi'].map((head) => <th key={head} style={th}>{head}</th>)}</tr></thead><tbody>
+        {items.map((req) => (
+          <tr key={req.id}>
+            <td style={td}><strong>{req.workspace_name ?? req.workspace_id}</strong><div style={{ color: muted, fontSize: 11 }}>{req.subscription_id ?? 'tanpa subscription'}</div></td>
+            <td style={td}>{workspaces.find(w => w.id === req.workspace_id)?.owner_name ?? req.owner_name ?? '—'}</td>
+            <td style={td}>{req.from_plan_key}</td>
+            <td style={td}>{req.to_plan_key}</td>
+            <td style={td}>{dateOf(req.created_at)}</td>
+            <td style={td}><div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><Button onClick={() => void approve(req)} disabled={busy}>Approve</Button><Button danger secondary onClick={() => void reject(req)} disabled={busy}>Reject</Button></div></td>
+          </tr>
+        ))}
+      </tbody></table></div>
+    )}
+  </div>;
+}
+
 function SubscriptionsTable({
   items, packages, workspaces, onRefresh, onNotice,
 }: {
@@ -496,10 +579,12 @@ export default function SubscriptionModule() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [tab, setTab] = useState<'subscriptions' | 'packages' | 'logs'>('subscriptions');
+  const [tab, setTab] = useState<'subscriptions' | 'packages' | 'logs' | 'requests'>('subscriptions');
   const [editing, setEditing] = useState<SubscriptionPackage | undefined>();
   const [showEditor, setShowEditor] = useState(false);
   const [detail, setDetail] = useState<SubscriptionPackage | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<SubscriptionChangeRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
   const loadData = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -531,13 +616,30 @@ export default function SubscriptionModule() {
   const refresh = () => {
     void loadData();
     if (tab === 'logs') void loadLogs();
+    if (tab === 'requests') void loadPendingRequests();
   };
+
+  const loadPendingRequests = useCallback(async () => {
+    setRequestsLoading(true);
+    try {
+      const next = await getSubscriptionChangeRequests('Pending');
+      setPendingRequests(next);
+    } catch (cause) {
+      setNotice({ kind: 'error', message: cause instanceof Error ? cause.message : 'Gagal memuat permintaan.' });
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'requests') void loadPendingRequests();
+  }, [tab, loadPendingRequests]);
   return <AdminLayout><div style={{ maxWidth: 1440, margin: '0 auto' }}>
     <div style={{ marginBottom: 22 }}><div style={{ color: muted, fontSize: 12 }}>Admin › Subscription</div><h1 style={{ margin: '7px 0 0', fontSize: 24 }}>Manajemen Subscription</h1><p style={{ color: muted, fontSize: 13 }}>Paket, lifecycle workspace, riwayat, dan audit log melalui Supabase Edge Function.</p></div>
      {error && <div style={errorBox}>{error}</div>}
      {notice && <div style={notice.kind === 'success' ? successBox : errorBox}>{notice.message}</div>}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>{data && <><Card label="Total Paket" value={data.stats.total_packages} /><Card label="Paket Aktif" value={data.stats.active_packages} /><Card label="Total Subscription" value={data.stats.total_subscriptions} /><Card label="Aktif" value={data.stats.active_subscriptions} /><Card label="Trial" value={data.stats.trial_subscriptions} /><Card label="Kadaluarsa" value={data.stats.expired_subscriptions} /></>}</div>
-    <div style={{ ...panel, padding: 0 }}><div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${border}`, padding: '0 16px' }}>{[['subscriptions', 'Subscription'], ['packages', 'Paket'], ['logs', 'Riwayat & Audit']].map(([key, label]) => <button type="button" key={key} onClick={() => setTab(key as typeof tab)} style={{ padding: '13px 14px', border: 0, borderBottom: tab === key ? `2px solid ${blue}` : '2px solid transparent', background: 'transparent', color: tab === key ? '#0f172a' : muted, fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div>
+     <div style={{ ...panel, padding: 0 }}><div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${border}`, padding: '0 16px' }}>{[['subscriptions', 'Subscription'], ['requests', 'Permintaan'], ['packages', 'Paket'], ['logs', 'Riwayat & Audit']].map(([key, label]) => <button type="button" key={key} onClick={() => setTab(key as typeof tab)} style={{ padding: '13px 14px', border: 0, borderBottom: tab === key ? `2px solid ${blue}` : '2px solid transparent', background: 'transparent', color: tab === key ? '#0f172a' : muted, fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div>
         <div style={{ padding: 18 }}>
           {loading || (tab === 'logs' && (logsLoading || !logsLoaded)) ? (
             <div style={{ padding: 50, textAlign: 'center', color: muted }}>Memuat data subscription…</div>
@@ -548,6 +650,14 @@ export default function SubscriptionModule() {
               workspaces={data.workspaces}
               onRefresh={refresh}
               onNotice={setNotice}
+            />
+          ) : tab === 'requests' ? (
+            <RequestsTable
+              items={pendingRequests}
+              loading={requestsLoading}
+              onRefresh={refresh}
+              onNotice={setNotice}
+              workspaces={data?.workspaces ?? []}
             />
           ) : tab === 'packages' && data ? (
             <div>

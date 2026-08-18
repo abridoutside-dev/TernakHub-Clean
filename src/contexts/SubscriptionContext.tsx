@@ -46,6 +46,11 @@ export interface SubscriptionState {
   isLoading: boolean;
 
   /**
+   * ID of the current workspace's subscription record — null when unknown.
+   */
+  subscriptionId: string | null;
+
+  /**
    * Returns true when the active workspace's plan/package grants access to the feature.
    * Package entitlements override plan defaults.
    *
@@ -130,6 +135,7 @@ export function useSubscription(): SubscriptionState {
     workspaceUuid,
     plan,
     status:      (dbSub?.status      ?? 'Active') as WorkspaceSubscriptionStatus,
+    subscriptionId: dbSub?.id ?? null,
     activatedAt: dbSub?.started_at   ?? null,
     expiredAt:   dbSub?.expires_at   ?? null,
     renewalAt:   dbSub?.expires_at   ?? null,

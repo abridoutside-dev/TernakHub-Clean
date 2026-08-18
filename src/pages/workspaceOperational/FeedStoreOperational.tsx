@@ -7,7 +7,7 @@
 //   Manajemen Stok = STOK FISIK workspace (stok_inventaris)
 //   Listing        = hanya dari stok fisik yang tersedia
 
-import { useState, useEffect, useMemo, type ReactElement } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactElement } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
@@ -1541,6 +1541,7 @@ function StokMasukModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [selectedProdukId, setSelectedProdukId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -1577,10 +1578,23 @@ function StokMasukModal({
     setShowDropdown(false);
     if (prod.satuanDefault) setUnit(prod.satuanDefault);
     if (prod.estimasiHarga) setHargaBeli(String(prod.estimasiHarga));
+    setTimeout(() => inputRef.current?.blur(), 0);
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSelectedProdukId('');
+    setSearchTerm(e.target.value);
+    setShowDropdown(true);
+  }
+
+  function handleInputFocus() {
+    if (!selectedProduk) setShowDropdown(true);
   }
 
   function resetForm() {
     setSelectedProdukId('');
+    setSearchTerm('');
+    setShowDropdown(false);
     setUnit('Kg');
     setJumlah('');
     setTanggal(new Date().toISOString().slice(0, 10));
@@ -1666,13 +1680,27 @@ function StokMasukModal({
       <FieldWrap label="Produk" required>
         <div style={{ position: 'relative' }}>
           <input
+            ref={inputRef}
             type="text"
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
-            onFocus={() => setShowDropdown(true)}
-            placeholder="Cari produk..."
+            value={selectedProduk ? selectedProduk.nama : searchTerm}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            placeholder={selectedProduk ? '' : 'Cari produk...'}
             style={inputStyle}
           />
+          {selectedProduk && (
+            <button
+              type="button"
+              onClick={() => { setSelectedProdukId(''); setSearchTerm(''); setShowDropdown(true); inputRef.current?.focus(); }}
+              style={{
+                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#6b7280', padding: 2, lineHeight: 1,
+              }}
+              title="Hapus pilihan"
+            >
+              ×
+            </button>
+          )}
           {showDropdown && (
             <div style={{
               position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0,
@@ -1685,6 +1713,7 @@ function StokMasukModal({
                 filteredProduk.map((prod) => (
                   <div
                     key={prod.id}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleProductSelect(prod)}
                     style={{
                       padding: '8px 10px', cursor: 'pointer', fontSize: 11,

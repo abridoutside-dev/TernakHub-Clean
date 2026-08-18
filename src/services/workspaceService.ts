@@ -119,6 +119,10 @@ import type {
   OwnershipTransferPreflight,
   OwnershipTransferRecord,
 } from '../types/ownershipTransfer';
+import type {
+  CreateSubscriptionChangeRequestInput,
+  SubscriptionChangeRequest,
+} from '../types/subscriptionChangeRequest';
 import {
   repoCreateOwnershipTransfer,
   repoGetOwnershipTransfer,
@@ -150,6 +154,13 @@ import {
   repoUpsertPackageEntitlements,
   SubscriptionRepoError,
 } from '../repositories/workspaceSubscriptionRepository';
+import {
+  repoCreateSubscriptionChangeRequest,
+  repoGetSubscriptionChangeRequest,
+  repoListSubscriptionChangeRequests,
+  repoUpdateSubscriptionChangeRequest,
+  SubscriptionRequestRepoError,
+} from '../repositories/workspaceSubscriptionRequestRepository';
 import type {
   PackageEntitlement,
   PackageEntitlementInput,
@@ -854,6 +865,103 @@ export async function changeSubscriptionPackage(input: {
   } catch (error) {
     return subscriptionError(error, 'Paket subscription tidak dapat diubah.');
   }
+}
+
+export async function createSubscriptionChangeRequest(
+  input: CreateSubscriptionChangeRequestInput,
+): Promise<SubscriptionServiceResult<SubscriptionChangeRequest>> {
+  if (!input.workspace_id || !input.to_plan_key || !input.from_plan_key || !input.requested_by) {
+    return { ok: false, error: { message: 'Workspace, paket asal, paket tujuan, dan pengaju wajib diisi.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoCreateSubscriptionChangeRequest(input) };
+  } catch (error) {
+    return subscriptionError(error, 'Permintaan perubahan paket tidak dapat dikirim.');
+  }
+}
+
+export async function getSubscriptionChangeRequests(
+  status?: string,
+): Promise<SubscriptionChangeRequest[]> {
+  try {
+    return await repoListSubscriptionChangeRequests(status);
+  } catch (error) {
+    throw error instanceof SubscriptionRequestRepoError
+      ? error
+      : new SubscriptionRequestRepoError('Gagal memuat daftar permintaan.');
+  }
+}
+
+export async function updateSubscriptionChangeRequest(
+  id: string,
+  patch: {
+    status: string;
+    reviewed_by: string;
+    reviewed_at: string;
+    note?: string | null;
+  },
+): Promise<SubscriptionServiceResult<SubscriptionChangeRequest>> {
+  if (!id || !patch.status || !patch.reviewed_by || !patch.reviewed_at) {
+    return { ok: false, error: { message: 'Data permintaan tidak lengkap.', code: 'VALIDATION' } };
+  }
+  try {
+    return { ok: true, data: await repoUpdateSubscriptionChangeRequest(id, patch) };
+  } catch (error) {
+    return subscriptionError(error, 'Permintaan tidak dapat diperbarui.');
+  }
+}
+
+export async function approveSubscriptionChangeRequest(
+  id: string,
+  reviewerId: string,
+): Promise<SubscriptionServiceResult<{ request: SubscriptionChangeRequest; subscription: SubscriptionRecordAdmin }>> {
+  const request = await repoGetSubscriptionChangeRequest(id);
+  if (!request) {
+    return { ok: false, error: { message: 'Permintaan tidak ditemukan.', code: 'NOT_FOUND' } };
+  }
+  if (request.status !== 'Pending') {
+    return { ok: false, error: { message: 'Permintaan ini sudah diproses.', code: 'ALREADY_PROCESSED' } };
+  }
+
+  const changeResult = await changeSubscriptionPackage({
+    subscription_id: request.subscription_id ?? request.workspace_id,
+    package_id: request.to_plan_key,
+  });
+
+  if (!changeResult.ok) {
+    return { ok: false, error: changeResult.error };
+  }
+
+  const updatedRequest = await repoUpdateSubscriptionChangeRequest(id, {
+    status: 'Approved',
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+  });
+
+  return { ok: true, data: { request: updatedRequest, subscription: changeResult.data } };
+}
+
+export async function rejectSubscriptionChangeRequest(
+  id: string,
+  reviewerId: string,
+  note?: string,
+): Promise<SubscriptionServiceResult<SubscriptionChangeRequest>> {
+  const request = await repoGetSubscriptionChangeRequest(id);
+  if (!request) {
+    return { ok: false, error: { message: 'Permintaan tidak ditemukan.', code: 'NOT_FOUND' } };
+  }
+  if (request.status !== 'Pending') {
+    return { ok: false, error: { message: 'Permintaan ini sudah diproses.', code: 'ALREADY_PROCESSED' } };
+  }
+
+  const updatedRequest = await repoUpdateSubscriptionChangeRequest(id, {
+    status: 'Rejected',
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+    note: note ?? null,
+  });
+
+  return { ok: true, data: updatedRequest };
 }
 
 export async function expireSubscription(id: string): Promise<SubscriptionServiceResult<SubscriptionRecordAdmin>> {

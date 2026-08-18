@@ -27,6 +27,7 @@ import {
 } from '../data/profileData';
 import { PLAN_CONFIG, PLAN_ORDER } from '../data/workspaceSubscriptionData';
 import type { WorkspacePlan } from '../types/workspace';
+import { createSubscriptionChangeRequest } from '../services/workspaceService';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -248,10 +249,15 @@ function QuickSummary() {
 // ─── Subscription Card ─────────────────────────────────────────────────────────
 
 function SubscriptionCard() {
-  const { plan: currentPlan } = useSubscription();
+  const { plan: currentPlan, subscriptionId } = useSubscription();
+  const { activeWorkspace } = useWorkspace();
+  const { currentUser } = useAuth();
   const currentCfg = PLAN_CONFIG[currentPlan] ?? PLAN_CONFIG.Free;
   const [changeOpen, setChangeOpen] = useState(false);
   const [targetPlan, setTargetPlan] = useState<WorkspacePlan | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const currentIdx = PLAN_ORDER.indexOf(currentPlan);
   const canUpgrade = currentIdx < PLAN_ORDER.length - 1;
@@ -260,13 +266,41 @@ function SubscriptionCard() {
   function handleRequestChange(plan: WorkspacePlan) {
     setTargetPlan(plan);
     setChangeOpen(true);
+    setError(null);
+    setSuccess(null);
   }
 
-  function handleConfirmChange() {
-    if (!targetPlan) return;
-    alert(`Permintaan perubahan paket ke ${PLAN_CONFIG[targetPlan].label} telah dicatat. Hubungi administrator platform untuk proses selanjutnya.`);
+  async function handleConfirmChange() {
+    if (!targetPlan || !currentUser || !activeWorkspace) return;
+
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    const result = await createSubscriptionChangeRequest({
+      workspace_id: activeWorkspace.workspace_uuid,
+      subscription_id: subscriptionId,
+      from_plan_key: currentPlan,
+      to_plan_key: targetPlan,
+      requested_by: currentUser.id,
+      note: `Pengajuan perubahan paket dari ${PLAN_CONFIG[currentPlan].label} ke ${PLAN_CONFIG[targetPlan].label}.`,
+    });
+
+    if (!result.ok) {
+      setError(result.error.message);
+    } else {
+      setSuccess(`Permintaan perubahan paket ke ${PLAN_CONFIG[targetPlan].label} telah dikirim. Administrator akan memproses permintaan Anda.`);
+      setChangeOpen(false);
+      setTargetPlan(null);
+    }
+
+    setSubmitting(false);
+  }
+
+  function handleCloseDialog() {
     setChangeOpen(false);
     setTargetPlan(null);
+    setError(null);
   }
 
   return (
@@ -338,7 +372,7 @@ function SubscriptionCard() {
       </div>
 
       {changeOpen && targetPlan && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setChangeOpen(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={handleCloseDialog}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text)', marginBottom: 8 }}>Konfirmasi Perubahan Paket</div>
             <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>
@@ -346,12 +380,25 @@ function SubscriptionCard() {
               <br /><br />
               Perubahan paket hanya dapat dilakukan oleh administrator platform. Hubungi admin untuk melanjutkan.
             </div>
+
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12, color: '#991b1b' }}>
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12, color: '#166534' }}>
+                {success}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setChangeOpen(false)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={handleCloseDialog} disabled={submitting} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
                 Batal
               </button>
-              <button onClick={handleConfirmChange} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                Ajukan Perubahan
+              <button onClick={handleConfirmChange} disabled={submitting} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+                {submitting ? 'Mengirim...' : 'Ajukan Perubahan'}
               </button>
             </div>
           </div>
