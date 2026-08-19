@@ -63,7 +63,10 @@ export async function repoListSubscriptionChangeRequests(
     );
   }
 
-  return (data ?? []) as SubscriptionChangeRequest[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    workspace_name: (row.workspaces as { name?: string } | null)?.name ?? row.workspace_name ?? undefined,
+  })) as SubscriptionChangeRequest[];
 }
 
 export async function repoGetSubscriptionChangeRequest(
