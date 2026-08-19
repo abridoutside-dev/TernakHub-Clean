@@ -169,25 +169,29 @@ export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string, work
   const { from, to } = getPeriodRange(key);
   const activeId = activeWorkspaceId;
   const isFarm = workspaceType === 'Farm';
+  const isFeedStore = workspaceType === 'FeedStore';
+  const isVeterinary = workspaceType === 'Veterinary';
 
-  // ── Livestock ──
+  // ── Livestock ── (hanya Farm)
   const aktif       = isFarm ? buildIndividuList() : [];
   const luar        = isFarm ? buildOutsideIndividu() : [];
   const jumlahTernak = aktif.length + luar.length;
   const nilaiAsetTernak = isFarm ? getLivestockEstimasiNilai() : 0;
 
-  // ── Stok Pakan ──
-  const inventaris  = getInventarisList().filter((i) => !i.diarsipkan);
+  // ── Stok Pakan ── (Farm + FeedStore)
+  const includeStokPakan = isFarm || isFeedStore;
+  const inventaris  = includeStokPakan ? getInventarisList().filter((i) => !i.diarsipkan) : [];
   const jumlahItemPakan = inventaris.length;
   const nilaiStokPakan  = inventaris.reduce(
     (sum, i) => sum + (i.hargaBeli !== undefined ? i.hargaBeli * i.jumlahStok : 0),
     0
   );
 
-  // ── Stok Obat ──
-  const jumlahItemObat = STOK_OBAT_ITEMS.filter(
-    (i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif'
-  ).length;
+  // ── Stok Obat ── (Farm + Veterinary)
+  const includeStokObat = isFarm || isVeterinary;
+  const jumlahItemObat = includeStokObat
+    ? STOK_OBAT_ITEMS.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif').length
+    : 0;
 
   // ── Marketplace ──
   const allTrx = getAllTransaksi();
@@ -239,8 +243,10 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
   const activeId = activeWorkspaceId;
   const { from, to } = getPeriodRange(key);
   const isFarm = workspaceType === 'Farm';
+  const isFeedStore = workspaceType === 'FeedStore';
+  const isVeterinary = workspaceType === 'Veterinary';
 
-  // ── Livestock ──
+  // ── Livestock ── (hanya Farm)
   const aktif = isFarm ? buildIndividuList() : [];
   const luar  = isFarm ? buildOutsideIndividu() : [];
   const arsip = isFarm ? buildArchiveList() : [];
@@ -276,8 +282,9 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
       !['Selesai', 'Dibatalkan', 'Ditolak'].includes(t.status)
   ).length;
 
-  // ── Stok Pakan ──
-  const inventaris = getInventarisList().filter((i) => !i.diarsipkan);
+  // ── Stok Pakan ── (Farm + FeedStore)
+  const includeStokPakan = isFarm || isFeedStore;
+  const inventaris = includeStokPakan ? getInventarisList().filter((i) => !i.diarsipkan) : [];
   const itemDenganHarga = inventaris.filter((i) => i.hargaBeli !== undefined).length;
   const nilaiStokPakan  = inventaris.reduce(
     (s, i) => s + (i.hargaBeli !== undefined ? i.hargaBeli * i.jumlahStok : 0),
@@ -285,8 +292,11 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
   );
   const satuanSet = new Set(inventaris.map((i) => i.satuan));
 
-  // ── Stok Obat ──
-  const obatAktif = STOK_OBAT_ITEMS.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif');
+  // ── Stok Obat ── (Farm + Veterinary)
+  const includeStokObat = isFarm || isVeterinary;
+  const obatAktif = includeStokObat
+    ? STOK_OBAT_ITEMS.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif')
+    : [];
 
   // ── Pemberian Pakan (period-filtered by tanggal) ──
   const pemberianEntries = getAllRiwayatPerubahan().filter(
@@ -318,9 +328,11 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
       satuanVariasi: Array.from(satuanSet),
     },
     stokObat: {
-      totalItem: STOK_OBAT_ITEMS.length,
+      totalItem: includeStokObat ? STOK_OBAT_ITEMS.length : 0,
       aktif: obatAktif.length,
-      catatan: 'Nilai stok obat tidak tersedia (harga beli belum direkam).',
+      catatan: includeStokObat
+        ? 'Nilai stok obat tidak tersedia (harga beli belum direkam).'
+        : 'Modul ini tidak relevan untuk workspace ini.',
     },
     pemberianPakan: {
       totalEntries: pemberianEntries.length,

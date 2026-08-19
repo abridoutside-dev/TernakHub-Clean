@@ -10,7 +10,7 @@
 // • Semua data dibaca dari profileData.ts — tidak ada duplikasi data bisnis.
 
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -27,7 +27,10 @@ import {
 } from '../data/profileData';
 import { PLAN_CONFIG, PLAN_ORDER } from '../data/workspaceSubscriptionData';
 import type { WorkspacePlan } from '../types/workspace';
-import { createSubscriptionChangeRequest } from '../services/workspaceService';
+import {
+  createSubscriptionChangeRequest,
+  getLatestSubscriptionChangeRequest,
+} from '../services/workspaceService';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -252,16 +255,25 @@ function SubscriptionCard() {
   const { plan: currentPlan, subscriptionId } = useSubscription();
   const { activeWorkspace } = useWorkspace();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const currentCfg = PLAN_CONFIG[currentPlan] ?? PLAN_CONFIG.Free;
   const [changeOpen, setChangeOpen] = useState(false);
   const [targetPlan, setTargetPlan] = useState<WorkspacePlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [latestRequest, setLatestRequest] = useState<{ id: string; from_plan_key: string; to_plan_key: string; status: string; created_at: string; reviewed_at?: string | null; note?: string | null } | null>(null);
 
   const currentIdx = PLAN_ORDER.indexOf(currentPlan);
   const canUpgrade = currentIdx < PLAN_ORDER.length - 1;
   const canDowngrade = currentIdx > 0;
+
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    getLatestSubscriptionChangeRequest(activeWorkspace.workspace_uuid).then((req) => {
+      if (req) setLatestRequest(req);
+    });
+  }, [activeWorkspace]);
 
   function handleRequestChange(plan: WorkspacePlan) {
     setTargetPlan(plan);
@@ -290,6 +302,8 @@ function SubscriptionCard() {
       setError(result.error.message);
     } else {
       setSuccess(`Permintaan perubahan paket ke ${PLAN_CONFIG[targetPlan].label} telah dikirim. Administrator akan memproses permintaan Anda.`);
+      const latest = await getLatestSubscriptionChangeRequest(activeWorkspace.workspace_uuid);
+      if (latest) setLatestRequest(latest);
     }
 
     setSubmitting(false);
@@ -300,6 +314,15 @@ function SubscriptionCard() {
     setTargetPlan(null);
     setError(null);
   }
+
+  const statusConfig: Record<string, { label: string; bg: string; border: string; color: string }> = {
+    Pending:   { label: 'Menunggu Persetujuan', bg: '#fffbeb', border: '#fcd34d', color: '#b45309' },
+    Approved:  { label: 'Disetujui',            bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+    Rejected:  { label: 'Ditolak',              bg: '#fef2f2', border: '#fecaca', color: '#991b1b' },
+    Cancelled: { label: 'Dibatalkan',           bg: '#f1f5f9', border: '#e2e8f0', color: '#64748b' },
+  };
+
+  const requestStatus = latestRequest ? statusConfig[latestRequest.status] ?? null : null;
 
   return (
     <>
@@ -364,8 +387,33 @@ function SubscriptionCard() {
           })}
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'var(--color-bg)', borderRadius: 8 }}>
-          ℹ️ Perubahan paket dilakukan oleh administrator platform. Hubungi admin untuk upgrade atau downgrade paket Workspace ini.
+        {latestRequest && (
+          <div style={{ padding: '10px 12px', background: requestStatus?.bg ?? '#f1f5f9', border: `1px solid ${requestStatus?.border ?? '#e2e8f0'}`, borderRadius: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: requestStatus?.color ?? '#64748b', background: requestStatus?.bg ?? '#f1f5f9', border: `1px solid ${requestStatus?.border ?? '#e2e8f0'}`, borderRadius: 6, padding: '2px 8px' }}>
+                {requestStatus?.label ?? latestRequest.status}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+                {latestRequest.from_plan_key} → {latestRequest.to_plan_key}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+              Diajukan: {new Date(latestRequest.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              {latestRequest.reviewed_at && <> · Diproses: {new Date(latestRequest.reviewed_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>}
+            </div>
+            {latestRequest.note && (
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4, fontStyle: 'italic' }}>
+                {latestRequest.note}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.5, padding: '8px 12px', background: 'var(--color-bg)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span>ℹ️ Perubahan paket dilakukan oleh administrator platform. Hubungi admin untuk upgrade atau downgrade paket Workspace ini.</span>
+          <button onClick={() => navigate('/profile/support/contact')} style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            Hubungi Admin →
+          </button>
         </div>
       </div>
 

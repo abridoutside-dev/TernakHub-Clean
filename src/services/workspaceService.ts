@@ -157,6 +157,7 @@ import {
 import {
   repoCreateSubscriptionChangeRequest,
   repoGetPendingSubscriptionChangeRequest,
+  repoGetLatestSubscriptionChangeRequest,
   repoGetSubscriptionChangeRequest,
   repoListSubscriptionChangeRequests,
   repoUpdateSubscriptionChangeRequest,
@@ -907,6 +908,17 @@ export async function getSubscriptionChangeRequests(
     throw error instanceof SubscriptionRequestRepoError
       ? error
       : new SubscriptionRequestRepoError('Gagal memuat daftar permintaan.');
+  }
+}
+
+export async function getLatestSubscriptionChangeRequest(
+  workspaceId: string,
+): Promise<SubscriptionChangeRequest | null> {
+  if (!workspaceId) return null;
+  try {
+    return await repoGetLatestSubscriptionChangeRequest(workspaceId);
+  } catch {
+    return null;
   }
 }
 

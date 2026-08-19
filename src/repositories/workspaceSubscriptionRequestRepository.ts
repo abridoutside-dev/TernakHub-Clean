@@ -102,6 +102,21 @@ export async function repoGetPendingSubscriptionChangeRequest(
   return data as SubscriptionChangeRequest;
 }
 
+export async function repoGetLatestSubscriptionChangeRequest(
+  workspaceId: string,
+): Promise<SubscriptionChangeRequest | null> {
+  const { data, error } = await supabase
+    .from('subscription_change_requests')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as SubscriptionChangeRequest;
+}
+
 export async function repoUpdateSubscriptionChangeRequest(
   id: string,
   patch: {

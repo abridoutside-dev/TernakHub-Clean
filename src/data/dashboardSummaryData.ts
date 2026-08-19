@@ -282,7 +282,11 @@ export function getSummaryCards(activeWorkspaceId?: string, workspaceType?: stri
     .filter((id) => CARD_BUILDERS[id])
     .map((id) => safeBuild(id, CARD_BUILDERS[id], activeWorkspaceId, workspaceType));
 
-  return workspaceType === 'FeedStore' || workspaceType === 'Veterinary'
-    ? cards.filter((c) => c.id !== 'livestock')
-    : cards;
+  const filtered = workspaceType === 'FeedStore'
+    ? cards.filter((c) => c.id !== 'livestock' && c.id !== 'medicine')
+    : workspaceType === 'Veterinary'
+      ? cards.filter((c) => c.id !== 'livestock' && c.id !== 'feed')
+      : cards;
+
+  return filtered;
 }

@@ -6,6 +6,7 @@
 // Subscription changes are managed by platform administrators.
 
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useNavigate } from 'react-router-dom';
 import {
   PLAN_CONFIG,
   PLAN_ORDER,
@@ -29,6 +30,7 @@ interface UpgradeDialogProps {
 
 export default function UpgradeDialog({ feature, featureLabel, onClose }: UpgradeDialogProps) {
   const { plan: current } = useSubscription();
+  const navigate = useNavigate();
 
   const targetPlan: WorkspacePlan = getMinimumPlan(feature);
   const currentCfg = PLAN_CONFIG[current];
@@ -36,7 +38,7 @@ export default function UpgradeDialog({ feature, featureLabel, onClose }: Upgrad
   const unlockedFeatures = PLAN_UPGRADE_UNLOCKS[targetPlan];
 
   function handleUpgrade() {
-    onClose();
+    navigate('/profile/support/contact');
   }
 
   return (

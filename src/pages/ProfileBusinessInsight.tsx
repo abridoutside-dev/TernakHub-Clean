@@ -288,6 +288,8 @@ function GrafikSection({
 
   const { livestock: lv, stokPakan: sp, stokObat: so } = breakdown;
   const isFarm = workspaceType === 'Farm';
+  const isFeedStore = workspaceType === 'FeedStore';
+  const isVeterinary = workspaceType === 'Veterinary';
   const maxNilaiJenis = isFarm ? Math.max(...lv.jenisBreakdown.map((j) => j.estimasiNilai), 1) : 1;
 
   // Komposisi nilai usaha — compare relevant pillars side-by-side
@@ -365,35 +367,36 @@ function GrafikSection({
         </>
       )}
 
-      {/* ── 3. Stok Pakan ────────────────────────────────────────────────── */}
-      <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>🌾 Estimasi Stok Pakan</div>
-        <ChartSourceBadge text="Snapshot terkini" filtered={false} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>{formatRupiah(sp.nilaiTotal, true)}</div>
-            <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>{sp.totalItem} item aktif · {sp.itemDenganHarga} dengan harga beli</div>
+      {isFarm || isFeedStore ? (
+        <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>🌾 Estimasi Stok Pakan</div>
+          <ChartSourceBadge text="Snapshot terkini" filtered={false} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>{formatRupiah(sp.nilaiTotal, true)}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>{sp.totalItem} item aktif · {sp.itemDenganHarga} dengan harga beli</div>
+            </div>
+            <div style={{ fontSize: 36, opacity: 0.25 }}>🌾</div>
           </div>
-          <div style={{ fontSize: 36, opacity: 0.25 }}>🌾</div>
-        </div>
-        {sp.totalItem > 0 && sp.itemDenganHarga < sp.totalItem && (
-          <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#b45309' }}>
-            ⚠️ {sp.totalItem - sp.itemDenganHarga} item belum punya harga beli — nilai estimasi mungkin lebih rendah dari aktual.
-          </div>
-        )}
-        {sp.totalItem === 0 && (
-          <div style={{ fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', padding: '8px 0' }}>
-            Belum ada item stok pakan aktif.
-          </div>
-        )}
-        {sp.satuanVariasi.length > 0 && (
-          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-muted)' }}>
-              Satuan: {sp.satuanVariasi.slice(0, 5).join(' · ')}
+          {sp.totalItem > 0 && sp.itemDenganHarga < sp.totalItem && (
+            <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#b45309' }}>
+              ⚠️ {sp.totalItem - sp.itemDenganHarga} item belum punya harga beli — nilai estimasi mungkin lebih rendah dari aktual.
             </div>
           )}
-        </div>
+          {sp.totalItem === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', padding: '8px 0' }}>
+              Belum ada item stok pakan aktif.
+            </div>
+          )}
+          {sp.satuanVariasi.length > 0 && (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-muted)' }}>
+                Satuan: {sp.satuanVariasi.slice(0, 5).join(' · ')}
+              </div>
+            )}
+          </div>
+      ) : null}
 
-        {/* ── 4. Stok Obat ─────────────────────────────────────────────────── */}
+      {(isFarm || isVeterinary) && (
         <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>💊 Nilai Stok Obat</div>
           <ChartSourceBadge text="Snapshot terkini" filtered={false} />
@@ -408,6 +411,7 @@ function GrafikSection({
             </div>
           </div>
         </div>
+      )}
 
       {/* ── 5. Marketplace: Penjualan vs Pembelian ───────────────────────── */}
       <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
@@ -520,6 +524,8 @@ function FilterBadge({ label, filtered }: { label: string; filtered: boolean }) 
 function BreakdownSection({ breakdown, periodeLabel, workspaceType }: { breakdown: ModuleBreakdown; periodeLabel: string; workspaceType?: string }) {
   const { livestock: lv, marketplace: mp, stokPakan: sp, stokObat: so, pemberianPakan: pb } = breakdown;
   const isFarm = workspaceType === 'Farm';
+  const isFeedStore = workspaceType === 'FeedStore';
+  const isVeterinary = workspaceType === 'Veterinary';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -558,34 +564,36 @@ function BreakdownSection({ breakdown, periodeLabel, workspaceType }: { breakdow
         <BreakdownRow icon="🟡" label="Total Pembelian"  value={formatRupiah(mp.pembelian)} />
       </ModuleCard>
 
-      {/* Stok Pakan */}
-      <ModuleCard title="Stok Pakan" icon="🌾">
-        <FilterBadge label={periodeLabel} filtered={false} />
-        <BreakdownRow icon="📦" label="Total Item Aktif"        value={`${sp.totalItem}`} />
-        <BreakdownRow icon="🏷️" label="Item dengan Harga Beli" value={`${sp.itemDenganHarga} / ${sp.totalItem}`} />
-        <BreakdownRow icon="💰" label="Nilai Stok (Estimasi)"  value={formatRupiah(sp.nilaiTotal)}
-          sub={sp.itemDenganHarga < sp.totalItem ? `${sp.totalItem - sp.itemDenganHarga} item tidak punya harga beli` : undefined}
-        />
-        {sp.satuanVariasi.length > 0 && (
-          <BreakdownRow icon="📏" label="Satuan" value={sp.satuanVariasi.slice(0, 4).join(', ')} />
-        )}
-      </ModuleCard>
+      {(isFarm || isFeedStore) && (
+        <ModuleCard title="Stok Pakan" icon="🌾">
+          <FilterBadge label={periodeLabel} filtered={false} />
+          <BreakdownRow icon="📦" label="Total Item Aktif"        value={`${sp.totalItem}`} />
+          <BreakdownRow icon="🏷️" label="Item dengan Harga Beli" value={`${sp.itemDenganHarga} / ${sp.totalItem}`} />
+          <BreakdownRow icon="💰" label="Nilai Stok (Estimasi)"  value={formatRupiah(sp.nilaiTotal)}
+            sub={sp.itemDenganHarga < sp.totalItem ? `${sp.totalItem - sp.itemDenganHarga} item tidak punya harga beli` : undefined}
+          />
+          {sp.satuanVariasi.length > 0 && (
+            <BreakdownRow icon="📏" label="Satuan" value={sp.satuanVariasi.slice(0, 4).join(', ')} />
+          )}
+        </ModuleCard>
+      )}
 
-      {/* Stok Obat */}
-      <ModuleCard title="Stok Obat" icon="💊">
-        <FilterBadge label={periodeLabel} filtered={false} />
-        <BreakdownRow icon="📦" label="Total Item" value={`${so.totalItem}`} />
-        <BreakdownRow icon="✅" label="Aktif"       value={`${so.aktif}`} />
-        <div style={{ padding: '10px 14px' }}>
-          <div style={{
-            background: '#fef3c7', border: '1px solid #fcd34d',
-            borderRadius: 8, padding: '8px 12px',
-            fontSize: 11, color: '#b45309', lineHeight: 1.5,
-          }}>
-            ℹ️ {so.catatan}
+      {(isFarm || isVeterinary) && (
+        <ModuleCard title="Stok Obat" icon="💊">
+          <FilterBadge label={periodeLabel} filtered={false} />
+          <BreakdownRow icon="📦" label="Total Item" value={`${so.totalItem}`} />
+          <BreakdownRow icon="✅" label="Aktif"       value={`${so.aktif}`} />
+          <div style={{ padding: '10px 14px' }}>
+            <div style={{
+              background: '#fef3c7', border: '1px solid #fcd34d',
+              borderRadius: 8, padding: '8px 12px',
+              fontSize: 11, color: '#b45309', lineHeight: 1.5,
+            }}>
+              ℹ️ {so.catatan}
+            </div>
           </div>
-        </div>
-      </ModuleCard>
+        </ModuleCard>
+      )}
 
       {/* Pemberian Pakan */}
       <ModuleCard title="Pemberian Pakan" icon="🌿">
@@ -871,6 +879,8 @@ function LaporanSection({ rows, tahunanInsight }: { rows: LaporanBulananRow[]; t
 
 function RingkasanGrid({ data, workspaceType }: { data: RingkasanBI; workspaceType?: string }) {
   const isFarm = workspaceType === 'Farm';
+  const isFeedStore = workspaceType === 'FeedStore';
+  const isVeterinary = workspaceType === 'Veterinary';
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
       {isFarm && (
@@ -883,20 +893,24 @@ function RingkasanGrid({ data, workspaceType }: { data: RingkasanBI; workspaceTy
           highlight
         />
       )}
-      <MetricCard
-        icon="🌾"
-        label="Nilai Stok Pakan"
-        value={formatRupiah(data.nilaiStokPakan, true)}
-        sub={`${data.jumlahItemPakan} item aktif`}
-        note={data.jumlahItemPakan > 0 ? 'Berdasarkan harga beli yang tercatat' : undefined}
-      />
-      <MetricCard
-        icon="💊"
-        label="Stok Obat"
-        value={`${data.jumlahItemObat} item`}
-        sub="Aktif tersedia"
-        note="Nilai stok obat belum tersedia"
-      />
+      {(isFarm || isFeedStore) && (
+        <MetricCard
+          icon="🌾"
+          label="Nilai Stok Pakan"
+          value={formatRupiah(data.nilaiStokPakan, true)}
+          sub={`${data.jumlahItemPakan} item aktif`}
+          note={data.jumlahItemPakan > 0 ? 'Berdasarkan harga beli yang tercatat' : undefined}
+        />
+      )}
+      {(isFarm || isVeterinary) && (
+        <MetricCard
+          icon="💊"
+          label="Stok Obat"
+          value={`${data.jumlahItemObat} item`}
+          sub="Aktif tersedia"
+          note="Nilai stok obat belum tersedia"
+        />
+      )}
       <MetricCard
         icon="💚"
         label="Total Penjualan"
