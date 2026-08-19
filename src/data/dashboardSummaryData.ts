@@ -53,7 +53,7 @@ export interface SummaryCardData {
   state: SummaryCardState;
 }
 
-type CardBuilder = (activeWorkspaceId?: string) => SummaryCardData;
+type CardBuilder = (activeWorkspaceId?: string, workspaceType?: string) => SummaryCardData;
 
 const LIVE_LABEL = 'Live';
 
@@ -237,10 +237,10 @@ function buildActiveBatchCard(_activeWorkspaceId?: string): SummaryCardData {
 
 const CARD_BUILDERS: Record<string, CardBuilder> = {
   health:    buildHealthCard,
-  livestock: (id?: string) => buildLivestockCard(getRingkasanBI('hari-ini', id)),
-  feed:      (id?: string) => buildFeedCard(getRingkasanBI('hari-ini', id)),
-  medicine:  (id?: string) => buildMedicineCard(getRingkasanBI('hari-ini', id)),
-  business:  (id?: string) => buildBusinessCard(getRingkasanBI('hari-ini', id)),
+  livestock: (id?: string, workspaceType?: string) => buildLivestockCard(getRingkasanBI('hari-ini', id, workspaceType)),
+  feed:      (id?: string, workspaceType?: string) => buildFeedCard(getRingkasanBI('hari-ini', id, workspaceType)),
+  medicine:  (id?: string, workspaceType?: string) => buildMedicineCard(getRingkasanBI('hari-ini', id, workspaceType)),
+  business:  (id?: string, workspaceType?: string) => buildBusinessCard(getRingkasanBI('hari-ini', id, workspaceType)),
   batch:     buildActiveBatchCard,
 };
 
@@ -263,9 +263,9 @@ const CARD_FALLBACK_META: Record<string, { icon: string; title: string; route: s
   batch:     { icon: '📦', title: 'Active Batch',            route: '/batch', label: 'Buka Modul' },
 };
 
-function safeBuild(id: SummaryCardId, builder: CardBuilder, activeWorkspaceId?: string): SummaryCardData {
+function safeBuild(id: SummaryCardId, builder: CardBuilder, activeWorkspaceId?: string, workspaceType?: string): SummaryCardData {
   try {
-    return builder(activeWorkspaceId);
+    return builder(activeWorkspaceId, workspaceType);
   } catch {
     const meta = CARD_FALLBACK_META[id] ?? { icon: '⚠️', title: id, route: '/', label: 'Lihat Detail' as const };
     return {
@@ -277,8 +277,12 @@ function safeBuild(id: SummaryCardId, builder: CardBuilder, activeWorkspaceId?: 
 }
 
 /** Live-computed list of Summary Cards, urut sesuai SUMMARY_CARD_ORDER. */
-export function getSummaryCards(activeWorkspaceId?: string): SummaryCardData[] {
-  return SUMMARY_CARD_ORDER
+export function getSummaryCards(activeWorkspaceId?: string, workspaceType?: string): SummaryCardData[] {
+  const cards = SUMMARY_CARD_ORDER
     .filter((id) => CARD_BUILDERS[id])
-    .map((id) => safeBuild(id, CARD_BUILDERS[id], activeWorkspaceId));
+    .map((id) => safeBuild(id, CARD_BUILDERS[id], activeWorkspaceId, workspaceType));
+
+  return workspaceType === 'FeedStore' || workspaceType === 'Veterinary'
+    ? cards.filter((c) => c.id !== 'livestock')
+    : cards;
 }

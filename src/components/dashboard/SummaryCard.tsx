@@ -132,7 +132,7 @@ function SummaryCardEmptyState() {
 export default function SummaryCardSection() {
   const [, forceRerender] = useState(0);
   const { activeWorkspace } = useWorkspace();
-  const cards = getSummaryCards(activeWorkspace?.workspace_uuid);
+  const cards = getSummaryCards(activeWorkspace?.workspace_uuid, activeWorkspace?.workspace_type);
 
   if (cards.length === 0) {
     return <SummaryCardEmptyState />;

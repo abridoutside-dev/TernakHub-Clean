@@ -290,8 +290,6 @@ function SubscriptionCard() {
       setError(result.error.message);
     } else {
       setSuccess(`Permintaan perubahan paket ke ${PLAN_CONFIG[targetPlan].label} telah dikirim. Administrator akan memproses permintaan Anda.`);
-      setChangeOpen(false);
-      setTargetPlan(null);
     }
 
     setSubmitting(false);
@@ -375,11 +373,17 @@ function SubscriptionCard() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={handleCloseDialog}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text)', marginBottom: 8 }}>Konfirmasi Perubahan Paket</div>
-            <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>
-              Anda akan mengajukan perubahan paket dari <strong>{currentCfg.label}</strong> ke <strong>{PLAN_CONFIG[targetPlan].label}</strong>.
-              <br /><br />
-              Perubahan paket hanya dapat dilakukan oleh administrator platform. Hubungi admin untuk melanjutkan.
-            </div>
+            {!success ? (
+              <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+                Anda akan mengajukan perubahan paket dari <strong>{currentCfg.label}</strong> ke <strong>{PLAN_CONFIG[targetPlan].label}</strong>.
+                <br /><br />
+                Perubahan paket hanya dapat dilakukan oleh administrator platform. Hubungi admin untuk melanjutkan.
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+                {success}
+              </div>
+            )}
 
             {error && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12, color: '#991b1b' }}>
@@ -394,12 +398,20 @@ function SubscriptionCard() {
             )}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={handleCloseDialog} disabled={submitting} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
-                Batal
-              </button>
-              <button onClick={handleConfirmChange} disabled={submitting} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
-                {submitting ? 'Mengirim...' : 'Ajukan Perubahan'}
-              </button>
+              {success ? (
+                <button onClick={handleCloseDialog} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Tutup
+                </button>
+              ) : (
+                <>
+                  <button onClick={handleCloseDialog} disabled={submitting} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-text)', fontSize: 13, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
+                    Batal
+                  </button>
+                  <button onClick={handleConfirmChange} disabled={submitting} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+                    {submitting ? 'Mengirim...' : 'Ajukan Perubahan'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

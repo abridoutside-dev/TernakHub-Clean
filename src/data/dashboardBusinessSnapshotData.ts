@@ -84,9 +84,9 @@ function hitungTrendIndicator(activeWorkspaceId?: string): TrendIndicator {
  * Empty state dipicu bila Business Insight belum punya data sama sekali
  * (dataLengkap === false DAN seluruh nilai inti masih nol).
  */
-export function getBusinessSnapshot(activeWorkspaceId?: string): BusinessSnapshotResult {
+export function getBusinessSnapshot(activeWorkspaceId?: string, workspaceType?: string): BusinessSnapshotResult {
   try {
-    const ringkasan = getRingkasanBI('bulan-ini', activeWorkspaceId);
+    const ringkasan = getRingkasanBI('bulan-ini', activeWorkspaceId, workspaceType);
     const batchAktif = Object.values(BATCH_DB).filter((b) => b.status === 'Aktif').length;
 
     const belumAdaDataSamaSekali =
@@ -129,12 +129,12 @@ export function getBusinessSnapshot(activeWorkspaceId?: string): BusinessSnapsho
         label: 'Batch Aktif',
         value: String(batchAktif),
       },
-      {
+      ...(workspaceType === 'Farm' ? [{
         id: 'total-livestock',
         icon: '🐑',
         label: 'Total Livestock',
         value: String(ringkasan.jumlahTernak),
-      },
+      }] : []),
       {
         id: 'farm-score',
         icon: '⭐',

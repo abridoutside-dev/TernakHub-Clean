@@ -165,15 +165,16 @@ export function getLivestockEstimasiNilai(): number {
 
 // ─── Ringkasan ────────────────────────────────────────────────────────────────
 
-export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string): RingkasanBI {
+export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string, workspaceType?: string): RingkasanBI {
   const { from, to } = getPeriodRange(key);
   const activeId = activeWorkspaceId;
+  const isFarm = workspaceType === 'Farm';
 
   // ── Livestock ──
-  const aktif       = buildIndividuList();
-  const luar        = buildOutsideIndividu();
+  const aktif       = isFarm ? buildIndividuList() : [];
+  const luar        = isFarm ? buildOutsideIndividu() : [];
   const jumlahTernak = aktif.length + luar.length;
-  const nilaiAsetTernak = getLivestockEstimasiNilai();
+  const nilaiAsetTernak = isFarm ? getLivestockEstimasiNilai() : 0;
 
   // ── Stok Pakan ──
   const inventaris  = getInventarisList().filter((i) => !i.diarsipkan);
@@ -234,14 +235,15 @@ export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string): Rin
 
 // ─── Module Breakdown ────────────────────────────────────────────────────────
 
-export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string): ModuleBreakdown {
+export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, workspaceType?: string): ModuleBreakdown {
   const activeId = activeWorkspaceId;
   const { from, to } = getPeriodRange(key);
+  const isFarm = workspaceType === 'Farm';
 
   // ── Livestock ──
-  const aktif = buildIndividuList();
-  const luar  = buildOutsideIndividu();
-  const arsip = buildArchiveList();
+  const aktif = isFarm ? buildIndividuList() : [];
+  const luar  = isFarm ? buildOutsideIndividu() : [];
+  const arsip = isFarm ? buildArchiveList() : [];
 
   const jenisMap = new Map<string, LivestockJenisBreakdown>();
   [...aktif, ...luar].forEach((lv) => {

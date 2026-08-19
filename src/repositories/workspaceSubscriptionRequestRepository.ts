@@ -82,6 +82,26 @@ export async function repoGetSubscriptionChangeRequest(
   return data as SubscriptionChangeRequest;
 }
 
+export async function repoGetPendingSubscriptionChangeRequest(
+  workspaceId: string,
+  fromPlanKey: string,
+  toPlanKey: string,
+): Promise<SubscriptionChangeRequest | null> {
+  const { data, error } = await supabase
+    .from('subscription_change_requests')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .eq('from_plan_key', fromPlanKey)
+    .eq('to_plan_key', toPlanKey)
+    .eq('status', 'Pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as SubscriptionChangeRequest;
+}
+
 export async function repoUpdateSubscriptionChangeRequest(
   id: string,
   patch: {

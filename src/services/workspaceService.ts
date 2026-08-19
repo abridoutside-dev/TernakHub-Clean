@@ -156,6 +156,7 @@ import {
 } from '../repositories/workspaceSubscriptionRepository';
 import {
   repoCreateSubscriptionChangeRequest,
+  repoGetPendingSubscriptionChangeRequest,
   repoGetSubscriptionChangeRequest,
   repoListSubscriptionChangeRequests,
   repoUpdateSubscriptionChangeRequest,
@@ -873,6 +874,23 @@ export async function createSubscriptionChangeRequest(
   if (!input.workspace_id || !input.to_plan_key || !input.from_plan_key || !input.requested_by) {
     return { ok: false, error: { message: 'Workspace, paket asal, paket tujuan, dan pengaju wajib diisi.', code: 'VALIDATION' } };
   }
+
+  const existing = await repoGetPendingSubscriptionChangeRequest(
+    input.workspace_id,
+    input.from_plan_key,
+    input.to_plan_key,
+  );
+
+  if (existing) {
+    return {
+      ok: false,
+      error: {
+        message: `Permintaan perubahan paket dari ${existing.from_plan_key} ke ${existing.to_plan_key} sudah dikirim sebelumnya dan sedang menunggu persetujuan administrator.`,
+        code: 'DUPLICATE_PENDING',
+      },
+    };
+  }
+
   try {
     return { ok: true, data: await repoCreateSubscriptionChangeRequest(input) };
   } catch (error) {

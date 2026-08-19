@@ -101,7 +101,7 @@ export default function BusinessSnapshotSection() {
   const navigate = useNavigate();
   const [, forceRerender] = useState(0);
   const { activeWorkspace } = useWorkspace();
-  const result = getBusinessSnapshot(activeWorkspace?.workspace_uuid);
+  const result = getBusinessSnapshot(activeWorkspace?.workspace_uuid, activeWorkspace?.workspace_type);
 
   return (
     <div

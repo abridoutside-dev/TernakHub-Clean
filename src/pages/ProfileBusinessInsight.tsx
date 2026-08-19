@@ -274,84 +274,96 @@ function GrafikSection({
   periodeLabel,
   ringkasan,
   breakdown,
+  workspaceType,
 }: {
   monthly:     MonthlyDataPoint[];
   periodeLabel: string;
   ringkasan:   RingkasanBI;
   breakdown:   ModuleBreakdown;
+  workspaceType?: string;
 }) {
   const totalPenjualan = monthly.reduce((s, d) => s + d.penjualan, 0);
   const totalPembelian = monthly.reduce((s, d) => s + d.pembelian, 0);
   const totalMargin    = totalPenjualan - totalPembelian;
 
   const { livestock: lv, stokPakan: sp, stokObat: so } = breakdown;
-  const maxNilaiJenis = Math.max(...lv.jenisBreakdown.map((j) => j.estimasiNilai), 1);
+  const isFarm = workspaceType === 'Farm';
+  const maxNilaiJenis = isFarm ? Math.max(...lv.jenisBreakdown.map((j) => j.estimasiNilai), 1) : 1;
 
-  // Komposisi nilai usaha — compare the three pillars side-by-side
-  const nilaiComponents = [
-    { label: 'Ternak',    icon: '🐄', value: ringkasan.nilaiAsetTernak, color: 'var(--color-primary)' },
-    { label: 'Stok Pakan', icon: '🌾', value: ringkasan.nilaiStokPakan,  color: '#10b981' },
-  ];
+  // Komposisi nilai usaha — compare relevant pillars side-by-side
+  const nilaiComponents = isFarm
+    ? [
+        { label: 'Ternak',    icon: '🐄', value: ringkasan.nilaiAsetTernak, color: 'var(--color-primary)' },
+        { label: 'Stok Pakan', icon: '🌾', value: ringkasan.nilaiStokPakan,  color: '#10b981' },
+      ]
+    : [
+        { label: 'Stok Pakan', icon: '🌾', value: ringkasan.nilaiStokPakan,  color: '#10b981' },
+      ];
   const maxNilaiComp = Math.max(...nilaiComponents.map((c) => c.value), 1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* ── 1. Nilai Aset Ternak ─────────────────────────────────────────── */}
-      <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>🐄 Nilai Aset Ternak</div>
-        <ChartSourceBadge text="Snapshot terkini" filtered={false} />
-        {lv.jenisBreakdown.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', padding: '12px 0' }}>
-            Belum ada ternak aktif.
+      {isFarm && (
+        <>
+
+          {/* ── 1. Nilai Aset Ternak ─────────────────────────────────────────── */}
+          <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>🐄 Nilai Aset Ternak</div>
+            <ChartSourceBadge text="Snapshot terkini" filtered={false} />
+            {lv.jenisBreakdown.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', padding: '12px 0' }}>
+                Belum ada ternak aktif.
+              </div>
+            ) : (
+              <>
+                {lv.jenisBreakdown.map((j) => (
+                  <HorizBar
+                    key={j.type}
+                    label={j.type}
+                    icon={j.icon}
+                    value={j.estimasiNilai}
+                    maxValue={maxNilaiJenis}
+                    color="var(--color-primary)"
+                    valueDisplay={formatRupiah(j.estimasiNilai, true)}
+                  />
+                ))}
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>{lv.diKandang + lv.luarKandang} ekor aktif</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-primary)' }}>{formatRupiah(ringkasan.nilaiAsetTernak, true)}</span>
+                </div>
+                <div style={{ marginTop: 6, fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.4 }}>
+                  * Estimasi berdasarkan bobot × harga pasar per kg. Bukan nilai jual aktual.
+                </div>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            {lv.jenisBreakdown.map((j) => (
+
+          {/* ── 2. Komposisi Nilai Usaha ─────────────────────────────────────── */}
+          <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>🏆 Komposisi Nilai Usaha</div>
+            <ChartSourceBadge text="Snapshot terkini" filtered={false} />
+            {nilaiComponents.map((c) => (
               <HorizBar
-                key={j.type}
-                label={j.type}
-                icon={j.icon}
-                value={j.estimasiNilai}
-                maxValue={maxNilaiJenis}
-                color="var(--color-primary)"
-                valueDisplay={formatRupiah(j.estimasiNilai, true)}
+                key={c.label}
+                label={c.label}
+                icon={c.icon}
+                value={c.value}
+                maxValue={maxNilaiComp}
+                color={c.color}
+                valueDisplay={formatRupiah(c.value, true)}
               />
             ))}
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>{lv.diKandang + lv.luarKandang} ekor aktif</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-primary)' }}>{formatRupiah(ringkasan.nilaiAsetTernak, true)}</span>
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>Total Estimasi Nilai Usaha</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-primary)' }}>{formatRupiah(ringkasan.estimasiNilaiUsaha, true)}</span>
             </div>
             <div style={{ marginTop: 6, fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.4 }}>
-              * Estimasi berdasarkan bobot × harga pasar per kg. Bukan nilai jual aktual.
+              * Aset Ternak + Stok Pakan. Nilai estimasi, bukan valuasi akuntansi.
             </div>
-          </>
-        )}
-      </div>
-
-      {/* ── 2. Komposisi Nilai Usaha ─────────────────────────────────────── */}
-      <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>🏆 Komposisi Nilai Usaha</div>
-        <ChartSourceBadge text="Snapshot terkini" filtered={false} />
-        {nilaiComponents.map((c) => (
-          <HorizBar
-            key={c.label}
-            label={c.label}
-            icon={c.icon}
-            value={c.value}
-            maxValue={maxNilaiComp}
-            color={c.color}
-            valueDisplay={formatRupiah(c.value, true)}
-          />
-        ))}
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>Total Estimasi Nilai Usaha</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-primary)' }}>{formatRupiah(ringkasan.estimasiNilaiUsaha, true)}</span>
-        </div>
-        <div style={{ marginTop: 6, fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.4 }}>
-          * Aset Ternak + Stok Pakan. Nilai estimasi, bukan valuasi akuntansi.
-        </div>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* ── 3. Stok Pakan ────────────────────────────────────────────────── */}
       <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
@@ -376,26 +388,26 @@ function GrafikSection({
         )}
         {sp.satuanVariasi.length > 0 && (
           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-muted)' }}>
-            Satuan: {sp.satuanVariasi.slice(0, 5).join(' · ')}
-          </div>
-        )}
-      </div>
+              Satuan: {sp.satuanVariasi.slice(0, 5).join(' · ')}
+            </div>
+          )}
+        </div>
 
-      {/* ── 4. Stok Obat ─────────────────────────────────────────────────── */}
-      <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>💊 Nilai Stok Obat</div>
-        <ChartSourceBadge text="Snapshot terkini" filtered={false} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ fontSize: 36, opacity: 0.2 }}>💊</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>{so.aktif} item aktif</div>
-            <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-              Nilai stok obat belum tersedia.<br />
-              Harga beli belum direkam per item.
+        {/* ── 4. Stok Obat ─────────────────────────────────────────────────── */}
+        <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>💊 Nilai Stok Obat</div>
+          <ChartSourceBadge text="Snapshot terkini" filtered={false} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ fontSize: 36, opacity: 0.2 }}>💊</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>{so.aktif} item aktif</div>
+              <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5 }}>
+                Nilai stok obat belum tersedia.<br />
+                Harga beli belum direkam per item.
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* ── 5. Marketplace: Penjualan vs Pembelian ───────────────────────── */}
       <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 12px)', padding: '16px', boxShadow: 'var(--shadow-sm)' }}>
@@ -505,34 +517,36 @@ function FilterBadge({ label, filtered }: { label: string; filtered: boolean }) 
   );
 }
 
-function BreakdownSection({ breakdown, periodeLabel }: { breakdown: ModuleBreakdown; periodeLabel: string }) {
+function BreakdownSection({ breakdown, periodeLabel, workspaceType }: { breakdown: ModuleBreakdown; periodeLabel: string; workspaceType?: string }) {
   const { livestock: lv, marketplace: mp, stokPakan: sp, stokObat: so, pemberianPakan: pb } = breakdown;
+  const isFarm = workspaceType === 'Farm';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Livestock */}
-      <ModuleCard title="Livestock" icon="🐄">
-        <FilterBadge label={periodeLabel} filtered={false} />
-        <BreakdownRow icon="🏠" label="Di Kandang"    value={`${lv.diKandang} ekor`} />
-        <BreakdownRow icon="🚶" label="Luar Kandang"  value={`${lv.luarKandang} ekor`} />
-        <BreakdownRow icon="📦" label="Diarsipkan"    value={`${lv.arsip} ekor`} />
-        <BreakdownRow icon="💰" label="Estimasi Nilai" value={formatRupiah(lv.estimasiNilaiTotal, true)} sub={lv.catatanEstimasi} />
-        {lv.jenisBreakdown.length > 0 && (
-          <div style={{ padding: '10px 14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-muted)', marginBottom: 8 }}>BREAKDOWN JENIS</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {lv.jenisBreakdown.map((j) => (
-                <div key={j.type} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>{j.icon}</span>
-                  <span style={{ flex: 1, fontSize: 12, color: 'var(--color-text)' }}>{j.type}</span>
-                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{j.count} ekor</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)' }}>{formatRupiah(j.estimasiNilai, true)}</span>
-                </div>
-              ))}
+      {isFarm && (
+        <ModuleCard title="Livestock" icon="🐄">
+          <FilterBadge label={periodeLabel} filtered={false} />
+          <BreakdownRow icon="🏠" label="Di Kandang"    value={`${lv.diKandang} ekor`} />
+          <BreakdownRow icon="🚶" label="Luar Kandang"  value={`${lv.luarKandang} ekor`} />
+          <BreakdownRow icon="📦" label="Diarsipkan"    value={`${lv.arsip} ekor`} />
+          <BreakdownRow icon="💰" label="Estimasi Nilai" value={formatRupiah(lv.estimasiNilaiTotal, true)} sub={lv.catatanEstimasi} />
+          {lv.jenisBreakdown.length > 0 && (
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-muted)', marginBottom: 8 }}>BREAKDOWN JENIS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {lv.jenisBreakdown.map((j) => (
+                  <div key={j.type} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>{j.icon}</span>
+                    <span style={{ flex: 1, fontSize: 12, color: 'var(--color-text)' }}>{j.type}</span>
+                    <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{j.count} ekor</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)' }}>{formatRupiah(j.estimasiNilai, true)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </ModuleCard>
+          )}
+        </ModuleCard>
+      )}
 
       {/* Marketplace */}
       <ModuleCard title="Marketplace" icon="🛒">
@@ -855,17 +869,20 @@ function LaporanSection({ rows, tahunanInsight }: { rows: LaporanBulananRow[]; t
 
 // ─── Ringkasan Cards Grid ─────────────────────────────────────────────────────
 
-function RingkasanGrid({ data }: { data: RingkasanBI }) {
+function RingkasanGrid({ data, workspaceType }: { data: RingkasanBI; workspaceType?: string }) {
+  const isFarm = workspaceType === 'Farm';
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-      <MetricCard
-        icon="🐄"
-        label="Nilai Aset Ternak"
-        value={formatRupiah(data.nilaiAsetTernak, true)}
-        sub={`${data.jumlahTernak} ekor aktif`}
-        note="Estimasi: bobot × harga pasar per kg"
-        highlight
-      />
+      {isFarm && (
+        <MetricCard
+          icon="🐄"
+          label="Nilai Aset Ternak"
+          value={formatRupiah(data.nilaiAsetTernak, true)}
+          sub={`${data.jumlahTernak} ekor aktif`}
+          note="Estimasi: bobot × harga pasar per kg"
+          highlight
+        />
+      )}
       <MetricCard
         icon="🌾"
         label="Nilai Stok Pakan"
@@ -913,7 +930,7 @@ function RingkasanGrid({ data }: { data: RingkasanBI }) {
         icon="🏆"
         label="Estimasi Nilai Usaha"
         value={formatRupiah(data.estimasiNilaiUsaha, true)}
-        sub="Aset Ternak + Stok Pakan"
+        sub={isFarm ? 'Aset Ternak + Stok Pakan' : 'Stok Pakan'}
         note="Nilai estimasi, bukan valuasi akuntansi"
         highlight
         color="var(--color-primary)"
@@ -1004,6 +1021,7 @@ export default function ProfileBusinessInsight() {
   useLivestock();
 
   const activeWorkspaceId = activeWorkspace?.workspace_uuid ?? null;
+  const activeWorkspaceType = activeWorkspace?.workspace_type;
 
   if (!activeWorkspaceId) {
     return (
@@ -1017,8 +1035,8 @@ export default function ProfileBusinessInsight() {
     );
   }
 
-  const ringkasan       = getRingkasanBI(periode, activeWorkspaceId);
-  const breakdown       = getModuleBreakdown(periode, activeWorkspaceId);
+  const ringkasan       = getRingkasanBI(periode, activeWorkspaceId, activeWorkspaceType);
+  const breakdown       = getModuleBreakdown(periode, activeWorkspaceId, activeWorkspaceType);
   const monthly         = getMonthlyData(periode, activeWorkspaceId);
   const laporan         = getLaporanBulanan(periode, activeWorkspaceId);
   const tahunanInsight  = getTahunanInsight(activeWorkspaceId);
@@ -1119,7 +1137,7 @@ export default function ProfileBusinessInsight() {
           <>
             <div>
               <SectionHeader title="RINGKASAN USAHA" subtitle={`Periode: ${ringkasan.periodeLabel}`} />
-              <RingkasanGrid data={ringkasan} />
+              <RingkasanGrid data={ringkasan} workspaceType={activeWorkspaceType} />
             </div>
 
             {/* Margin Note */}
@@ -1171,6 +1189,7 @@ export default function ProfileBusinessInsight() {
               periodeLabel={ringkasan.periodeLabel}
               ringkasan={ringkasan}
               breakdown={breakdown}
+              workspaceType={activeWorkspaceType}
             />
           </>
         )}
@@ -1182,7 +1201,7 @@ export default function ProfileBusinessInsight() {
               title="BREAKDOWN PER MODUL"
               subtitle="Marketplace & Pemberian Pakan: terfilter per periode · Livestock, Stok: snapshot terkini"
             />
-            <BreakdownSection breakdown={breakdown} periodeLabel={ringkasan.periodeLabel} />
+            <BreakdownSection breakdown={breakdown} periodeLabel={ringkasan.periodeLabel} workspaceType={activeWorkspaceType} />
           </>
         )}
 
