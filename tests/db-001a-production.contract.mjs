@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATIONS_DIR = path.join(ROOT, 'supabase', 'migrations');
-// Migration chain: 14 × 20260725, 2 × 20260726, 6 × 20260728, 1 × 20260730, 1 × 20260801, 1 × 20260802, 4 × 20260803, 1 × 20260806, 8 × 20260807, 1 × 20260810, 6 × 20260813, 1 × 20260814
+// Migration chain: 14 × 20260725, 2 × 20260726, 6 × 20260728, 1 × 20260730, 1 × 20260801, 1 × 20260802, 4 × 20260803, 1 × 20260806, 8 × 20260807, 1 × 20260810, 7 × 20260813 (skipping 000006), 1 × 20260814, 4 × 20260815, 1 × 20260817, 1 × 20260818, 1 × 20260819
 const EXPECTED_MIGRATION_FILES = [
   ...Array.from({ length: 14 }, (_, i) => `20260725${String(i + 1).padStart(6, '0')}`),
   '20260726000001',
@@ -41,6 +41,13 @@ const EXPECTED_MIGRATION_FILES = [
   '20260813000005',
   '20260813000007',
   '20260814000001',
+  '20260815000000',
+  '20260815000001',
+  '20260815000002',
+  '20260815000003',
+  '20260817000001',
+  '20260818000001',
+  '20260819000001',
 ];
 
 function migrationFiles() {

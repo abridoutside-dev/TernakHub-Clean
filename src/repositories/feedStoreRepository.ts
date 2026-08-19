@@ -6,6 +6,7 @@
 //   feed_store_orders       → order pembelian & penjualan
 //   feed_store_order_items  → item per order
 //   feed_store_sales        → catatan penjualan
+//   feed_store_sales_items  → item per catatan penjualan
 //
 // Rules:
 //   - Semua fungsi async dan mengembalikan typed results.
@@ -14,7 +15,7 @@
 //   - RLS di Supabase mengatur akses antar workspace.
 //
 // Tables: feed_store_suppliers, feed_store_customers, feed_store_orders,
-//         feed_store_order_items, feed_store_sales
+//         feed_store_order_items, feed_store_sales, feed_store_sales_items
 
 import { supabase } from '../lib/supabase';
 import { requireAuthSession } from '../lib/authSession';
@@ -29,6 +30,8 @@ import type {
   FeedStoreOrderItemCreateInput,
   FeedStoreSalesDbRow,
   FeedStoreSalesCreateInput,
+  FeedStoreSalesItemDbRow,
+  FeedStoreSalesItemCreateInput,
 } from '../types/feedStore';
 
 // ─── Error ────────────────────────────────────────────────────────────────────
@@ -439,6 +442,18 @@ export async function repoInsertOrderItem(
   return data as FeedStoreOrderItemDbRow;
 }
 
+/**
+ * Hapus semua item untuk sebuah order (digunakan saat edit order).
+ */
+export async function repoDeleteOrderItemsByOrderId(orderId: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('feed_store_order_items')
+    .delete()
+    .eq('order_id', orderId);
+  guard(error);
+}
+
 // ─── feed_store_sales ─────────────────────────────────────────────────────────
 
 /**
@@ -516,12 +531,17 @@ export async function repoInsertSale(
 
 /**
  * Update catatan penjualan.
+ * Memblokir update jika penjualan sudah Selesai untuk menjaga konsistensi inventory.
  */
 export async function repoUpdateSale(
   id: string,
   input: FeedStoreSalesUpdateInput,
 ): Promise<FeedStoreSalesDbRow> {
   await requireAuthSession();
+  const existing = await repoGetSaleById(id);
+  if (existing?.status === 'Selesai') {
+    throw new FeedStoreRepoError('Penjualan yang sudah Selesai tidak dapat diubah.');
+  }
   const { data, error } = await supabase
     .from('feed_store_sales')
     .update(input)
@@ -534,12 +554,63 @@ export async function repoUpdateSale(
 
 /**
  * Hapus catatan penjualan.
+ * Memblokir hapus jika penjualan sudah Selesai untuk menjaga konsistensi inventory.
  */
 export async function repoDeleteSale(id: string): Promise<void> {
   await requireAuthSession();
+  const existing = await repoGetSaleById(id);
+  if (existing?.status === 'Selesai') {
+    throw new FeedStoreRepoError('Penjualan yang sudah Selesai tidak dapat dihapus.');
+  }
   const { error } = await supabase
     .from('feed_store_sales')
     .delete()
     .eq('id', id);
+  guard(error);
+}
+
+// ─── feed_store_sales_items ────────────────────────────────────────────────────
+
+/**
+ * Semua item untuk sebuah catatan penjualan, terurut by created_at.
+ */
+export async function repoGetSalesItemsBySaleId(
+  saleId: string,
+): Promise<FeedStoreSalesItemDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_sales_items')
+    .select('*')
+    .eq('sale_id', saleId)
+    .order('created_at', { ascending: true });
+  guard(error);
+  return (data ?? []) as FeedStoreSalesItemDbRow[];
+}
+
+/**
+ * Insert item ke catatan penjualan.
+ */
+export async function repoInsertSalesItem(
+  input: FeedStoreSalesItemCreateInput,
+): Promise<FeedStoreSalesItemDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('feed_store_sales_items')
+    .insert(input)
+    .select()
+    .single();
+  guard(error);
+  return data as FeedStoreSalesItemDbRow;
+}
+
+/**
+ * Hapus semua item untuk sebuah catatan penjualan (digunakan saat edit penjualan).
+ */
+export async function repoDeleteSalesItemsBySaleId(saleId: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('feed_store_sales_items')
+    .delete()
+    .eq('sale_id', saleId);
   guard(error);
 }

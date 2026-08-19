@@ -34,6 +34,10 @@ import { addInventarisFromTambahStok, addPerubahanStok } from '../../data/stokIn
 import { getMasterPakanList, type MasterPakanItem } from '../../data/masterPakanData';
 import { buildAllMasterPakanPickerItems } from '../../data/masterPakanPickerData';
 import { getProdukKomersialList, type ProdukKomersialItem, KATEGORI_PRODUK_KOMERSIAL } from '../../data/produkKomersialData';
+import {
+  repoGetSuppliersByWorkspace,
+  repoGetCustomersByWorkspace,
+} from '../../repositories/feedStoreRepository';
 import type { StokInventarisDbRow, StokTransactionDbRow } from '../../types/stokInventaris';
 import type { FeedStoreSupplierDbRow, FeedStoreCustomerDbRow, FeedStoreOrderDbRow, FeedStoreSalesDbRow } from '../../types/feedStore';
 import type { FeedStoreSalesSummaryData } from '../../hooks/useFeedStoreDashboardData';
@@ -1548,19 +1552,27 @@ function StokMasukModal({
   const [unit, setUnit] = useState('Kg');
   const [jumlah, setJumlah] = useState('');
   const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
-  const [supplier, setSupplier] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [lokasi, setLokasi] = useState('');
   const [catatan, setCatatan] = useState('');
   const [hargaBeli, setHargaBeli] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    void repoGetSuppliersByWorkspace(workspaceId)
+      .then((s) => setSuppliers(s.map((x) => ({ id: x.id, name: x.name }))))
+      .catch(() => null);
+  }, [workspaceId]);
+
   const selectedProduk = masterProduk.find((p) => p.id === selectedProdukId);
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId);
 
   const filteredProduk = masterProduk.filter((p) =>
     (p.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     (p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-     p.kategori.toLowerCase().includes(searchTerm.toLowerCase())),
+      (p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+      p.kategori.toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
   const matchedStok = selectedProduk
@@ -1598,7 +1610,7 @@ function StokMasukModal({
     setUnit('Kg');
     setJumlah('');
     setTanggal(new Date().toISOString().slice(0, 10));
-    setSupplier('');
+    setSupplierId('');
     setLokasi('');
     setCatatan('');
     setHargaBeli('');
@@ -1622,7 +1634,8 @@ function StokMasukModal({
         unit:        unit || 'Kg',
         jumlah:      Number(jumlah),
         tanggal:     tanggal,
-        supplier:    supplier || undefined,
+        supplier:    selectedSupplier?.name,
+        supplierId:  supplierId || undefined,
         lokasi:      lokasi || undefined,
         catatan:     catatan || undefined,
         hargaBeli:   hargaBeli ? Number(hargaBeli) : undefined,
@@ -1650,7 +1663,7 @@ function StokMasukModal({
         jumlahStok:    Number(jumlah),
         satuan:        unit || 'Kg',
         tanggalMasuk:  tanggal,
-        supplier:      supplier || undefined,
+        supplier:      selectedSupplier?.name,
         lokasiPenyimpanan: lokasi || undefined,
         hargaBeli:     hargaBeli ? Number(hargaBeli) : undefined,
         catatan:       catatan || undefined,
@@ -1776,13 +1789,16 @@ function StokMasukModal({
       </FieldWrap>
 
       <FieldWrap label="Supplier">
-        <input
-          type="text"
-          value={supplier}
-          onChange={(e) => setSupplier(e.target.value)}
-          placeholder="mis. CV. Sumber Jaya"
+        <select
+          value={supplierId}
+          onChange={(e) => setSupplierId(e.target.value)}
           style={inputStyle}
-        />
+        >
+          <option value="">— Pilih supplier (opsional) —</option>
+          {suppliers.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
       </FieldWrap>
 
       <FieldWrap label="Lokasi Penyimpanan">
@@ -1868,9 +1884,17 @@ function StokKeluarModal({
   const [selectedItemId, setSelectedItemId] = useState('');
   const [jumlah, setJumlah] = useState('');
   const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [customerId, setCustomerId] = useState('');
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [catatan, setCatatan] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void repoGetCustomersByWorkspace(workspaceId)
+      .then((c) => setCustomers(c.map((x) => ({ id: x.id, name: x.name }))))
+      .catch(() => null);
+  }, [workspaceId]);
 
   const selectedItem = items.find((i) => i.id === selectedItemId);
 
@@ -1907,6 +1931,7 @@ function StokKeluarModal({
         catatan:       catatan || undefined,
         referensiId:   refId,
         kategori:      selectedItem.source_type,
+        customerId:    customerId || undefined,
       };
 
       const result = await recordPerubahanStok(workspaceId, input);
@@ -1990,6 +2015,19 @@ function StokKeluarModal({
 
           <FieldWrap label="Tanggal" required>
             <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} style={inputStyle} />
+          </FieldWrap>
+
+          <FieldWrap label="Pelanggan">
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— Pilih pelanggan (opsional) —</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </FieldWrap>
 
           <FieldWrap label="Catatan">

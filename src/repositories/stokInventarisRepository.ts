@@ -185,6 +185,26 @@ export async function repoGetTransactionsByStokId(
 }
 
 /**
+ * Find sale completion transactions by searching the reason text for the
+ * saleId marker. Used for idempotency when the reference_id/reference_type
+ * pair is used for customer reference instead of sale reference.
+ */
+export async function repoGetTransactionsBySaleId(
+  workspaceId: string,
+  saleId: string,
+): Promise<StokTransactionDbRow[]> {
+  await requireAuthSession();
+  const marker = `[${saleId}]`;
+  const { data, error } = await supabase
+    .from('stok_inventaris_transactions')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .ilike('reason', `%${marker}%`);
+  guard(error);
+  return (data ?? []) as StokTransactionDbRow[];
+}
+
+/**
  * All transactions across the entire workspace, ordered by created_at ascending.
  * Used by useStokInventaris() to hydrate the in-memory RIWAYAT_MASUK and
  * RIWAYAT_PERUBAHAN arrays so Riwayat Keluar Masuk survives a hard refresh.
@@ -198,6 +218,26 @@ export async function repoGetTransactionsByWorkspace(
     .select('*')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: true });
+  guard(error);
+  return (data ?? []) as StokTransactionDbRow[];
+}
+
+/**
+ * All transactions referencing a specific entity (order, sale, etc.).
+ * Used for idempotency checks and audit trail lookups.
+ */
+export async function repoGetTransactionsByReference(
+  referenceId: string,
+  referenceType?: string,
+): Promise<StokTransactionDbRow[]> {
+  await requireAuthSession();
+  let q = supabase
+    .from('stok_inventaris_transactions')
+    .select('*')
+    .eq('reference_id', referenceId);
+  if (referenceType) q = q.eq('reference_type', referenceType);
+  q = q.order('created_at', { ascending: true });
+  const { data, error } = await q;
   guard(error);
   return (data ?? []) as StokTransactionDbRow[];
 }

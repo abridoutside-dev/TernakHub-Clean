@@ -3,15 +3,28 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import {
-  repoGetOrderById, repoInsertOrder, repoUpdateOrder,
+  repoGetOrderById, repoInsertOrder, repoUpdateOrder, repoDeleteOrderItemsByOrderId,
   repoGetSuppliersByWorkspace, repoGetCustomersByWorkspace,
+  repoGetOrderItems, repoInsertOrderItem,
 } from '../../repositories/feedStoreRepository';
-import type { FeedStoreOrderType, FeedStoreOrderStatus } from '../../types/feedStore';
+import {
+  repoGetStokInventarisByWorkspace,
+} from '../../repositories/stokInventarisRepository';
+import type { FeedStoreOrderType, FeedStoreOrderStatus, FeedStoreOrderItemCreateInput } from '../../types/feedStore';
 
 const ORDER_TYPES: FeedStoreOrderType[] = ['Penjualan', 'Pembelian'];
 const ORDER_STATUS: FeedStoreOrderStatus[] = ['Baru', 'Diproses', 'Selesai', 'Dibatalkan'];
 const INPUT: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1.5px solid #d1d5db', borderRadius: 8, padding: '9px 12px', fontSize: 13, outline: 'none', background: '#fff' };
 const SELECT: React.CSSProperties = { ...INPUT, appearance: 'auto' };
+
+interface OrderItemForm {
+  id?: string;
+  stokId: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+}
 
 function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
@@ -38,7 +51,6 @@ export default function FeedStoreOrderForm() {
   const [orderType, setOrderType]  = useState<FeedStoreOrderType>('Penjualan');
   const [orderDate, setOrderDate]  = useState(() => new Date().toISOString().split('T')[0]);
   const [orderNum, setOrderNum]    = useState('');
-  const [totalAmount, setTotal]    = useState('');
   const [status, setStatus]        = useState<FeedStoreOrderStatus>('Baru');
   const [supplierId, setSupplierId] = useState('');
   const [customerId, setCustomerId] = useState('');
@@ -46,20 +58,31 @@ export default function FeedStoreOrderForm() {
 
   const [suppliers, setSuppliers]  = useState<{ id: string; name: string }[]>([]);
   const [customers, setCustomers]  = useState<{ id: string; name: string }[]>([]);
+  const [stokItems, setStokItems]  = useState<{ id: string; item_name: string; unit: string | null; quantity: number }[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([]);
 
   useEffect(() => {
     void Promise.all([
       repoGetSuppliersByWorkspace(wsId).then((s) => setSuppliers(s.map((x) => ({ id: x.id, name: x.name })))).catch(() => null),
       repoGetCustomersByWorkspace(wsId).then((c) => setCustomers(c.map((x) => ({ id: x.id, name: x.name })))).catch(() => null),
+      repoGetStokInventarisByWorkspace(wsId).then((items) => setStokItems(items.filter((i) => Number(i.quantity) > 0 || i.status === 'Aktif').map((i) => ({ id: i.id, item_name: i.item_name, unit: i.unit, quantity: Number(i.quantity) })))).catch(() => null),
     ]);
     if (!isEdit || !oid) return;
     void (async () => {
       try {
-        const d = await repoGetOrderById(oid);
+        const [d, its] = await Promise.all([repoGetOrderById(oid), repoGetOrderItems(oid)]);
         if (d) {
           setOrderType(d.order_type); setOrderDate(d.order_date); setOrderNum(d.order_number ?? '');
-          setTotal(String(d.total_amount)); setStatus(d.status);
+          setStatus(d.status);
           setSupplierId(d.supplier_id ?? ''); setCustomerId(d.customer_id ?? ''); setNotes(d.notes ?? '');
+        }
+        if (d?.status === 'Selesai') {
+          setError('Order yang sudah Selesai tidak dapat diedit.');
+          setTimeout(() => navigate(`/workspace/${wsId}/feed-store/orders/${oid}`), 1500);
+          return;
+        }
+        if (its.length > 0) {
+          setOrderItems(its.map((it) => ({ id: it.id, stokId: it.stok_id ?? '', itemName: it.item_name, quantity: it.quantity, unit: it.unit ?? 'Kg', unitPrice: it.unit_price })));
         }
       } catch (e) { setError(e instanceof Error ? e.message : 'Gagal memuat'); }
       finally { setInitLoad(false); }
@@ -67,26 +90,68 @@ export default function FeedStoreOrderForm() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, oid, wsId]);
 
+  const totalFromItems = orderItems.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0);
+
+  function addOrderItem() {
+    setOrderItems([...orderItems, { stokId: '', itemName: '', quantity: 1, unit: 'Kg', unitPrice: 0 }]);
+  }
+
+  function removeOrderItem(index: number) {
+    setOrderItems(orderItems.filter((_, i) => i !== index));
+  }
+
+  function updateOrderItem(index: number, field: keyof OrderItemForm, value: string | number) {
+    setOrderItems(orderItems.map((it, i) => {
+      if (i !== index) return it;
+      const updated = { ...it, [field]: value };
+      if (field === 'stokId') {
+        const stok = stokItems.find((s) => s.id === value);
+        if (stok) {
+          updated.itemName = stok.item_name;
+          updated.unit = stok.unit ?? 'Kg';
+        }
+      }
+      return updated;
+    }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!orderDate) { setError('Tanggal order wajib diisi.'); return; }
+    if (orderItems.length === 0) { setError('Tambahkan minimal satu item order.'); return; }
     setSaving(true); setError(null);
-    const amount = parseFloat(totalAmount) || 0;
     try {
       const payload = {
         order_type: orderType, order_date: orderDate, order_number: orderNum || null,
-        total_amount: amount, status,
+        total_amount: totalFromItems, status,
         supplier_id: orderType === 'Pembelian' ? (supplierId || null) : null,
         customer_id: orderType === 'Penjualan' ? (customerId || null) : null,
         notes: notes || null,
       };
+      let orderId: string;
       if (isEdit && oid) {
         await repoUpdateOrder(oid, payload);
-        navigate(`/workspace/${wsId}/feed-store/orders/${oid}`);
+        orderId = oid;
+        await repoDeleteOrderItemsByOrderId(oid);
       } else {
         const row = await repoInsertOrder({ workspace_id: wsId, ...payload });
-        navigate(`/workspace/${wsId}/feed-store/orders/${row.id}`);
+        orderId = row.id;
       }
+
+      await Promise.all(orderItems.map((item) =>
+        repoInsertOrderItem({
+          order_id: orderId,
+          workspace_id: wsId,
+          stok_id: item.stokId || null,
+          item_name: item.itemName,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unitPrice,
+          subtotal: item.quantity * item.unitPrice,
+        } as FeedStoreOrderItemCreateInput),
+      ));
+
+      navigate(`/workspace/${wsId}/feed-store/orders/${orderId}`);
     } catch (e) { setError(e instanceof Error ? e.message : 'Gagal menyimpan'); }
     finally { setSaving(false); }
   }
@@ -122,9 +187,6 @@ export default function FeedStoreOrderForm() {
             </Field>
             <Field label="Nomor Order"><input style={INPUT} value={orderNum} onChange={(e) => setOrderNum(e.target.value)} placeholder="AUTO / isi manual" /></Field>
             <Field label="Tanggal Order" required><input style={INPUT} type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></Field>
-            <Field label="Total (IDR)">
-              <input style={INPUT} type="number" min={0} value={totalAmount} onChange={(e) => setTotal(e.target.value)} placeholder="0" />
-            </Field>
             <Field label="Status">
               <select style={SELECT} value={status} onChange={(e) => setStatus(e.target.value as FeedStoreOrderStatus)}>
                 {ORDER_STATUS.map((s) => <option key={s}>{s}</option>)}
@@ -153,6 +215,52 @@ export default function FeedStoreOrderForm() {
             )}
           </div>
 
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: '20px 18px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#b45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>Item Order</p>
+              <button type="button" onClick={addOrderItem} style={{ border: '1px solid #b45309', background: '#fff7ed', color: '#9a3412', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                + Tambah Item
+              </button>
+            </div>
+            {orderItems.length === 0 && (
+              <p style={{ margin: 0, fontSize: 12, color: '#6b7280', textAlign: 'center', padding: '12px 0' }}>Belum ada item. Klik Tambah Item untuk menambahkan.</p>
+            )}
+            {orderItems.map((item, index) => (
+              <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Field label="Produk" required>
+                    <select style={SELECT} value={item.stokId} onChange={(e) => updateOrderItem(index, 'stokId', e.target.value)}>
+                      <option value="">— Pilih produk stok —</option>
+                      {stokItems.map((s) => <option key={s.id} value={s.id}>{s.item_name} ({formatNumber(s.quantity)} {s.unit ?? ''})</option>)}
+                    </select>
+                  </Field>
+                  <button type="button" onClick={() => removeOrderItem(index)} style={{ border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, height: 38, marginTop: 18 }}>
+                    Hapus
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                  <Field label="Qty" required>
+                    <input style={INPUT} type="number" min={1} value={item.quantity} onChange={(e) => updateOrderItem(index, 'quantity', Number(e.target.value) || 0)} />
+                  </Field>
+                  <Field label="Satuan">
+                    <input style={INPUT} value={item.unit} onChange={(e) => updateOrderItem(index, 'unit', e.target.value)} />
+                  </Field>
+                  <Field label="Harga Satuan" required>
+                    <input style={INPUT} type="number" min={0} value={item.unitPrice} onChange={(e) => updateOrderItem(index, 'unitPrice', Number(e.target.value) || 0)} />
+                  </Field>
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#6b7280', textAlign: 'right' }}>
+                  Subtotal: Rp {(item.quantity * item.unitPrice).toLocaleString('id-ID')}
+                </p>
+              </div>
+            ))}
+            {orderItems.length > 0 && (
+              <p style={{ margin: '10px 0 0', fontSize: 13, fontWeight: 800, color: 'var(--color-text)', textAlign: 'right' }}>
+                Total: Rp {totalFromItems.toLocaleString('id-ID')}
+              </p>
+            )}
+          </div>
+
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: '20px 18px', marginBottom: 20 }}>
             <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 700, color: '#b45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>Catatan</p>
             <Field label="Catatan Order">
@@ -172,4 +280,8 @@ export default function FeedStoreOrderForm() {
       )}
     </main>
   );
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('id-ID').format(value);
 }

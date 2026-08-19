@@ -5,8 +5,10 @@ import {
   repoGetOrderById, repoDeleteOrder, repoUpdateOrder,
   repoGetOrderItems,
   repoGetSupplierById, repoGetCustomerById,
+  repoInsertSale, repoGetSalesByWorkspace, repoInsertSalesItem,
 } from '../../repositories/feedStoreRepository';
-import type { FeedStoreOrderDbRow, FeedStoreOrderItemDbRow, FeedStoreOrderStatus } from '../../types/feedStore';
+import { recordOrderCompletion } from '../../services/stokInventarisService';
+import type { FeedStoreOrderDbRow, FeedStoreOrderItemDbRow, FeedStoreOrderStatus, FeedStoreSalesItemCreateInput } from '../../types/feedStore';
 
 const STATUS_OPTS: FeedStoreOrderStatus[] = ['Baru', 'Diproses', 'Selesai', 'Dibatalkan'];
 const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
@@ -35,6 +37,7 @@ export default function FeedStoreOrderDetail() {
   const [confirm, setConfirm]     = useState(false);
   const [deleting, setDeleting]   = useState(false);
   const [updatingStatus, setUpd]  = useState(false);
+  const [processingInventory, setProcessingInventory] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -49,6 +52,10 @@ export default function FeedStoreOrderDetail() {
   }, [oid]);
 
   async function handleDelete() {
+    if (order?.status === 'Selesai') {
+      setError('Order yang sudah Selesai tidak dapat dihapus.');
+      return;
+    }
     setDeleting(true);
     try { await repoDeleteOrder(oid); navigate(`/workspace/${workspaceId}/feed-store/orders`, { replace: true }); }
     catch (e) { setError(e instanceof Error ? e.message : 'Gagal menghapus'); setDeleting(false); }
@@ -56,13 +63,85 @@ export default function FeedStoreOrderDetail() {
 
   async function handleStatusChange(s: FeedStoreOrderStatus) {
     if (!order) return;
+    if (order.status === 'Selesai') {
+      setError('Order yang sudah Selesai tidak dapat diubah statusnya.');
+      return;
+    }
     setUpd(true); setError(null);
-    try { const updated = await repoUpdateOrder(oid, { status: s }); setOrder(updated); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Gagal update status'); }
+    try {
+      if (s === 'Selesai' && items.length > 0) {
+        setProcessingInventory(true);
+        try {
+          const invResult = await recordOrderCompletion(workspaceId, {
+            orderId: oid,
+            orderType: order.order_type,
+            items: items.map((it) => ({
+              stokId: it.stok_id ?? '',
+              itemName: it.item_name,
+              quantity: it.quantity,
+              unit: it.unit ?? 'Kg',
+              unitPrice: it.unit_price,
+              sumber: '',
+            })),
+            tanggal: order.order_date,
+            catatan: order.notes ?? undefined,
+          });
+
+          if (!invResult.ok) {
+            setError(invResult.error);
+            setProcessingInventory(false);
+            setUpd(false);
+            return;
+          }
+
+          const updated = await repoUpdateOrder(oid, { status: s });
+          setOrder(updated);
+
+          if (updated.order_type === 'Penjualan') {
+            const existingSales = await repoGetSalesByWorkspace(workspaceId, 50);
+            const alreadyExists = existingSales.some((sl) => sl.order_id === oid);
+            if (!alreadyExists) {
+              const sale = await repoInsertSale({
+                workspace_id: workspaceId,
+                order_id: oid,
+                customer_id: updated.customer_id,
+                sale_date: updated.order_date,
+                total_amount: updated.total_amount,
+                status: 'Selesai',
+                payment_method: null,
+                notes: updated.notes ?? null,
+              });
+
+              for (const it of items) {
+                await repoInsertSalesItem({
+                  sale_id: sale.id,
+                  workspace_id: workspaceId,
+                  stok_id: it.stok_id ?? null,
+                  item_name: it.item_name,
+                  quantity: it.quantity,
+                  unit: it.unit ?? 'Kg',
+                  unit_price: it.unit_price,
+                  subtotal: it.subtotal,
+                } as FeedStoreSalesItemCreateInput);
+              }
+            }
+          }
+        } catch (invErr) {
+          console.warn('[FeedStoreOrderDetail] inventory completion failed:', invErr);
+          setError('Gagal memproses stok. Silakan coba lagi.');
+        } finally {
+          setProcessingInventory(false);
+        }
+      } else {
+        const updated = await repoUpdateOrder(oid, { status: s });
+        setOrder(updated);
+      }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Gagal update status'); }
     finally { setUpd(false); }
   }
 
   const sc = order ? (STATUS_COLOR[order.status] ?? { color: '#374151', bg: '#f3f4f6' }) : { color: '#374151', bg: '#f3f4f6' };
+  const isImmutable = order?.status === 'Selesai';
 
   return (
     <main style={{ maxWidth: 600, margin: '0 auto', padding: '18px 16px 40px' }}>
@@ -73,13 +152,18 @@ export default function FeedStoreOrderDetail() {
           <p style={{ margin: 0, fontSize: 11, color: '#b45309', fontWeight: 800, textTransform: 'uppercase' }}>Order</p>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{order?.order_number ?? `Order ${oid.slice(0, 8)}`}</h1>
         </div>
-        {order && (
+        {order && !isImmutable && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={() => navigate(`/workspace/${workspaceId}/feed-store/orders/${oid}/edit`)}
               style={{ border: '1px solid #fed7aa', background: '#fff7ed', borderRadius: 9, padding: '7px 14px', fontSize: 13, cursor: 'pointer', color: '#9a3412', fontWeight: 700 }}>Edit</button>
             <button type="button" onClick={() => setConfirm(true)}
               style={{ border: '1px solid #fecaca', background: '#fef2f2', borderRadius: 9, padding: '7px 14px', fontSize: 13, cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>Hapus</button>
           </div>
+        )}
+        {isImmutable && (
+          <span style={{ fontSize: 11, color: '#6b7280', background: '#f3f4f6', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}>
+            Selesai — tidak dapat diedit
+          </span>
         )}
       </div>
 
@@ -117,14 +201,15 @@ export default function FeedStoreOrderDetail() {
               {STATUS_OPTS.map((s) => {
                 const c = STATUS_COLOR[s];
                 return (
-                  <button key={s} type="button" onClick={() => handleStatusChange(s)} disabled={updatingStatus || order.status === s}
-                    style={{ border: order.status === s ? `2px solid ${c.color}` : '1px solid #d1d5db', background: order.status === s ? c.bg : '#fff', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: order.status === s ? 700 : 400, cursor: order.status === s ? 'default' : 'pointer', color: order.status === s ? c.color : '#374151', opacity: updatingStatus ? 0.6 : 1 }}>
+                  <button key={s} type="button" onClick={() => handleStatusChange(s)} disabled={updatingStatus || processingInventory || isImmutable || order.status === s}
+                    style={{ border: order.status === s ? `2px solid ${c.color}` : '1px solid #d1d5db', background: order.status === s ? c.bg : '#fff', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: order.status === s ? 700 : 400, cursor: order.status === s ? 'default' : 'pointer', color: order.status === s ? c.color : '#374151', opacity: (updatingStatus || processingInventory || isImmutable) ? 0.6 : 1 }}>
                     {s}
                   </button>
                 );
               })}
             </div>
             {updatingStatus && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#6b7280' }}>Memperbarui status...</p>}
+            {processingInventory && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#6b7280' }}>Memproses stok...</p>}
           </div>
 
           {/* Order items */}

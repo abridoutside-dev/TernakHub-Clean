@@ -166,6 +166,34 @@ export interface FeedStoreSalesCreateInput {
   created_by?: string | null;
 }
 
+// ─── feed_store_sales_items ────────────────────────────────────────────────────
+
+export interface FeedStoreSalesItemDbRow {
+  id: string;
+  sale_id: string;
+  workspace_id: string;
+  stok_id: string | null; // FK → stok_inventaris(id)
+  item_name: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number; // bigint
+  subtotal: number;   // bigint
+  notes: string | null;
+  created_at: string;
+}
+
+export interface FeedStoreSalesItemCreateInput {
+  sale_id: string;
+  workspace_id: string;
+  stok_id?: string | null;
+  item_name: string;
+  quantity: number;
+  unit?: string | null;
+  unit_price?: number;
+  subtotal?: number;
+  notes?: string | null;
+}
+
 // ─── Update Inputs ────────────────────────────────────────────────────────────
 
 export interface FeedStoreSupplierUpdateInput {

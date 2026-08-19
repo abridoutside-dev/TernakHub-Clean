@@ -90,10 +90,14 @@ export default function FeedStoreSalesList() {
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button type="button" onClick={() => navigate(`/workspace/${workspaceId}/feed-store/sales/${sale.id}`)}
                     style={{ border: '1px solid #d1d5db', background: '#f9fafb', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Detail</button>
-                  <button type="button" onClick={() => navigate(`/workspace/${workspaceId}/feed-store/sales/${sale.id}/edit`)}
-                    style={{ border: '1px solid #fed7aa', background: '#fff7ed', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: '#9a3412', fontWeight: 600 }}>Edit</button>
-                  <button type="button" onClick={() => setConfirmId(sale.id)}
-                    style={{ border: '1px solid #fecaca', background: '#fef2f2', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: '#991b1b', fontWeight: 600 }}>Hapus</button>
+                  {sale.status !== 'Selesai' && (
+                    <button type="button" onClick={() => navigate(`/workspace/${workspaceId}/feed-store/sales/${sale.id}/edit`)}
+                      style={{ border: '1px solid #fed7aa', background: '#fff7ed', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: '#9a3412', fontWeight: 600 }}>Edit</button>
+                  )}
+                  {sale.status !== 'Selesai' && (
+                    <button type="button" onClick={() => setConfirmId(sale.id)}
+                      style={{ border: '1px solid #fecaca', background: '#fef2f2', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: '#991b1b', fontWeight: 600 }}>Hapus</button>
+                  )}
                 </div>
               </div>
               {confirmId === sale.id && (

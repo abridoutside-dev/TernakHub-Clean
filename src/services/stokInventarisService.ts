@@ -23,7 +23,7 @@
 //  - 'Produk Komersial' → both FKs NULL            (referensiId stored in notes)
 //
 // Notes JSON convention (metadata round-trip via useStokInventaris):
-//  { b, sup, loc, rid, hp, tm, c, fn, kat }
+//  { b, sup, sid, loc, rid, hp, tm, c, fn, kat }
 
 import { lookupMasterPakanId } from './masterPakanCatalogService';
 import {
@@ -31,6 +31,9 @@ import {
   repoFindStokInventaris,
   repoInsertStokInventaris,
   repoInsertStokTransaction,
+  repoPatchStokInventaris,
+  repoGetTransactionsByReference,
+  repoGetTransactionsBySaleId,
   StokInventarisRepoError,
 } from '../repositories/stokInventarisRepository';
 import type { StokInventarisDbRow } from '../types/stokInventaris';
@@ -66,6 +69,7 @@ function toDbSourceType(sumber: string): DbSourceType {
 function buildNotes(meta: {
   brand?: string;
   supplier?: string;
+  supplierId?: string;
   lokasi?: string;
   referensiId?: string;
   hargaBeli?: number;
@@ -77,6 +81,7 @@ function buildNotes(meta: {
   return JSON.stringify({
     b:   meta.brand       ?? '',
     sup: meta.supplier    ?? '',
+    sid: meta.supplierId  ?? '',
     loc: meta.lokasi      ?? '',
     rid: meta.referensiId ?? '',
     hp:  meta.hargaBeli   ?? null,
@@ -109,6 +114,7 @@ async function resolveOrCreateStokRow(opts: {
   hargaBeli?:   number;
   brand?:       string;
   supplier?:    string;
+  supplierId?:  string;
   lokasi?:      string;
   tanggalMasuk?: string;
   catatan?:     string;
@@ -158,6 +164,7 @@ async function resolveOrCreateStokRow(opts: {
   const notes = buildNotes({
     brand:       opts.brand,
     supplier:    opts.supplier,
+    supplierId:  opts.supplierId,
     lokasi:      opts.lokasi,
     referensiId: opts.referensiId,
     hargaBeli:   opts.hargaBeli,
@@ -200,6 +207,7 @@ export interface RecordTambahStokInput {
   hargaBeli?:    number;
   brand?:        string;
   supplier?:     string;
+  supplierId?:   string;
   lokasi?:       string;
   catatan?:      string;
   kategori?:     string;
@@ -232,6 +240,7 @@ export async function recordTambahStok(
       hargaBeli:    input.hargaBeli,
       brand:        input.brand,
       supplier:     input.supplier,
+      supplierId:   input.supplierId,
       lokasi:       input.lokasi,
       tanggalMasuk: input.tanggal,
       catatan:      input.catatan,
@@ -251,6 +260,8 @@ export async function recordTambahStok(
       quantity_before:  Number(row.quantity),
       quantity_after:   Number(row.quantity) + input.jumlah,
       reason,
+      reference_id:     input.supplierId ?? null,
+      reference_type:   input.supplierId ? 'feed_store_supplier' : null,
       transaction_date: input.tanggal,
     });
 
@@ -276,6 +287,7 @@ export interface RecordPerubahanStokInput {
   operator?:        string;
   referensiId?:     string;
   kategori?:        string;
+  customerId?:      string;
 }
 
 /**
@@ -314,6 +326,8 @@ export async function recordPerubahanStok(
       quantity_before:  input.jumlahStokSebelum,
       quantity_after:   input.jumlahStokSebelum - input.jumlah,
       reason,
+      reference_id:     input.customerId ?? null,
+      reference_type:   input.customerId ? 'feed_store_customer' : null,
       transaction_date: input.tanggal,
     });
 
@@ -544,6 +558,189 @@ export async function recordPemberianPakanTransaction(
     return ok({ stokId: row.id });
   } catch (err) {
     const msg = err instanceof StokInventarisRepoError ? err.message : 'Gagal menyimpan transaksi pemberian pakan.';
+    return fail(msg);
+  }
+}
+
+// ─── recordOrderCompletion ────────────────────────────────────────────────────
+
+export interface RecordOrderCompletionInput {
+  orderId: string;
+  orderType: 'Pembelian' | 'Penjualan';
+  items: Array<{
+    stokId: string;
+    itemName: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    sumber: string;
+  }>;
+  tanggal: string;
+  catatan?: string;
+}
+
+/**
+ * Process inventory when an order is marked Selesai.
+ * - Pembelian: creates Masuk transactions and updates purchase_price_per_kg.
+ * - Penjualan: creates Keluar transactions.
+ * Skips items without stok_id (cannot map to inventory).
+ */
+export async function recordOrderCompletion(
+  workspaceId: string,
+  input: RecordOrderCompletionInput,
+): Promise<StokInventarisServiceResult<void>> {
+  if (!workspaceId) return fail('Workspace diperlukan.');
+  if (!input.orderId) return fail('Order ID diperlukan.');
+  if (input.items.length === 0) return ok(undefined);
+
+  try {
+    const existing = await repoGetTransactionsByReference(input.orderId, 'feed_store_order');
+    if (existing.length > 0) {
+      return ok(undefined);
+    }
+
+    const results = await Promise.all(
+      input.items
+        .filter((item) => item.stokId)
+        .map(async (item) => {
+          const row = await repoGetStokInventarisById(item.stokId);
+          if (!row) return { ok: false as const, error: `Item stok ${item.itemName} tidak ditemukan.` };
+
+          const qtyBefore = Number(row.quantity);
+          const isPembelian = input.orderType === 'Pembelian';
+          const qtyDelta = isPembelian ? Math.abs(item.quantity) : -Math.abs(item.quantity);
+          const qtyAfter = qtyBefore + qtyDelta;
+
+          if (qtyAfter < 0) {
+            return { ok: false as const, error: `Stok ${item.itemName} tidak mencukupi (tersedia: ${qtyBefore} ${item.unit}).` };
+          }
+
+          await repoInsertStokTransaction({
+            stok_id:          row.id,
+            workspace_id:     workspaceId,
+            transaction_type: isPembelian ? 'Masuk' : 'Keluar',
+            quantity_delta:   qtyDelta,
+            quantity_before:  qtyBefore,
+            quantity_after:   qtyAfter,
+            reason: input.catatan
+              ? `${input.orderType} Order — ${input.catatan}`
+              : `${input.orderType} Order`,
+            reference_id:     input.orderId,
+            reference_type:   'feed_store_order',
+            transaction_date: input.tanggal,
+          });
+
+          if (isPembelian && item.unitPrice > 0) {
+            await repoPatchStokInventaris(row.id, {
+              purchase_price_per_kg: item.unitPrice,
+            });
+          }
+
+          return { ok: true as const };
+        }),
+    );
+
+    const failed = results.find((r) => !r.ok);
+    if (failed) return fail(failed.error);
+
+    return ok(undefined);
+  } catch (err) {
+    const msg = err instanceof StokInventarisRepoError ? err.message : 'Gagal memproses order ke stok.';
+    return fail(msg);
+  }
+}
+
+// ─── recordSaleCompletion ─────────────────────────────────────────────────────
+
+export interface RecordSaleCompletionInput {
+  saleId: string;
+  customerId?: string;
+  items: Array<{
+    stokId: string;
+    itemName: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+  }>;
+  tanggal: string;
+  catatan?: string;
+}
+
+/**
+ * Process inventory when a standalone sale is marked Selesai.
+ * Creates Keluar transactions (stock deduction) with structured customer
+ * reference when a customer is provided:
+ *   reference_id   = customer UUID
+ *   reference_type = 'feed_store_customer'
+ *
+ * When no customer is provided, the transaction falls back to sale reference:
+ *   reference_id   = sale UUID
+ *   reference_type = 'feed_store_sale'
+ *
+ * Idempotency: checks for existing transactions by searching the reason text
+ * for the saleId marker [saleId]. This preserves idempotency even when the
+ * reference_id/reference_type pair is used for the customer.
+ */
+export async function recordSaleCompletion(
+  workspaceId: string,
+  input: RecordSaleCompletionInput,
+): Promise<StokInventarisServiceResult<void>> {
+  if (!workspaceId) return fail('Workspace diperlukan.');
+  if (!input.saleId) return fail('Sale ID diperlukan.');
+  if (input.items.length === 0) return ok(undefined);
+
+  try {
+    const existing = await repoGetTransactionsBySaleId(workspaceId, input.saleId);
+    const processedStokIds = new Set(
+      existing.map((tx) => tx.stok_id).filter((id): id is string => id !== null),
+    );
+    const itemsToProcess = input.items.filter(
+      (item) => item.stokId && !processedStokIds.has(item.stokId),
+    );
+    if (itemsToProcess.length === 0) {
+      return ok(undefined);
+    }
+
+    const results = await Promise.all(
+      itemsToProcess.map(async (item) => {
+        const row = await repoGetStokInventarisById(item.stokId);
+        if (!row) return { ok: false as const, error: `Item stok ${item.itemName} tidak ditemukan.` };
+
+        const qtyBefore = Number(row.quantity);
+        const qtyDelta = -Math.abs(item.quantity);
+        const qtyAfter = qtyBefore + qtyDelta;
+
+        if (qtyAfter < 0) {
+          return { ok: false as const, error: `Stok ${item.itemName} tidak mencukupi (tersedia: ${qtyBefore} ${item.unit}).` };
+        }
+
+        const reason = input.catatan
+          ? `Penjualan [${input.saleId}] — ${input.catatan}`
+          : `Penjualan [${input.saleId}]`;
+
+        await repoInsertStokTransaction({
+          stok_id:          row.id,
+          workspace_id:     workspaceId,
+          transaction_type: 'Keluar',
+          quantity_delta:   qtyDelta,
+          quantity_before:  qtyBefore,
+          quantity_after:   qtyAfter,
+          reason,
+          reference_id:     input.customerId ?? input.saleId,
+          reference_type:   input.customerId ? 'feed_store_customer' : 'feed_store_sale',
+          transaction_date: input.tanggal,
+        });
+
+        return { ok: true as const };
+      }),
+    );
+
+    const failed = results.find((r) => !r.ok);
+    if (failed) return fail(failed.error);
+
+    return ok(undefined);
+  } catch (err) {
+    const msg = err instanceof StokInventarisRepoError ? err.message : 'Gagal memproses penjualan ke stok.';
     return fail(msg);
   }
 }
