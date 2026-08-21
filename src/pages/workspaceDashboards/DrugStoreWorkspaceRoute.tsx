@@ -1,14 +1,15 @@
 // ─── DrugStoreWorkspaceRoute — WORKSPACE-001F ────────────────────────────────
 // Member Toko Obat aktif melihat dashboard registry-driven.
 // Tamu atau workspace lain tetap melihat halaman publik sederhana.
-
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { getWorkspaceDashboardConfig } from '../../config/workspaceDashboardRegistry';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
+import { getWorkspaceKindFromRecord } from '../../config/workspaceRegistry';
 
 // ─── Public fallback (belum login atau bukan workspace aktif) ─────────────────
+
 function DrugStorePublicFallback({ workspaceId }: { workspaceId: string }) {
   return (
     <div
@@ -66,13 +67,11 @@ export default function DrugStoreWorkspaceRoute() {
   const { currentUser } = useAuth();
   const { activeWorkspace } = useWorkspace();
 
-  // DrugStore dbType maps to 'Veterinary' in the DB enum.
-  // Guard: user must be authenticated AND this workspace must be the active one
-  // AND the active workspace must be of type 'Veterinary' (DrugStore's dbType).
+  const workspaceKind = activeWorkspace ? getWorkspaceKindFromRecord(activeWorkspace) : null;
   const isActiveDrugStore = Boolean(
     currentUser &&
     activeWorkspace?.workspace_uuid === id &&
-    activeWorkspace.workspace_type === 'Veterinary',
+    workspaceKind === 'DrugStore',
   );
 
   if (!isActiveDrugStore) return <DrugStorePublicFallback workspaceId={id} />;

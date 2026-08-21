@@ -221,7 +221,7 @@ export default function PenyesuaianStokObat() {
 
       // ── Supabase write (dual-write, fire-and-forget) ──────────────────────
       if (activeWorkspace?.workspace_uuid) {
-        archiveStokItemSvc(item!.uuid).then((result) => {
+        archiveStokItemSvc(activeWorkspace.workspace_uuid, item!.uuid).then((result) => {
           if (!result.ok) {
             console.error('[PenyesuaianStokObat] Supabase archiveStokItem failed:', result.error);
           } else {

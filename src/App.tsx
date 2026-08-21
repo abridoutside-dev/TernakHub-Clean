@@ -148,6 +148,20 @@ const EditLivestock = lazy(() => import('./routeBundles/livestock').then(m => ({
 const FeedStoreWorkspaceRoute = lazy(() => import('./routeBundles/feedStore').then(m => ({ default: m.FeedStoreWorkspaceRoute })));
 const FeedStoreSupplierDetail = lazy(() => import('./routeBundles/feedStore').then(m => ({ default: m.FeedStoreSupplierDetail })));
 const FeedStoreCustomerDetail = lazy(() => import('./routeBundles/feedStore').then(m => ({ default: m.FeedStoreCustomerDetail })));
+// drugStore routes
+const DrugStoreSupplierList = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSupplierList })));
+const DrugStoreSupplierForm = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSupplierForm })));
+const DrugStoreSupplierDetail = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSupplierDetail })));
+const DrugStoreCustomerList = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreCustomerList })));
+const DrugStoreCustomerForm = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreCustomerForm })));
+const DrugStoreCustomerDetail = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreCustomerDetail })));
+const DrugStoreOrderList = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreOrderList })));
+const DrugStoreOrderForm = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreOrderForm })));
+const DrugStoreOrderDetail = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreOrderDetail })));
+const DrugStoreSalesList = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSalesList })));
+const DrugStoreSalesForm = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSalesForm })));
+const DrugStoreSalesDetail = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSalesDetail })));
+const DrugStoreStokKeluar = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreStokKeluar })));
 // workspace routes
 const TransportWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.TransportWorkspace })));
 const VeterinaryWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.VeterinaryWorkspace })));
@@ -652,6 +666,23 @@ export default function App() {
       <Route path="/workspace/:id/feed-store/sales/:sid"           element={<FeedStoreSalesDetail />} />
       <Route path="/workspace/:id/feed-store/sales/:sid/edit"      element={<FeedStoreSalesForm />} />
       <Route path="/workspace/:id/drug-store"  element={<DrugStoreWorkspaceRoute />} />
+      <Route path="/workspace/:id/drug-store/suppliers"            element={<DrugStoreSupplierList />} />
+      <Route path="/workspace/:id/drug-store/suppliers/new"        element={<DrugStoreSupplierForm />} />
+      <Route path="/workspace/:id/drug-store/suppliers/:sid"       element={<DrugStoreSupplierDetail />} />
+      <Route path="/workspace/:id/drug-store/suppliers/:sid/edit"  element={<DrugStoreSupplierForm />} />
+      <Route path="/workspace/:id/drug-store/customers"            element={<DrugStoreCustomerList />} />
+      <Route path="/workspace/:id/drug-store/customers/new"        element={<DrugStoreCustomerForm />} />
+      <Route path="/workspace/:id/drug-store/customers/:cid"       element={<DrugStoreCustomerDetail />} />
+      <Route path="/workspace/:id/drug-store/customers/:cid/edit"  element={<DrugStoreCustomerForm />} />
+      <Route path="/workspace/:id/drug-store/orders"               element={<DrugStoreOrderList />} />
+      <Route path="/workspace/:id/drug-store/orders/new"           element={<DrugStoreOrderForm />} />
+      <Route path="/workspace/:id/drug-store/orders/:oid"          element={<DrugStoreOrderDetail />} />
+      <Route path="/workspace/:id/drug-store/orders/:oid/edit"     element={<DrugStoreOrderForm />} />
+      <Route path="/workspace/:id/drug-store/sales"                element={<DrugStoreSalesList />} />
+      <Route path="/workspace/:id/drug-store/sales/new"            element={<DrugStoreSalesForm />} />
+      <Route path="/workspace/:id/drug-store/sales/:sid"           element={<DrugStoreSalesDetail />} />
+      <Route path="/workspace/:id/drug-store/sales/:sid/edit"      element={<DrugStoreSalesForm />} />
+      <Route path="/workspace/:id/drug-store/stok-keluar"          element={<DrugStoreStokKeluar />} />
       <Route path="/workspace/:id/farm-profile" element={<FarmProfile />} />
       </Route>
       {/* ── End of ProtectedLayout block ────────────────────────────────── */}

@@ -292,7 +292,7 @@ export async function applyAdjustment(
     });
 
     // 2. Explicitly patch stok_obat.quantity (no trigger for adjustments).
-    await repoPatchStokObatItem(stokObatId, { quantity: quantityAfter });
+    await repoPatchStokObatItem(stokObatId, workspaceId, { quantity: quantityAfter });
 
     return ok(row);
   } catch (err) {
@@ -306,12 +306,14 @@ export async function applyAdjustment(
  * Item is hidden from the active stock list but data is preserved.
  */
 export async function archiveStokItem(
+  workspaceId: string,
   id: string,
 ): Promise<StokObatServiceResult<StokObatDbRow | null>> {
+  if (!workspaceId) return fail('Workspace diperlukan.');
   if (!id) return fail('ID stok obat diperlukan.');
 
   try {
-    const row = await repoPatchStokObatItem(id, { status: 'Diarsipkan' });
+    const row = await repoPatchStokObatItem(id, workspaceId, { status: 'Diarsipkan' });
     return ok(row);
   } catch (err) {
     const msg = err instanceof StokObatRepoError ? err.message : 'Gagal mengarsipkan item stok.';
@@ -323,15 +325,120 @@ export async function archiveStokItem(
  * Restore an archived stok_obat item (sets status back to 'Aktif').
  */
 export async function unarchiveStokItem(
+  workspaceId: string,
   id: string,
 ): Promise<StokObatServiceResult<StokObatDbRow | null>> {
+  if (!workspaceId) return fail('Workspace diperlukan.');
   if (!id) return fail('ID stok obat diperlukan.');
 
   try {
-    const row = await repoPatchStokObatItem(id, { status: 'Aktif' });
+    const row = await repoPatchStokObatItem(id, workspaceId, { status: 'Aktif' });
     return ok(row);
   } catch (err) {
     const msg = err instanceof StokObatRepoError ? err.message : 'Gagal memulihkan item stok.';
+    return fail(msg);
+  }
+}
+
+// ─── recordDrugStoreOrderCompletion ───────────────────────────────────────────
+// Proses inventory ketika order Toko Obat ditandai Selesai.
+// - Pembelian: creates stok_obat_masuk (trigger increments quantity)
+// - Penjualan: creates stok_obat_keluar (trigger decrements quantity)
+// Idempoten: mengecek notes di stok_obat_masuk/keluar untuk orderId.
+
+export interface RecordDrugStoreOrderCompletionInput {
+  orderId: string;
+  orderType: 'Pembelian' | 'Penjualan';
+  items: Array<{
+    stokId?: string | null;
+    itemName: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+  }>;
+  tanggal: string;
+  catatan?: string;
+}
+
+export async function recordDrugStoreOrderCompletion(
+  workspaceId: string,
+  input: RecordDrugStoreOrderCompletionInput,
+): Promise<StokObatServiceResult<void>> {
+  if (!workspaceId) return fail('Workspace diperlukan.');
+  if (!input.orderId) return fail('Order ID diperlukan.');
+
+  try {
+    const { supabase: sb } = await import('../lib/supabase');
+
+    const { data: existingMasuk } = await sb
+      .from('stok_obat_masuk')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .ilike('notes', `%${input.orderId}%`)
+      .limit(1);
+
+    const { data: existingKeluar } = await sb
+      .from('stok_obat_keluar')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .ilike('notes', `%${input.orderId}%`)
+      .limit(1);
+
+    if ((existingMasuk && existingMasuk.length > 0) || (existingKeluar && existingKeluar.length > 0)) {
+      return ok(undefined);
+    }
+
+    const results = await Promise.all(
+      input.items.filter((item) => item.stokId).map(async (item) => {
+        const stokId = item.stokId!;
+        const { repoGetStokObatItemById } = await import('../repositories/stokObatRepository');
+        const stokRow = await repoGetStokObatItemById(stokId, workspaceId);
+        if (!stokRow) {
+          return { ok: false as const, error: `Item stok "${item.itemName}" tidak ditemukan di workspace ini.` };
+        }
+
+        const currentQty = Number(stokRow.quantity) || 0;
+        const qty = Math.floor(Number(item.quantity) || 0);
+        const isPembelian = input.orderType === 'Pembelian';
+
+        if (!isPembelian && currentQty < qty) {
+          return { ok: false as const, error: `Stok tidak cukup untuk "${item.itemName}": tersedia ${currentQty}, dibutuhkan ${qty}.` };
+        }
+
+        const reason = input.catatan ? `${input.orderType} Order — ${input.catatan}` : `${input.orderType} Order`;
+
+        if (isPembelian) {
+          const masukResult = await addStokMasuk(workspaceId, stokId, {
+            jumlah: qty,
+            tanggalMasuk: input.tanggal,
+            sumber: 'Order Pembelian',
+            catatan: `${reason} [order:${input.orderId}]`,
+          });
+          if (!masukResult.ok) {
+            return { ok: false as const, error: masukResult.error };
+          }
+        } else {
+          const keluarResult = await addStokKeluar(workspaceId, stokId, {
+            jumlah: qty,
+            tanggalKeluar: input.tanggal,
+            alasan: 'Penjualan Order',
+            catatan: `${reason} [order:${input.orderId}]`,
+          });
+          if (!keluarResult.ok) {
+            return { ok: false as const, error: keluarResult.error };
+          }
+        }
+
+        return { ok: true as const };
+      }),
+    );
+
+    const failed = results.find((r) => !r.ok);
+    if (failed) return fail(failed.error);
+
+    return ok(undefined);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Gagal memproses order ke stok.';
     return fail(msg);
   }
 }

@@ -17,12 +17,19 @@ import type {
   DrugStoreSupplierDbRow,
   DrugStoreSupplierCreateInput,
   DrugStoreSupplierUpdateInput,
+  DrugStoreCustomerDbRow,
+  DrugStoreCustomerCreateInput,
+  DrugStoreCustomerUpdateInput,
   DrugStoreOrderDbRow,
   DrugStoreOrderCreateInput,
   DrugStoreOrderUpdateInput,
+  DrugStoreOrderItemDbRow,
+  DrugStoreOrderItemCreateInput,
   DrugStoreSalesDbRow,
   DrugStoreSalesCreateInput,
   DrugStoreSalesUpdateInput,
+  DrugStoreSalesItemDbRow,
+  DrugStoreSalesItemCreateInput,
 } from '../types/drugStore';
 
 // ─── Error ────────────────────────────────────────────────────────────────────
@@ -275,6 +282,11 @@ export async function repoUpdateDrugStoreOrder(
   input: DrugStoreOrderUpdateInput,
 ): Promise<DrugStoreOrderDbRow> {
   await requireAuthSession();
+  const existing = await repoGetDrugStoreOrderById(id);
+  if (!existing) throw new DrugStoreRepoError('Order tidak ditemukan.', 'NOT_FOUND');
+  if (existing.status === 'Selesai') {
+    throw new DrugStoreRepoError('Order yang sudah selesai tidak dapat diubah.', 'ALREADY_COMPLETED');
+  }
   const { data, error } = await supabase
     .from('drug_store_orders')
     .update(input)
@@ -290,6 +302,11 @@ export async function repoUpdateDrugStoreOrder(
  */
 export async function repoDeleteDrugStoreOrder(id: string): Promise<void> {
   await requireAuthSession();
+  const existing = await repoGetDrugStoreOrderById(id);
+  if (!existing) return;
+  if (existing.status === 'Selesai') {
+    throw new DrugStoreRepoError('Order yang sudah selesai tidak dapat dihapus.', 'ALREADY_COMPLETED');
+  }
   const { error } = await supabase
     .from('drug_store_orders')
     .delete()
@@ -382,6 +399,11 @@ export async function repoUpdateDrugStoreSale(
   input: DrugStoreSalesUpdateInput,
 ): Promise<DrugStoreSalesDbRow> {
   await requireAuthSession();
+  const existing = await repoGetDrugStoreSaleById(id);
+  if (!existing) throw new DrugStoreRepoError('Penjualan tidak ditemukan.', 'NOT_FOUND');
+  if (existing.status === 'Selesai') {
+    throw new DrugStoreRepoError('Penjualan yang sudah selesai tidak dapat diubah.', 'ALREADY_COMPLETED');
+  }
   const { data, error } = await supabase
     .from('drug_store_sales')
     .update(input)
@@ -397,9 +419,202 @@ export async function repoUpdateDrugStoreSale(
  */
 export async function repoDeleteDrugStoreSale(id: string): Promise<void> {
   await requireAuthSession();
+  const existing = await repoGetDrugStoreSaleById(id);
+  if (!existing) return;
+  if (existing.status === 'Selesai') {
+    throw new DrugStoreRepoError('Penjualan yang sudah selesai tidak dapat dihapus.', 'ALREADY_COMPLETED');
+  }
   const { error } = await supabase
     .from('drug_store_sales')
     .delete()
     .eq('id', id);
+  guard(error);
+}
+
+// ─── drug_store_customers ─────────────────────────────────────────────────────
+
+/**
+ * Semua customer workspace, diurutkan by name.
+ */
+export async function repoGetDrugStoreCustomersByWorkspace(
+  workspaceId: string,
+): Promise<DrugStoreCustomerDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_customers')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('name', { ascending: true });
+  guard(error);
+  return (data ?? []) as DrugStoreCustomerDbRow[];
+}
+
+/**
+ * Count customer aktif di workspace.
+ */
+export async function repoGetDrugStoreActiveCustomerCount(
+  workspaceId: string,
+): Promise<number> {
+  await requireAuthSession();
+  const { count, error } = await supabase
+    .from('drug_store_customers')
+    .select('*', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'Aktif');
+  guard(error);
+  return count ?? 0;
+}
+
+/**
+ * Customer by ID.
+ */
+export async function repoGetDrugStoreCustomerById(
+  id: string,
+): Promise<DrugStoreCustomerDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_customers')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  guard(error);
+  return data as DrugStoreCustomerDbRow | null;
+}
+
+/**
+ * Tambah customer baru.
+ */
+export async function repoInsertDrugStoreCustomer(
+  input: DrugStoreCustomerCreateInput,
+): Promise<DrugStoreCustomerDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_customers')
+    .insert(input)
+    .select()
+    .single();
+  guard(error);
+  return data as DrugStoreCustomerDbRow;
+}
+
+/**
+ * Update customer.
+ */
+export async function repoUpdateDrugStoreCustomer(
+  id: string,
+  input: DrugStoreCustomerUpdateInput,
+): Promise<DrugStoreCustomerDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_customers')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as DrugStoreCustomerDbRow;
+}
+
+/**
+ * Hapus customer.
+ */
+export async function repoDeleteDrugStoreCustomer(id: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('drug_store_customers')
+    .delete()
+    .eq('id', id);
+  guard(error);
+}
+
+// ─── drug_store_order_items ───────────────────────────────────────────────────
+
+/**
+ * Semua item untuk sebuah order.
+ */
+export async function repoGetDrugStoreOrderItems(
+  orderId: string,
+): Promise<DrugStoreOrderItemDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_order_items')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+  guard(error);
+  return (data ?? []) as DrugStoreOrderItemDbRow[];
+}
+
+/**
+ * Insert item ke order.
+ */
+export async function repoInsertDrugStoreOrderItem(
+  input: DrugStoreOrderItemCreateInput,
+): Promise<DrugStoreOrderItemDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_order_items')
+    .insert(input)
+    .select()
+    .single();
+  guard(error);
+  return data as DrugStoreOrderItemDbRow;
+}
+
+/**
+ * Hapus semua item untuk sebuah order (digunakan saat edit order).
+ */
+export async function repoDeleteDrugStoreOrderItemsByOrderId(orderId: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('drug_store_order_items')
+    .delete()
+    .eq('order_id', orderId);
+  guard(error);
+}
+
+// ─── drug_store_sales_items ────────────────────────────────────────────────────
+
+/**
+ * Semua item untuk sebuah catatan penjualan, terurut by created_at.
+ */
+export async function repoGetDrugStoreSalesItemsBySaleId(
+  saleId: string,
+): Promise<DrugStoreSalesItemDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_sales_items')
+    .select('*')
+    .eq('sale_id', saleId)
+    .order('created_at', { ascending: true });
+  guard(error);
+  return (data ?? []) as DrugStoreSalesItemDbRow[];
+}
+
+/**
+ * Insert item ke catatan penjualan.
+ */
+export async function repoInsertDrugStoreSalesItem(
+  input: DrugStoreSalesItemCreateInput,
+): Promise<DrugStoreSalesItemDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('drug_store_sales_items')
+    .insert(input)
+    .select()
+    .single();
+  guard(error);
+  return data as DrugStoreSalesItemDbRow;
+}
+
+/**
+ * Hapus semua item untuk sebuah catatan penjualan (digunakan saat edit penjualan).
+ */
+export async function repoDeleteDrugStoreSalesItemsBySaleId(saleId: string): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('drug_store_sales_items')
+    .delete()
+    .eq('sale_id', saleId);
   guard(error);
 }

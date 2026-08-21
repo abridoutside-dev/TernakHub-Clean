@@ -9,7 +9,8 @@
 import { buildIndividuList, buildOutsideIndividu, buildArchiveList } from '../utils/livestockSummary';
 import { getAllTransaksi }                                             from './marketplaceTransaksiData';
 import { getInventarisList, getAllRiwayatPerubahan }                   from './stokInventarisData';
-import { STOK_OBAT_ITEMS }                                            from './stokObatData';
+import type { StokObatItem }                                           from './stokObatData';
+import type { DrugStoreSalesDbRow, DrugStoreOrderDbRow }               from '../types/drugStore';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -165,12 +166,22 @@ export function getLivestockEstimasiNilai(): number {
 
 // ─── Ringkasan ────────────────────────────────────────────────────────────────
 
-export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string, workspaceType?: string): RingkasanBI {
+export function getRingkasanBI(
+  key: PeriodeKey,
+  activeWorkspaceId?: string,
+  workspaceType?: string,
+  opts?: {
+    stokObatItems?: StokObatItem[];
+    drugStoreSales?: DrugStoreSalesDbRow[];
+    drugStoreOrders?: DrugStoreOrderDbRow[];
+  },
+): RingkasanBI {
   const { from, to } = getPeriodRange(key);
   const activeId = activeWorkspaceId;
   const isFarm = workspaceType === 'Farm';
   const isFeedStore = workspaceType === 'FeedStore';
   const isVeterinary = workspaceType === 'Veterinary';
+  const isDrugStore = isVeterinary && opts?.drugStoreSales !== undefined;
 
   // ── Livestock ── (hanya Farm)
   const aktif       = isFarm ? buildIndividuList() : [];
@@ -187,38 +198,59 @@ export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string, work
     0
   );
 
-  // ── Stok Obat ── (Farm + Veterinary)
+  // ── Stok Obat ── (Farm + Veterinary / DrugStore)
   const includeStokObat = isFarm || isVeterinary;
+  const stokObatItems = opts?.stokObatItems ?? [];
   const jumlahItemObat = includeStokObat
-    ? STOK_OBAT_ITEMS.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif').length
+    ? stokObatItems.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif').length
     : 0;
 
-  // ── Marketplace ──
-  const allTrx = getAllTransaksi();
-  const trxInPeriod = allTrx.filter((t) => {
-    const tanggal = t.selesaiAt ?? t.createdAt;
-    return isoInRange(tanggal, from, to);
-  });
+  // ── Transaksi ──
+  let totalPenjualan = 0;
+  let totalPembelian = 0;
 
-  const totalPenjualan = trxInPeriod
-    .filter((t) => t.status === 'Selesai' && t.workspaceIdPenjual === activeId)
-    .reduce((sum, t) => sum + t.total, 0);
+  if (isDrugStore && opts.drugStoreSales && opts.drugStoreOrders) {
+    const salesInPeriod = opts.drugStoreSales.filter((t) => {
+      const tanggal = t.sale_date;
+      return isoInRange(tanggal, from, to);
+    });
+    const completedSales = salesInPeriod.filter((t) => t.status === 'Selesai');
+    totalPenjualan = completedSales.reduce((sum, t) => sum + Number(t.total_amount), 0);
 
-  const totalPembelian = trxInPeriod
-    .filter((t) => t.status === 'Selesai' && t.workspaceIdPembeli === activeId)
-    .reduce((sum, t) => sum + t.total, 0);
+    const pembelianOrders = opts.drugStoreOrders.filter((o) => {
+      return o.order_type === 'Pembelian' && isoInRange(o.order_date, from, to) && o.status === 'Selesai';
+    });
+    totalPembelian = pembelianOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  } else {
+    const allTrx = getAllTransaksi();
+    const trxInPeriod = allTrx.filter((t) => {
+      const tanggal = t.selesaiAt ?? t.createdAt;
+      return isoInRange(tanggal, from, to);
+    });
+
+    totalPenjualan = trxInPeriod
+      .filter((t) => t.status === 'Selesai' && t.workspaceIdPenjual === activeId)
+      .reduce((sum, t) => sum + t.total, 0);
+
+    totalPembelian = trxInPeriod
+      .filter((t) => t.status === 'Selesai' && t.workspaceIdPembeli === activeId)
+      .reduce((sum, t) => sum + t.total, 0);
+  }
 
   const totalPengeluaran = totalPembelian;
 
   // ── Margin ──
-  // Hanya bisa dihitung jika ada data transaksi yang selesai
-  const hasSufficientData = allTrx.some((t) => t.status === 'Selesai');
+  const hasSufficientData = isDrugStore
+    ? (opts.drugStoreSales?.some((t) => t.status === 'Selesai') ?? false)
+    : getAllTransaksi().some((t) => t.status === 'Selesai');
   const margin = hasSufficientData ? totalPenjualan - totalPengeluaran : null;
   const marginNote = margin === null
     ? 'Data transaksi selesai belum tersedia untuk periode ini.'
-    : 'Berdasarkan transaksi Marketplace. Pengeluaran operasional (pakan, obat) belum diperhitungkan.';
+    : isDrugStore
+      ? 'Berdasarkan penjualan & pembelian Toko Obat. Pengeluaran operasional lain belum diperhitungkan.'
+      : 'Berdasarkan transaksi Marketplace. Pengeluaran operasional (pakan, obat) belum diperhitungkan.';
 
-  const estimasiNilaiUsaha = nilaiAsetTernak + nilaiStokPakan;
+  const estimasiNilaiUsaha = isDrugStore ? 0 : nilaiAsetTernak + nilaiStokPakan;
 
   return {
     nilaiAsetTernak,
@@ -239,12 +271,22 @@ export function getRingkasanBI(key: PeriodeKey, activeWorkspaceId?: string, work
 
 // ─── Module Breakdown ────────────────────────────────────────────────────────
 
-export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, workspaceType?: string): ModuleBreakdown {
+export function getModuleBreakdown(
+  key: PeriodeKey,
+  activeWorkspaceId?: string,
+  workspaceType?: string,
+  opts?: {
+    stokObatItems?: StokObatItem[];
+    drugStoreSales?: DrugStoreSalesDbRow[];
+    drugStoreOrders?: DrugStoreOrderDbRow[];
+  },
+): ModuleBreakdown {
   const activeId = activeWorkspaceId;
   const { from, to } = getPeriodRange(key);
   const isFarm = workspaceType === 'Farm';
   const isFeedStore = workspaceType === 'FeedStore';
   const isVeterinary = workspaceType === 'Veterinary';
+  const isDrugStore = isVeterinary && opts?.drugStoreSales !== undefined;
 
   // ── Livestock ── (hanya Farm)
   const aktif = isFarm ? buildIndividuList() : [];
@@ -266,21 +308,50 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
   const jenisBreakdown = Array.from(jenisMap.values()).sort((a, b) => b.count - a.count);
   const estimasiNilaiTotal = jenisBreakdown.reduce((s, j) => s + j.estimasiNilai, 0);
 
-  // ── Marketplace ──
-  const allTrx = getAllTransaksi();
-  const trxPeriod = allTrx.filter((t) => {
-    const tanggal = t.selesaiAt ?? t.createdAt;
-    return isoInRange(tanggal, from, to);
-  });
+  // ── Transaksi ──
+  let marketplaceTotalTransaksi = 0;
+  let marketplaceSelesai = 0;
+  let marketplacePenjualan = 0;
+  let marketplacePembelian = 0;
+  let marketplaceTransaksiAktif = 0;
 
-  const selesaiTrx     = trxPeriod.filter((t) => t.status === 'Selesai');
-  const penjualan      = selesaiTrx.filter((t) => t.workspaceIdPenjual === activeId).reduce((s, t) => s + t.total, 0);
-  const pembelian      = selesaiTrx.filter((t) => t.workspaceIdPembeli === activeId).reduce((s, t) => s + t.total, 0);
-  const transaksiAktif = allTrx.filter(
-    (t) =>
-      (t.workspaceIdPenjual === activeId || t.workspaceIdPembeli === activeId) &&
-      !['Selesai', 'Dibatalkan', 'Ditolak'].includes(t.status)
-  ).length;
+  if (isDrugStore && opts.drugStoreSales && opts.drugStoreOrders) {
+    const salesInPeriod = opts.drugStoreSales.filter((t) => isoInRange(t.sale_date, from, to));
+    marketplaceTotalTransaksi = salesInPeriod.length;
+    marketplaceSelesai = salesInPeriod.filter((t) => t.status === 'Selesai').length;
+    marketplacePenjualan = salesInPeriod
+      .filter((t) => t.status === 'Selesai')
+      .reduce((s, t) => s + Number(t.total_amount), 0);
+
+    const pembelianInPeriod = opts.drugStoreOrders.filter((o) =>
+      o.order_type === 'Pembelian' && isoInRange(o.order_date, from, to)
+    );
+    marketplacePembelian = pembelianInPeriod
+      .filter((o) => o.status === 'Selesai')
+      .reduce((s, o) => s + Number(o.total_amount), 0);
+
+    marketplaceTransaksiAktif = opts.drugStoreSales.filter(
+      (t) => !['Selesai', 'Dibatalkan'].includes(t.status)
+    ).length + opts.drugStoreOrders.filter(
+      (o) => !['Selesai', 'Dibatalkan'].includes(o.status)
+    ).length;
+  } else {
+    const allTrx = getAllTransaksi();
+    const trxPeriod = allTrx.filter((t) => {
+      const tanggal = t.selesaiAt ?? t.createdAt;
+      return isoInRange(tanggal, from, to);
+    });
+
+    marketplaceTotalTransaksi = trxPeriod.length;
+    marketplaceSelesai = trxPeriod.filter((t) => t.status === 'Selesai').length;
+    marketplacePenjualan = trxPeriod.filter((t) => t.status === 'Selesai' && t.workspaceIdPenjual === activeId).reduce((s, t) => s + t.total, 0);
+    marketplacePembelian = trxPeriod.filter((t) => t.status === 'Selesai' && t.workspaceIdPembeli === activeId).reduce((s, t) => s + t.total, 0);
+    marketplaceTransaksiAktif = allTrx.filter(
+      (t) =>
+        (t.workspaceIdPenjual === activeId || t.workspaceIdPembeli === activeId) &&
+        !['Selesai', 'Dibatalkan', 'Ditolak'].includes(t.status)
+    ).length;
+  }
 
   // ── Stok Pakan ── (Farm + FeedStore)
   const includeStokPakan = isFarm || isFeedStore;
@@ -292,10 +363,11 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
   );
   const satuanSet = new Set(inventaris.map((i) => i.satuan));
 
-  // ── Stok Obat ── (Farm + Veterinary)
+  // ── Stok Obat ── (Farm + Veterinary / DrugStore)
   const includeStokObat = isFarm || isVeterinary;
+  const stokObatItems = opts?.stokObatItems ?? [];
   const obatAktif = includeStokObat
-    ? STOK_OBAT_ITEMS.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif')
+    ? stokObatItems.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif')
     : [];
 
   // ── Pemberian Pakan (period-filtered by tanggal) ──
@@ -315,11 +387,11 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
       catatanEstimasi: 'Estimasi berdasarkan bobot × harga pasar per kg. Bukan nilai jual aktual.',
     },
     marketplace: {
-      totalTransaksi: trxPeriod.length,
-      selesai: selesaiTrx.length,
-      penjualan,
-      pembelian,
-      transaksiAktif,
+      totalTransaksi: marketplaceTotalTransaksi,
+      selesai: marketplaceSelesai,
+      penjualan: marketplacePenjualan,
+      pembelian: marketplacePembelian,
+      transaksiAktif: marketplaceTransaksiAktif,
     },
     stokPakan: {
       totalItem: inventaris.length,
@@ -328,11 +400,13 @@ export function getModuleBreakdown(key: PeriodeKey, activeWorkspaceId?: string, 
       satuanVariasi: Array.from(satuanSet),
     },
     stokObat: {
-      totalItem: includeStokObat ? STOK_OBAT_ITEMS.length : 0,
+      totalItem: includeStokObat ? stokObatItems.length : 0,
       aktif: obatAktif.length,
-      catatan: includeStokObat
-        ? 'Nilai stok obat tidak tersedia (harga beli belum direkam).'
-        : 'Modul ini tidak relevan untuk workspace ini.',
+      catatan: isDrugStore
+        ? 'Nilai stok obat belum tersedia (harga beli belum direkam).'
+        : includeStokObat
+          ? 'Nilai stok obat tidak tersedia (harga beli belum direkam).'
+          : 'Modul ini tidak relevan untuk workspace ini.',
     },
     pemberianPakan: {
       totalEntries: pemberianEntries.length,
@@ -403,11 +477,17 @@ function buildPoint(
 //
 // Changing the period will always produce a different dataset/shape.
 
-export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string): MonthlyDataPoint[] {
+export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string, workspaceType?: string, opts?: {
+  drugStoreSales?: DrugStoreSalesDbRow[];
+  drugStoreOrders?: DrugStoreOrderDbRow[];
+}): MonthlyDataPoint[] {
   const now      = new Date();
   const activeId = activeWorkspaceId;
-  const allTrx   = getAllTransaksi();
   const { from: periodFrom, to: periodTo } = getPeriodRange(key);
+  const isVeterinary = workspaceType === 'Veterinary';
+  const drugStoreSales = opts?.drugStoreSales;
+  const drugStoreOrders = opts?.drugStoreOrders;
+  const isDrugStore = isVeterinary && drugStoreSales !== undefined && drugStoreOrders !== undefined;
 
   // ── hari-ini / minggu-ini: daily bars for Mon–Sun of current week ─────────
   if (key === 'hari-ini' || key === 'minggu-ini') {
@@ -416,9 +496,18 @@ export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string): Mon
       const day    = new Date(monday);
       day.setDate(monday.getDate() + i);
       const dayStr = day.toISOString().split('T')[0];
-      // For hari-ini only count transactions that fall in the period (= today)
       const from   = key === 'hari-ini' ? (dayStr >= periodFrom && dayStr <= periodTo ? dayStr : '9999') : dayStr;
       const to     = from === '9999' ? '9999' : dayStr;
+
+      if (isDrugStore) {
+        const salesInDay = drugStoreSales.filter((t) => t.sale_date === dayStr && t.status === 'Selesai');
+        const ordersInDay = drugStoreOrders.filter((o) => o.order_type === 'Pembelian' && o.order_date === dayStr && o.status === 'Selesai');
+        const penjualan = salesInDay.reduce((s, t) => s + Number(t.total_amount), 0);
+        const pembelian = ordersInDay.reduce((s, o) => s + Number(o.total_amount), 0);
+        return { bulan: HARI_SHORT[day.getDay()], label: dayStr, penjualan, pembelian, margin: penjualan - pembelian };
+      }
+
+      const allTrx = getAllTransaksi();
       return buildPoint(HARI_SHORT[day.getDay()], dayStr, from, to, allTrx, activeId);
     });
   }
@@ -430,7 +519,7 @@ export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string): Mon
     const firstDay = new Date(year, month, 1);
     const lastDay  = new Date(year, month + 1, 0);
     const points: MonthlyDataPoint[] = [];
-    let weekStart = new Date(firstDay);
+    const weekStart = new Date(firstDay);
     let weekNum   = 1;
     while (weekStart <= lastDay) {
       const weekEnd = new Date(weekStart);
@@ -438,18 +527,27 @@ export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string): Mon
       if (weekEnd > lastDay) weekEnd.setTime(lastDay.getTime());
       const from = weekStart.toISOString().split('T')[0];
       const to   = weekEnd.toISOString().split('T')[0];
-      points.push(buildPoint(
-        `W${weekNum}`,
-        `Minggu ${weekNum} ${BULAN_SHORT[month]}`,
-        from, to, allTrx, activeId,
-      ));
+
+      if (isDrugStore) {
+        const salesInWeek = drugStoreSales.filter((t) => t.sale_date >= from && t.sale_date <= to && t.status === 'Selesai');
+        const ordersInWeek = drugStoreOrders.filter((o) => o.order_type === 'Pembelian' && o.order_date >= from && o.order_date <= to && o.status === 'Selesai');
+        const penjualan = salesInWeek.reduce((s, t) => s + Number(t.total_amount), 0);
+        const pembelian = ordersInWeek.reduce((s, o) => s + Number(o.total_amount), 0);
+        points.push({ bulan: `W${weekNum}`, label: `Minggu ${weekNum} ${BULAN_SHORT[month]}`, penjualan, pembelian, margin: penjualan - pembelian });
+      } else {
+        points.push(buildPoint(
+          `W${weekNum}`,
+          `Minggu ${weekNum} ${BULAN_SHORT[month]}`,
+          from, to, getAllTransaksi(), activeId,
+        ));
+      }
       weekStart.setDate(weekStart.getDate() + 7);
       weekNum++;
     }
     return points;
   }
 
-  // ── tahun-ini: 12 monthly bars for Jan–Dec of current year ───────────────
+  // ── tahun-ini: 12 monthly bars for Jan–Dec ─────────────────────────────────
   const year = now.getFullYear();
   return Array.from({ length: 12 }, (_, m) => {
     const date    = new Date(year, m, 1);
@@ -460,7 +558,16 @@ export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string): Mon
     if (from > periodTo) {
       return { bulan: BULAN_SHORT[m], label: `${BULAN_SHORT[m]} ${year}`, penjualan: 0, pembelian: 0, margin: 0 };
     }
-    return buildPoint(BULAN_SHORT[m], `${BULAN_SHORT[m]} ${year}`, from, to, allTrx, activeId);
+
+    if (isDrugStore) {
+      const salesInMonth = drugStoreSales.filter((t) => t.sale_date >= from && t.sale_date <= to && t.status === 'Selesai');
+      const ordersInMonth = drugStoreOrders.filter((o) => o.order_type === 'Pembelian' && o.order_date >= from && o.order_date <= to && o.status === 'Selesai');
+      const penjualan = salesInMonth.reduce((s, t) => s + Number(t.total_amount), 0);
+      const pembelian = ordersInMonth.reduce((s, o) => s + Number(o.total_amount), 0);
+      return { bulan: BULAN_SHORT[m], label: `${BULAN_SHORT[m]} ${year}`, penjualan, pembelian, margin: penjualan - pembelian };
+    }
+
+    return buildPoint(BULAN_SHORT[m], `${BULAN_SHORT[m]} ${year}`, from, to, getAllTransaksi(), activeId);
   });
 }
 
@@ -481,11 +588,17 @@ export interface LaporanBulananRow {
   transaksi:  number;
 }
 
-export function getLaporanBulanan(key: PeriodeKey, activeWorkspaceId?: string): LaporanBulananRow[] {
+export function getLaporanBulanan(key: PeriodeKey, activeWorkspaceId?: string, workspaceType?: string, opts?: {
+  drugStoreSales?: DrugStoreSalesDbRow[];
+  drugStoreOrders?: DrugStoreOrderDbRow[];
+}): LaporanBulananRow[] {
   const now      = new Date();
   const activeId = activeWorkspaceId;
-  const allTrx   = getAllTransaksi();
-  const { from: periodFrom, to: periodTo } = getPeriodRange(key);
+  const { to: periodTo } = getPeriodRange(key);
+  const isVeterinary = workspaceType === 'Veterinary';
+  const drugStoreSales = opts?.drugStoreSales;
+  const drugStoreOrders = opts?.drugStoreOrders;
+  const isDrugStore = isVeterinary && drugStoreSales !== undefined && drugStoreOrders !== undefined;
 
   function buildRow(
     periode:    string,
@@ -493,6 +606,21 @@ export function getLaporanBulanan(key: PeriodeKey, activeWorkspaceId?: string): 
     from:       string,
     to:         string,
   ): LaporanBulananRow {
+    if (isDrugStore) {
+      const trx = drugStoreSales.filter((t) => {
+        const d = t.sale_date;
+        return t.status === 'Selesai' && d >= from && d <= to;
+      });
+      const pembelianTrx = drugStoreOrders.filter((o) => {
+        const d = o.order_date;
+        return o.order_type === 'Pembelian' && o.status === 'Selesai' && d >= from && d <= to;
+      });
+      const penjualan = trx.reduce((s, t) => s + Number(t.total_amount), 0);
+      const pembelian = pembelianTrx.reduce((s, o) => s + Number(o.total_amount), 0);
+      return { periode, periodeKey, penjualan, pembelian, margin: penjualan - pembelian, transaksi: trx.length + pembelianTrx.length };
+    }
+
+    const allTrx = getAllTransaksi();
     const trx = allTrx.filter((t) => {
       const d = t.selesaiAt ?? t.createdAt;
       return t.status === 'Selesai' && d >= from && d <= to &&
@@ -529,7 +657,7 @@ export function getLaporanBulanan(key: PeriodeKey, activeWorkspaceId?: string): 
     const firstDay = new Date(year, month, 1);
     const lastDay  = new Date(year, month + 1, 0);
     const rows: LaporanBulananRow[] = [];
-    let weekStart = new Date(firstDay);
+    const weekStart = new Date(firstDay);
     let weekNum   = 1;
     while (weekStart <= lastDay) {
       const weekEnd = new Date(weekStart);
@@ -604,18 +732,40 @@ export interface TahunanInsight {
   kontribusiBulanan:     KontribusiBulan[];
 }
 
-export function getTahunanInsight(activeWorkspaceId?: string): TahunanInsight {
+export function getTahunanInsight(activeWorkspaceId?: string, workspaceType?: string, opts?: {
+  drugStoreSales?: DrugStoreSalesDbRow[];
+  drugStoreOrders?: DrugStoreOrderDbRow[];
+}): TahunanInsight {
   const now      = new Date();
   const year     = now.getFullYear();
   const prevYear = year - 1;
   const activeId = activeWorkspaceId;
-  const allTrx   = getAllTransaksi();
   const today    = now.toISOString().split('T')[0];
+  const isVeterinary = workspaceType === 'Veterinary';
+  const drugStoreSales = opts?.drugStoreSales;
+  const drugStoreOrders = opts?.drugStoreOrders;
+  const isDrugStore = isVeterinary && drugStoreSales !== undefined && drugStoreOrders !== undefined;
 
   function yearTotals(y: number) {
     const from = `${y}-01-01`;
     const to   = `${y}-12-31`;
-    const trx  = allTrx.filter((t) => {
+
+    if (isDrugStore) {
+      const trx = drugStoreSales.filter((t) => {
+        const d = t.sale_date;
+        return t.status === 'Selesai' && d >= from && d <= to;
+      });
+      const pembelianTrx = drugStoreOrders.filter((o) => {
+        const d = o.order_date;
+        return o.order_type === 'Pembelian' && o.status === 'Selesai' && d >= from && d <= to;
+      });
+      const penjualan = trx.reduce((s, t) => s + Number(t.total_amount), 0);
+      const pembelian = pembelianTrx.reduce((s, o) => s + Number(o.total_amount), 0);
+      return { penjualan, pembelian, margin: penjualan - pembelian, transaksi: trx.length + pembelianTrx.length };
+    }
+
+    const allTrx = getAllTransaksi();
+    const trx = allTrx.filter((t) => {
       const d = t.selesaiAt ?? t.createdAt;
       return t.status === 'Selesai' && d >= from && d <= to &&
         (t.workspaceIdPenjual === activeId || t.workspaceIdPembeli === activeId);
@@ -648,20 +798,34 @@ export function getTahunanInsight(activeWorkspaceId?: string): TahunanInsight {
       };
     }
 
-    const trx = allTrx.filter((t) => {
-      const d = t.selesaiAt ?? t.createdAt;
-      return t.status === 'Selesai' && d >= from && d <= to &&
-        (t.workspaceIdPenjual === activeId || t.workspaceIdPembeli === activeId);
-    });
-    const penjualan = trx.filter((t) => t.workspaceIdPenjual === activeId).reduce((s, t) => s + t.total, 0);
-    const pembelian = trx.filter((t) => t.workspaceIdPembeli === activeId).reduce((s, t) => s + t.total, 0);
+    let penjualan = 0;
+    let pembelian = 0;
+    let transaksi = 0;
+
+    if (isDrugStore) {
+      const salesInMonth = drugStoreSales.filter((t) => t.sale_date >= from && t.sale_date <= to && t.status === 'Selesai');
+      const ordersInMonth = drugStoreOrders.filter((o) => o.order_type === 'Pembelian' && o.order_date >= from && o.order_date <= to && o.status === 'Selesai');
+      penjualan = salesInMonth.reduce((s, t) => s + Number(t.total_amount), 0);
+      pembelian = ordersInMonth.reduce((s, o) => s + Number(o.total_amount), 0);
+      transaksi = salesInMonth.length + ordersInMonth.length;
+    } else {
+      const allTrx = getAllTransaksi();
+      const trx = allTrx.filter((t) => {
+        const d = t.selesaiAt ?? t.createdAt;
+        return t.status === 'Selesai' && d >= from && d <= to &&
+          (t.workspaceIdPenjual === activeId || t.workspaceIdPembeli === activeId);
+      });
+      penjualan = trx.filter((t) => t.workspaceIdPenjual === activeId).reduce((s, t) => s + t.total, 0);
+      pembelian = trx.filter((t) => t.workspaceIdPembeli === activeId).reduce((s, t) => s + t.total, 0);
+      transaksi = trx.length;
+    }
 
     return {
       bulan: BULAN_SHORT[m],
       label: `${BULAN_ID[m]} ${year}`,
       penjualan, pembelian,
       margin: penjualan - pembelian,
-      transaksi: trx.length,
+      transaksi,
       pctPenjualan: curr.penjualan > 0 ? (penjualan / curr.penjualan) * 100 : 0,
       pctPembelian: curr.pembelian > 0 ? (pembelian / curr.pembelian) * 100 : 0,
     };

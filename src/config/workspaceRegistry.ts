@@ -22,7 +22,7 @@
 //   const cfg = getWorkspaceConfig('Farm');
 //   const url = resolveWorkspaceRoute(cfg.routeUtama, workspaceId);
 
-import type { WorkspaceType } from '../types/workspace';
+import type { WorkspaceType, WorkspaceRecord } from '../types/workspace';
 
 // ─── WorkspaceKind ────────────────────────────────────────────────────────────
 
@@ -314,4 +314,30 @@ export function resolveWorkspaceRoutes(
     utama:       resolveWorkspaceRoute(cfg.routeUtama,      workspaceId),
     pengaturan:  resolveWorkspaceRoute(cfg.routePengaturan, workspaceId),
   };
+}
+
+/**
+ * Determine the WorkspaceKind for a given workspace record.
+ *
+ * DB enum VeterinaryClinic / VeterinaryDoctor both map to app type 'Veterinary',
+ * so the route guard cannot rely on workspace_type alone to distinguish
+ * DrugStore from DokterHewan / KlinikHewan.
+ *
+ * This function matches the workspace name (and slug) against the registry
+ * nama values. If no match is found, it falls back to dbType mapping.
+ */
+export function getWorkspaceKindFromRecord(workspace: WorkspaceRecord): WorkspaceKind {
+  const name = workspace.workspace_name.toLowerCase();
+  const slug = workspace.workspace_slug.toLowerCase();
+
+  for (const kind of WORKSPACE_KINDS) {
+    const cfg = WORKSPACE_REGISTRY[kind];
+    const namaLower = cfg.nama.toLowerCase();
+    const namaSlug = namaLower.replace(/\s+/g, '-');
+    if (name.includes(namaLower) || slug.includes(namaSlug)) {
+      return kind;
+    }
+  }
+
+  return getWorkspaceConfigByDbType(workspace.workspace_type).kind;
 }

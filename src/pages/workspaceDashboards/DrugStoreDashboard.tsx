@@ -28,9 +28,10 @@ import {
   WorkspaceSectionTitle,
   WorkspaceQuickActions,
 } from '../../components/workspace/WorkspacePageHelpers';
-import type { StokObatDbRow } from '../../types/stokObat';
+import { AiInsightCard, type AiInsightItem } from '../../components/AiInsightCard';
+import type { StokObatDbRow, StokObatMasukDbRow, StokObatKeluarDbRow } from '../../types/stokObat';
 import type { ActivityLogDbRow } from '../../types/activityLog';
-import type { DrugStoreOrderDbRow, DrugStorePenjualanSummary } from '../../types/drugStore';
+import type { DrugStoreOrderDbRow, DrugStorePenjualanSummary, DrugStoreSalesDbRow, DrugStoreSupplierDbRow } from '../../types/drugStore';
 
 // ─── Tema warna Toko Obat ─────────────────────────────────────────────────────
 
@@ -43,6 +44,95 @@ const COLORS = {
   actionText:   '#006064',
   actionBorder: '#80deea',
 } as const;
+
+// ─── AI Insight Dashboard Toko Obat ─────────────────────────────────────────────
+
+function computeDrugStoreDashboardInsight(
+  stokItems: StokObatDbRow[],
+  stokMasuk: StokObatMasukDbRow[],
+  stokKeluar: StokObatKeluarDbRow[],
+  suppliers: DrugStoreSupplierDbRow[],
+  recentOrders: DrugStoreOrderDbRow[],
+  sales: DrugStoreSalesDbRow[],
+  activities: ActivityLogDbRow[],
+): AiInsightItem[] {
+  const hasStok = stokItems.length > 0;
+  const hasMasuk = stokMasuk.length > 0;
+  const hasKeluar = stokKeluar.length > 0;
+  const hasSuppliers = suppliers.length > 0;
+  const hasOrders = recentOrders.length > 0;
+  const hasSales = sales.length > 0;
+  const hasActivity = activities.length > 0;
+
+  if (!hasStok && !hasMasuk && !hasKeluar && !hasSuppliers && !hasOrders && !hasSales && !hasActivity) {
+    return [];
+  }
+
+  const result: AiInsightItem[] = [];
+  const lowStock = getLowStokObatItems(stokItems);
+  const nearExpiry = getNearExpiryStokItems(stokItems);
+
+  if (hasStok) {
+    const aktif = stokItems.filter((i) => i.status === 'Aktif').length;
+    result.push({
+      icon: '💊',
+      text: `${formatNumber(stokItems.length)} item stok obat — ${formatNumber(aktif)} aktif, ${formatNumber(lowStock.length)} stok rendah, ${formatNumber(nearExpiry.length)} mendekati kedaluwarsa.`,
+    });
+  }
+
+  if (hasMasuk) {
+    result.push({
+      icon: '📥',
+      text: `${formatNumber(stokMasuk.length)} transaksi stok masuk tercatat.`,
+    });
+  }
+
+  if (hasKeluar) {
+    result.push({
+      icon: '📤',
+      text: `${formatNumber(stokKeluar.length)} transaksi stok keluar tercatat.`,
+    });
+  }
+
+  if (hasSuppliers) {
+    const aktifSuppliers = suppliers.filter((s) => s.status === 'Aktif').length;
+    result.push({
+      icon: '🚚',
+      text: `${formatNumber(suppliers.length)} supplier — ${formatNumber(aktifSuppliers)} aktif.`,
+    });
+  }
+
+  if (hasOrders) {
+    const penjualan = recentOrders.filter((o) => o.order_type === 'Penjualan').length;
+    const pembelian = recentOrders.filter((o) => o.order_type === 'Pembelian').length;
+    result.push({
+      icon: '📋',
+      text: `${formatNumber(recentOrders.length)} order terbaru — ${formatNumber(penjualan)} penjualan, ${formatNumber(pembelian)} pembelian.`,
+    });
+  }
+
+  if (hasSales) {
+    const totalRevenue = sales.reduce((s, t) => s + Number(t.total_amount), 0);
+    result.push({
+      icon: '💰',
+      text: `${formatNumber(sales.length)} catatan penjualan — total pendapatan ${formatRupiah(totalRevenue)}.`,
+    });
+  }
+
+  if (hasActivity) {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const recentActivity = activities.filter((a) => new Date(a.created_at) >= weekAgo).length;
+    if (recentActivity > 0) {
+      result.push({
+        icon: '⚡',
+        text: `${formatNumber(recentActivity)} aktivitas dalam 7 hari terakhir.`,
+      });
+    }
+  }
+
+  return result;
+}
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
@@ -168,7 +258,6 @@ function PesananTerbaruCard({ orders }: { orders: DrugStoreOrderDbRow[] }) {
                 </p>
                 <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)' }}>
                   {order.order_type} · {formatOrderDate(order.order_date)}
-                  {order.customer_name ? ` · ${order.customer_name}` : ''}
                 </p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
@@ -490,6 +579,24 @@ export default function DrugStoreDashboard(): React.ReactElement {
       {/* ── Content ── */}
       {!loading && (
         <>
+          {/* AI Insight Dashboard Toko Obat */}
+          <WorkspaceCard style={{ marginBottom: 14 }}>
+            <WorkspaceSectionTitle title="AI Insight Dashboard" accentColor={COLORS.primary} />
+            <AiInsightCard
+              title="AI Insight Toko Obat"
+              icon="🤖"
+              items={computeDrugStoreDashboardInsight(
+                data.stokItems,
+                data.stokMasuk,
+                data.stokKeluar,
+                data.suppliers,
+                data.recentOrders,
+                data.sales,
+                data.activities,
+              )}
+            />
+          </WorkspaceCard>
+
           {/* Quick Action */}
           <WorkspaceCard style={{ marginBottom: 14 }}>
             <WorkspaceSectionTitle title="Quick Action" accentColor={COLORS.primary} />

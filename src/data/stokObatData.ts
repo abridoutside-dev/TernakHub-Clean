@@ -33,13 +33,9 @@ import { addRiwayatObat, type JenisAktivitas } from './riwayatObatData';
 // SIAP menerima transaksi tersebut tanpa perlu migrasi ulang skema.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ─── Workspace (dev-seed only) ──────────────────────────────────────────────────
-// Placeholder UUID used ONLY in the seed records below to stamp initial demo
-// data. It must NOT be imported or used as a live workspace ID elsewhere —
-// runtime workspace filtering must come from WorkspaceContext.activeWorkspace.
-//
-// C-002 fix (FLOW-003M5): removed `export` — callers must use useWorkspace().
-const CURRENT_WORKSPACE_UUID = '00000000-0000-4000-8000-000000000001';
+// ─── Workspace ──────────────────────────────────────────────────────────────────
+// Workspace ID must come from useWorkspace().activeWorkspace.workspace_uuid.
+// No hardcoded workspace UUIDs are used in this module.
 
 // ─── Alasan Penyesuaian Stok (fondasi — UI belum dibangun) ─────────────────────
 // Digunakan saat stok obat perlu dikoreksi/dikurangi tanpa melalui pemakaian
@@ -83,7 +79,7 @@ export function computeStatusStok(jumlah: number, tanggalExpired?: string | null
 export interface StokObatItem {
   /** UUID v4 — identitas permanen batch stok ini. */
   uuid: string;
-  /** Relasi ke workspace/farm pemilik stok (lihat CURRENT_WORKSPACE_UUID). */
+  /** Relasi ke workspace/farm pemilik stok. */
   workspaceUuid: string;
   /** Relasi WAJIB ke ObatProdukKomersial.uuid (produkKomersialObatData.ts). */
   produkKomersialUuid: string;
@@ -148,133 +144,9 @@ export function unarchiveStokObat(uuid: string): StokObatItem {
   return item;
 }
 
-// ─── Dummy Stok Obat Data ───────────────────────────────────────────────────────
-// Data di bawah ini merepresentasikan stok obat yang SUDAH dimiliki Farm
-// (bukan katalog) — setiap produkKomersialUuid/masterObatUuid di bawah merujuk
-// ke entri nyata pada produkKomersialObatData.ts / obatData.ts, bukan nilai
-// buatan. "Medical B Complex" sengaja memiliki dua batch (Batch A & Batch B)
-// untuk mendemonstrasikan aturan satu-produk-banyak-batch.
-export const STOK_OBAT_ITEMS: StokObatItem[] = [
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000001',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: '9a49fd42-e80a-4b90-90d7-5802018f8124', // Oxytet LA Fertilife
-    masterObatUuid: 'a1b2c3d4-0001-4000-8000-000000000001', // Oxytetracycline
-    brand: 'Fertilife',
-    namaProduk: 'Oxytet LA Fertilife',
-    bentukSediaan: 'Injeksi',
-    kemasan: 'Botol 250 mL',
-    lokasiPenyimpanan: 'Lemari Obat A',
-    jumlah: 12,
-    satuan: 'Botol',
-    tanggalMasuk: '2026-05-10',
-    tanggalExpired: '2027-05-10',
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000002',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: 'f8d24272-2231-4a09-a525-2446ab41bed0', // Ivermec Fertilife
-    masterObatUuid: 'a1b2c3d4-0010-4000-8000-000000000010', // Ivermectin
-    brand: 'Fertilife',
-    namaProduk: 'Ivermec Fertilife',
-    bentukSediaan: 'Injeksi',
-    kemasan: 'Botol 50 mL',
-    lokasiPenyimpanan: 'Lemari Obat A',
-    jumlah: 2,
-    satuan: 'Botol',
-    tanggalMasuk: '2026-06-20',
-    tanggalExpired: '2026-08-05',
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000003',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: '4050f049-7f68-4921-b6df-659b9aa33e43', // Medical B Complex — Batch A
-    masterObatUuid: 'a1b2c3d4-0014-4000-8000-000000000014', // Vitamin B Kompleks
-    brand: 'Medion',
-    namaProduk: 'Medical B Complex',
-    bentukSediaan: 'Injeksi',
-    kemasan: 'Botol 100 mL',
-    lokasiPenyimpanan: 'Lemari Obat B',
-    jumlah: 18,
-    satuan: 'Botol',
-    tanggalMasuk: '2026-01-15',
-    tanggalExpired: '2027-01-15',
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000004',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: '4050f049-7f68-4921-b6df-659b9aa33e43', // Medical B Complex — Batch B (produk sama, batch berbeda)
-    masterObatUuid: 'a1b2c3d4-0014-4000-8000-000000000014', // Vitamin B Kompleks
-    brand: 'Medion',
-    namaProduk: 'Medical B Complex',
-    bentukSediaan: 'Injeksi',
-    kemasan: 'Botol 100 mL',
-    lokasiPenyimpanan: 'Gudang Cadangan',
-    jumlah: 4,
-    satuan: 'Botol',
-    tanggalMasuk: '2026-06-01',
-    tanggalExpired: '2026-12-01',
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000005',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: 'e0dad957-bc65-48d6-b587-727bc6a302b9', // Virbavit ADE
-    masterObatUuid: 'a1b2c3d4-0013-4000-8000-000000000013', // Vitamin AD3E
-    brand: 'Virbac',
-    namaProduk: 'Virbavit ADE',
-    bentukSediaan: 'Injeksi',
-    kemasan: 'Botol 100 mL',
-    lokasiPenyimpanan: 'Lemari Obat B',
-    jumlah: 0,
-    satuan: 'Botol',
-    tanggalMasuk: '2026-03-01',
-    tanggalExpired: null,
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000006',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: 'c29c081a-18ec-475a-bb3e-beb12daafe0e', // Medical Calcium
-    masterObatUuid: 'a1b2c3d4-0029-4000-8000-000000000029', // Mineral Mix Ternak
-    brand: 'Medion',
-    namaProduk: 'Medical Calcium',
-    bentukSediaan: 'Cair',
-    kemasan: 'Botol 500 mL',
-    lokasiPenyimpanan: 'Lemari Obat A',
-    jumlah: 15,
-    satuan: 'Botol',
-    tanggalMasuk: '2025-12-01',
-    tanggalExpired: '2026-07-05',
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000007',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: 'f6512c7e-6242-4bfd-91ef-03ff484aa0bc', // Mediprobiotic
-    masterObatUuid: 'a1b2c3d4-0028-4000-8000-000000000028', // Probiotik Ternak
-    brand: 'Medion',
-    namaProduk: 'Mediprobiotic',
-    bentukSediaan: 'Serbuk',
-    kemasan: 'Sachet 500 gram',
-    lokasiPenyimpanan: 'Lemari Obat B',
-    jumlah: 0,
-    satuan: 'Sachet',
-    tanggalMasuk: '2026-02-10',
-    tanggalExpired: null,
-  },
-  {
-    uuid: 'b1a10000-0000-4000-8000-000000000008',
-    workspaceUuid: CURRENT_WORKSPACE_UUID,
-    produkKomersialUuid: '76100545-ab28-4b96-8cbd-f538137e9f7c', // Medilyte
-    masterObatUuid: 'a1b2c3d4-0030-4000-8000-000000000030', // Larutan Ringer Laktat
-    brand: 'Medion',
-    namaProduk: 'Medilyte',
-    bentukSediaan: 'Serbuk',
-    kemasan: 'Sachet 100 gram',
-    jumlah: 20,
-    satuan: 'Sachet',
-    tanggalMasuk: '2026-04-18',
-    tanggalExpired: '2027-02-20',
-  },
-];
+// ─── In-memory store ──────────────────────────────────────────────────────────
+// Populated by useStokObat() from Supabase. Do NOT hardcode seed data here.
+export const STOK_OBAT_ITEMS: StokObatItem[] = [];
 
 // ─── Penyesuaian Stok (SO-005.4) ─────────────────────────────────────────────
 // Satu-satunya transaksi yang boleh dilakukan langsung dari halaman Stok Obat:

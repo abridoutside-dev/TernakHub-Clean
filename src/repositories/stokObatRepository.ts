@@ -89,11 +89,13 @@ export async function repoInsertStokObatItem(
 
 /**
  * Apply a partial update to a stok_obat row (quantity, status, location, notes).
+ * Scoped to workspace to prevent cross-workspace mutations.
  * Returns the updated row or null if not found.
  * Used for: archive/unarchive (status) and manual quantity sync after adjustments.
  */
 export async function repoPatchStokObatItem(
   id: string,
+  workspaceId: string,
   patch: StokObatPatchInput,
 ): Promise<StokObatDbRow | null> {
   await requireAuthSession();
@@ -101,7 +103,27 @@ export async function repoPatchStokObatItem(
     .from('stok_obat')
     .update(patch)
     .eq('id', id)
+    .eq('workspace_id', workspaceId)
     .select()
+    .maybeSingle();
+  guard(error);
+  return data as StokObatDbRow | null;
+}
+
+/**
+ * Fetch a single stok_obat row by id, scoped to workspace.
+ * Used by the Drug Store sales service to verify stock before deduction.
+ */
+export async function repoGetStokObatItemById(
+  id: string,
+  workspaceId: string,
+): Promise<StokObatDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('stok_obat')
+    .select('*')
+    .eq('id', id)
+    .eq('workspace_id', workspaceId)
     .maybeSingle();
   guard(error);
   return data as StokObatDbRow | null;

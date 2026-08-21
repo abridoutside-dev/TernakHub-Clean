@@ -3,7 +3,7 @@
 // BUKAN Wallet. BUKAN Dompet Digital. BUKAN Payment Gateway.
 // Mengikuti docs/architecture/PROFILE_MODULE_CONSTITUTION.md
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   getRingkasanBI,
   getModuleBreakdown,
@@ -25,6 +25,12 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useStokInventaris } from '../hooks/useStokInventaris';
 import { useStokObat } from '../hooks/useStokObat';
 import { useLivestock } from '../hooks/useLivestock';
+import { getWorkspaceKindFromRecord } from '../config/workspaceRegistry';
+import {
+  repoGetDrugStoreSalesByWorkspace,
+  repoGetDrugStoreOrdersByWorkspace,
+} from '../repositories/drugStoreRepository';
+import type { DrugStoreSalesDbRow, DrugStoreOrderDbRow } from '../types/drugStore';
 import UpgradeDialog from '../components/subscription/UpgradeDialog';
 import {
   downloadBIExportCSV,
@@ -1025,17 +1031,45 @@ export default function ProfileBusinessInsight() {
   const [periode, setPeriode]   = useState<PeriodeKey>('bulan-ini');
   const [activeTab, setActiveTab] = useState<BITab>('ringkasan');
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [drugStoreSales, setDrugStoreSales] = useState<DrugStoreSalesDbRow[]>([]);
+  const [drugStoreOrders, setDrugStoreOrders] = useState<DrugStoreOrderDbRow[]>([]);
 
   const { hasFeature } = useSubscription();
   const { activeWorkspace } = useWorkspace();
   const canExport      = hasFeature('reports_export_excel');
 
   useStokInventaris({ clearOnEmpty: true });
-  useStokObat();
+  const stokObatData = useStokObat();
   useLivestock();
 
   const activeWorkspaceId = activeWorkspace?.workspace_uuid ?? null;
   const activeWorkspaceType = activeWorkspace?.workspace_type;
+  const workspaceKind = activeWorkspace ? getWorkspaceKindFromRecord(activeWorkspace) : null;
+  const isDrugStore = workspaceKind === 'DrugStore';
+
+  useEffect(() => {
+    if (!isDrugStore || !activeWorkspaceId) {
+      setDrugStoreSales([]);
+      setDrugStoreOrders([]);
+      return;
+    }
+    let aborted = false;
+    Promise.all([
+      repoGetDrugStoreSalesByWorkspace(activeWorkspaceId, 9999),
+      repoGetDrugStoreOrdersByWorkspace(activeWorkspaceId, { limit: 9999 }),
+    ]).then(([sales, orders]) => {
+      if (!aborted) {
+        setDrugStoreSales(sales);
+        setDrugStoreOrders(orders);
+      }
+    }).catch(() => {
+      if (!aborted) {
+        setDrugStoreSales([]);
+        setDrugStoreOrders([]);
+      }
+    });
+    return () => { aborted = true; };
+  }, [activeWorkspaceId, isDrugStore]);
 
   if (!activeWorkspaceId) {
     return (
@@ -1049,11 +1083,17 @@ export default function ProfileBusinessInsight() {
     );
   }
 
-  const ringkasan       = getRingkasanBI(periode, activeWorkspaceId, activeWorkspaceType);
-  const breakdown       = getModuleBreakdown(periode, activeWorkspaceId, activeWorkspaceType);
-  const monthly         = getMonthlyData(periode, activeWorkspaceId);
-  const laporan         = getLaporanBulanan(periode, activeWorkspaceId);
-  const tahunanInsight  = getTahunanInsight(activeWorkspaceId);
+  const insightOpts = {
+    stokObatItems: stokObatData.stokObat,
+    drugStoreSales: isDrugStore ? drugStoreSales : undefined,
+    drugStoreOrders: isDrugStore ? drugStoreOrders : undefined,
+  };
+
+  const ringkasan       = getRingkasanBI(periode, activeWorkspaceId, activeWorkspaceType, insightOpts);
+  const breakdown       = getModuleBreakdown(periode, activeWorkspaceId, activeWorkspaceType, insightOpts);
+  const monthly         = getMonthlyData(periode, activeWorkspaceId, activeWorkspaceType, insightOpts);
+  const laporan         = getLaporanBulanan(periode, activeWorkspaceId, activeWorkspaceType, insightOpts);
+  const tahunanInsight  = getTahunanInsight(activeWorkspaceId, activeWorkspaceType, insightOpts);
 
   function handleExport(fmt: ExportFormat) {
     const input = { tab: activeTab, ringkasan, monthly, breakdown, laporan };
