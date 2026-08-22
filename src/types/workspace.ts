@@ -19,6 +19,7 @@ export type WorkspaceType =
   | 'Farm'
   | 'FeedStore'
   | 'Veterinary'
+  | 'DrugStore'
   | 'Transport';
 
 export type WorkspaceStatus = 'Active' | 'Inactive' | 'Archived';
@@ -162,6 +163,7 @@ export const WORKSPACE_TYPES: WorkspaceType[] = [
   'Farm',
   'FeedStore',
   'Veterinary',
+  'DrugStore',
   'Transport',
 ];
 
@@ -182,6 +184,7 @@ export const WORKSPACE_TYPE_LABEL: Record<WorkspaceType, string> = {
   Farm:        'Farm',
   FeedStore:   'Feed Store',
   Veterinary:  'Veterinary',
+  DrugStore:   'Toko Obat',
   Transport:   'Transport',
 };
 

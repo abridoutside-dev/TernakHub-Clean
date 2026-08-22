@@ -69,6 +69,7 @@ function getWorkspaceIcon(ws: WorkspaceRecord): string {
     case 'Farm':       return '🐑';
     case 'FeedStore':  return '🌾';
     case 'Veterinary': return '🩺';
+    case 'DrugStore':  return '💊';
     case 'Transport':  return '🚚';
     default:           return '🏢';
   }

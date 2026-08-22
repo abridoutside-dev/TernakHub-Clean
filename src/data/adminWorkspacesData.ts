@@ -18,6 +18,7 @@ export type WsType =
   | 'FeedStore'
   | 'VeterinaryClinic'
   | 'VeterinaryDoctor'
+  | 'DrugStore'
   | 'Transport'
   | 'Marketplace';
 
@@ -107,6 +108,7 @@ export const WS_TYPE_CONFIG: Record<WsType, { icon: string; color: string; bg: s
   'FeedStore':        { icon: '🌾', color: '#d97706', bg: '#fef3c7', label: 'Toko Pakan' },
   'VeterinaryClinic': { icon: '🏥', color: '#0ea5e9', bg: '#e0f2fe', label: 'Klinik Hewan' },
   'VeterinaryDoctor': { icon: '👨‍⚕️', color: '#8b5cf6', bg: '#ede9fe', label: 'Dokter Hewan' },
+  'DrugStore':        { icon: '💊', color: '#0097a7', bg: '#e0f7fa', label: 'Toko Obat' },
   'Transport':        { icon: '🚛', color: '#f59e0b', bg: '#fef3c7', label: 'Transportasi' },
   'Marketplace':      { icon: '🛒', color: '#ec4899', bg: '#fce7f3', label: 'Marketplace' },
 };

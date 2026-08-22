@@ -59,6 +59,7 @@ const TYPE_META: Record<WorkspaceType, { icon: string; desc: string }> = {
   Farm:       { icon: '🐄', desc: 'Manajemen ternak & pertanian'            },
   FeedStore:  { icon: '🌾', desc: 'Operasional toko pakan & pasokan'        },
   Veterinary: { icon: '🩺', desc: 'Klinik atau praktik veteriner'           },
+  DrugStore:  { icon: '💊', desc: 'Penjualan & stok obat hewan'            },
   Transport:  { icon: '🚚', desc: 'Transportasi & logistik ternak'          },
 };
 

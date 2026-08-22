@@ -181,7 +181,6 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceKind, WorkspaceConfig> = {
   },
 
   // ── Toko Obat Hewan ────────────────────────────────────────────────────────
-  // dbType maps to 'Veterinary' until a dedicated DB enum value is added.
   DrugStore: {
     kind:          'DrugStore',
     nama:          'Toko Obat Hewan',
@@ -190,7 +189,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceKind, WorkspaceConfig> = {
     primaryColor:  '#0097a7',
     bgColor:       '#e0f7fa',
     textColor:     '#006064',
-    dbType:        'Veterinary',
+    dbType:        'DrugStore',
     routeDashboard: '/workspace/:id/drug-store',
     routeUtama:    '/workspace/:id/drug-store',
     routePengaturan: '/workspace/settings/profile',
@@ -319,14 +318,18 @@ export function resolveWorkspaceRoutes(
 /**
  * Determine the WorkspaceKind for a given workspace record.
  *
- * DB enum VeterinaryClinic / VeterinaryDoctor both map to app type 'Veterinary',
- * so the route guard cannot rely on workspace_type alone to distinguish
- * DrugStore from DokterHewan / KlinikHewan.
- *
- * This function matches the workspace name (and slug) against the registry
- * nama values. If no match is found, it falls back to dbType mapping.
+ * TYPE-BASED detection is used for workspace types that have a dedicated DB
+ * enum value (Farm, FeedStore, DrugStore, Transport).  Veterinary subtypes
+ * (DokterHewan / KlinikHewan) share the same DB enum range
+ * (VeterinaryClinic / VeterinaryDoctor) and fall back to the name-based
+ * detection below for backwards compatibility with existing rows.
  */
 export function getWorkspaceKindFromRecord(workspace: WorkspaceRecord): WorkspaceKind {
+  if (workspace.workspace_type === 'DrugStore') return 'DrugStore';
+  if (workspace.workspace_type === 'FeedStore')  return 'FeedStore';
+  if (workspace.workspace_type === 'Farm')       return 'Farm';
+  if (workspace.workspace_type === 'Transport')  return 'Transport';
+
   const name = workspace.workspace_name.toLowerCase();
   const slug = workspace.workspace_slug.toLowerCase();
 

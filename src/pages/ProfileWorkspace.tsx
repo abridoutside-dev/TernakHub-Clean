@@ -28,6 +28,7 @@ const TYPE_ICON: Record<string, string> = {
   Farm:       '🐄',
   FeedStore:  '🌾',
   Veterinary: '🩺',
+  DrugStore:  '💊',
   Transport:  '🚚',
 };
 

@@ -11,7 +11,8 @@
 //   created_at, updated_at, archived_at
 //
 // DB-001A enum values:
-//   workspace_type   → Farm | FeedStore | VeterinaryClinic | VeterinaryDoctor | Transport | Marketplace
+//   workspace_type   → Farm | FeedStore | VeterinaryClinic | VeterinaryDoctor
+//                    | DrugStore | Transport | Marketplace
 //   workspace_status → Aktif | Nonaktif | Diarsipkan | Pending
 //
 // App WorkspaceRecord uses different field names and enum values.
@@ -159,14 +160,13 @@ function fromDbStatus(status: string): WorkspaceStatus {
 
 /** App type → DB enum value */
 function toDbType(type: WorkspaceType): string {
-  if (type === 'Veterinary') return 'VeterinaryClinic';
-  return type; // Farm, FeedStore, Transport are identical
+  return type; // Farm, FeedStore, DrugStore, Veterinary, Transport map directly
 }
 
 /** DB enum value → App type */
 function fromDbType(type: string): WorkspaceType {
   if (type === 'VeterinaryClinic' || type === 'VeterinaryDoctor') return 'Veterinary';
-  if (type === 'Farm' || type === 'FeedStore' || type === 'Transport') return type as WorkspaceType;
+  if (type === 'Farm' || type === 'FeedStore' || type === 'DrugStore' || type === 'Transport') return type as WorkspaceType;
   return 'Farm'; // Marketplace and unknown → safe fallback
 }
 

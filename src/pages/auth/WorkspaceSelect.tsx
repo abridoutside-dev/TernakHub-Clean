@@ -44,6 +44,7 @@ const TYPE_ICON: Record<WorkspaceType, string> = {
   Farm:       '🐄',
   FeedStore:  '🌾',
   Veterinary: '🩺',
+  DrugStore:  '💊',
   Transport:  '🚚',
 };
 
@@ -51,6 +52,7 @@ const TYPE_COLOR: Record<WorkspaceType, { bg: string; text: string }> = {
   Farm:       { bg: '#e8f5ee', text: '#1b7a43' },
   FeedStore:  { bg: '#fff8e1', text: '#f57c00' },
   Veterinary: { bg: '#fce4ec', text: '#ad1457' },
+  DrugStore:  { bg: '#e0f7fa', text: '#006064' },
   Transport:  { bg: '#f3e5f5', text: '#6a1b9a' },
 };
 

@@ -17,6 +17,7 @@ const WORKSPACE_TYPE_TO_JENIS: Record<WorkspaceType, WorkspaceJenis> = {
   Farm:        'Peternakan',
   FeedStore:   'Toko Pakan',
   Veterinary:  'Dokter Hewan',
+  DrugStore:   'Toko Obat',
   Transport:   'Transporter',
 };
 
@@ -34,6 +35,7 @@ export function getWorkspaceIcon(ws: WorkspaceRecord): string {
     case 'Farm':       return '🐑';
     case 'FeedStore':  return '🌾';
     case 'Veterinary': return '🩺';
+    case 'DrugStore':  return '💊';
     case 'Transport':  return '🚚';
     default:           return '🏢';
   }
