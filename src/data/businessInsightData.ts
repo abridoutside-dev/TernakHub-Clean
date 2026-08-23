@@ -181,7 +181,9 @@ export function getRingkasanBI(
   const isFarm = workspaceType === 'Farm';
   const isFeedStore = workspaceType === 'FeedStore';
   const isVeterinary = workspaceType === 'Veterinary';
-  const isDrugStore = isVeterinary && opts?.drugStoreSales !== undefined;
+  const isDrugStore = workspaceType === 'DrugStore';
+  const drugStoreSales = opts?.drugStoreSales ?? [];
+  const drugStoreOrders = opts?.drugStoreOrders ?? [];
 
   // ── Livestock ── (hanya Farm)
   const aktif       = isFarm ? buildIndividuList() : [];
@@ -199,7 +201,7 @@ export function getRingkasanBI(
   );
 
   // ── Stok Obat ── (Farm + Veterinary / DrugStore)
-  const includeStokObat = isFarm || isVeterinary;
+  const includeStokObat = isFarm || isVeterinary || isDrugStore;
   const stokObatItems = opts?.stokObatItems ?? [];
   const jumlahItemObat = includeStokObat
     ? stokObatItems.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif').length
@@ -209,15 +211,15 @@ export function getRingkasanBI(
   let totalPenjualan = 0;
   let totalPembelian = 0;
 
-  if (isDrugStore && opts.drugStoreSales && opts.drugStoreOrders) {
-    const salesInPeriod = opts.drugStoreSales.filter((t) => {
+  if (isDrugStore && drugStoreSales.length > 0 && drugStoreOrders.length > 0) {
+    const salesInPeriod = drugStoreSales.filter((t) => {
       const tanggal = t.sale_date;
       return isoInRange(tanggal, from, to);
     });
     const completedSales = salesInPeriod.filter((t) => t.status === 'Selesai');
     totalPenjualan = completedSales.reduce((sum, t) => sum + Number(t.total_amount), 0);
 
-    const pembelianOrders = opts.drugStoreOrders.filter((o) => {
+    const pembelianOrders = drugStoreOrders.filter((o) => {
       return o.order_type === 'Pembelian' && isoInRange(o.order_date, from, to) && o.status === 'Selesai';
     });
     totalPembelian = pembelianOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
@@ -241,7 +243,7 @@ export function getRingkasanBI(
 
   // ── Margin ──
   const hasSufficientData = isDrugStore
-    ? (opts.drugStoreSales?.some((t) => t.status === 'Selesai') ?? false)
+    ? (drugStoreSales.some((t) => t.status === 'Selesai') ?? false)
     : getAllTransaksi().some((t) => t.status === 'Selesai');
   const margin = hasSufficientData ? totalPenjualan - totalPengeluaran : null;
   const marginNote = margin === null
@@ -286,7 +288,9 @@ export function getModuleBreakdown(
   const isFarm = workspaceType === 'Farm';
   const isFeedStore = workspaceType === 'FeedStore';
   const isVeterinary = workspaceType === 'Veterinary';
-  const isDrugStore = isVeterinary && opts?.drugStoreSales !== undefined;
+  const isDrugStore = workspaceType === 'DrugStore';
+  const drugStoreSales = opts?.drugStoreSales ?? [];
+  const drugStoreOrders = opts?.drugStoreOrders ?? [];
 
   // ── Livestock ── (hanya Farm)
   const aktif = isFarm ? buildIndividuList() : [];
@@ -315,24 +319,24 @@ export function getModuleBreakdown(
   let marketplacePembelian = 0;
   let marketplaceTransaksiAktif = 0;
 
-  if (isDrugStore && opts.drugStoreSales && opts.drugStoreOrders) {
-    const salesInPeriod = opts.drugStoreSales.filter((t) => isoInRange(t.sale_date, from, to));
+  if (isDrugStore && drugStoreSales.length > 0 && drugStoreOrders.length > 0) {
+    const salesInPeriod = drugStoreSales.filter((t) => isoInRange(t.sale_date, from, to));
     marketplaceTotalTransaksi = salesInPeriod.length;
     marketplaceSelesai = salesInPeriod.filter((t) => t.status === 'Selesai').length;
     marketplacePenjualan = salesInPeriod
       .filter((t) => t.status === 'Selesai')
       .reduce((s, t) => s + Number(t.total_amount), 0);
 
-    const pembelianInPeriod = opts.drugStoreOrders.filter((o) =>
+    const pembelianInPeriod = drugStoreOrders.filter((o) =>
       o.order_type === 'Pembelian' && isoInRange(o.order_date, from, to)
     );
     marketplacePembelian = pembelianInPeriod
       .filter((o) => o.status === 'Selesai')
       .reduce((s, o) => s + Number(o.total_amount), 0);
 
-    marketplaceTransaksiAktif = opts.drugStoreSales.filter(
+    marketplaceTransaksiAktif = drugStoreSales.filter(
       (t) => !['Selesai', 'Dibatalkan'].includes(t.status)
-    ).length + opts.drugStoreOrders.filter(
+    ).length + drugStoreOrders.filter(
       (o) => !['Selesai', 'Dibatalkan'].includes(o.status)
     ).length;
   } else {
@@ -364,16 +368,19 @@ export function getModuleBreakdown(
   const satuanSet = new Set(inventaris.map((i) => i.satuan));
 
   // ── Stok Obat ── (Farm + Veterinary / DrugStore)
-  const includeStokObat = isFarm || isVeterinary;
+  const includeStokObat = isFarm || isVeterinary || isDrugStore;
   const stokObatItems = opts?.stokObatItems ?? [];
   const obatAktif = includeStokObat
     ? stokObatItems.filter((i) => !i.diarsipkan && i.statusAktif !== 'Nonaktif')
     : [];
 
   // ── Pemberian Pakan (period-filtered by tanggal) ──
-  const pemberianEntries = getAllRiwayatPerubahan().filter(
-    (r) => r.sumberPerubahan === 'Pemberian Pakan' && isoInRange(r.tanggal, from, to)
-  );
+  const includePemberianPakan = isFarm || isFeedStore;
+  const pemberianEntries = includePemberianPakan
+    ? getAllRiwayatPerubahan().filter(
+        (r) => r.sumberPerubahan === 'Pemberian Pakan' && isoInRange(r.tanggal, from, to)
+      )
+    : [];
   const totalVolumePakan = pemberianEntries.reduce((s, r) => s + r.jumlah, 0);
 
   return {
@@ -484,10 +491,9 @@ export function getMonthlyData(key: PeriodeKey, activeWorkspaceId?: string, work
   const now      = new Date();
   const activeId = activeWorkspaceId;
   const { from: periodFrom, to: periodTo } = getPeriodRange(key);
-  const isVeterinary = workspaceType === 'Veterinary';
-  const drugStoreSales = opts?.drugStoreSales;
-  const drugStoreOrders = opts?.drugStoreOrders;
-  const isDrugStore = isVeterinary && drugStoreSales !== undefined && drugStoreOrders !== undefined;
+  const isDrugStore = workspaceType === 'DrugStore';
+  const drugStoreSales = opts?.drugStoreSales ?? [];
+  const drugStoreOrders = opts?.drugStoreOrders ?? [];
 
   // ── hari-ini / minggu-ini: daily bars for Mon–Sun of current week ─────────
   if (key === 'hari-ini' || key === 'minggu-ini') {
@@ -596,9 +602,9 @@ export function getLaporanBulanan(key: PeriodeKey, activeWorkspaceId?: string, w
   const activeId = activeWorkspaceId;
   const { to: periodTo } = getPeriodRange(key);
   const isVeterinary = workspaceType === 'Veterinary';
-  const drugStoreSales = opts?.drugStoreSales;
-  const drugStoreOrders = opts?.drugStoreOrders;
-  const isDrugStore = isVeterinary && drugStoreSales !== undefined && drugStoreOrders !== undefined;
+  const isDrugStore = workspaceType === 'DrugStore';
+  const drugStoreSales = opts?.drugStoreSales ?? [];
+  const drugStoreOrders = opts?.drugStoreOrders ?? [];
 
   function buildRow(
     periode:    string,
@@ -742,9 +748,9 @@ export function getTahunanInsight(activeWorkspaceId?: string, workspaceType?: st
   const activeId = activeWorkspaceId;
   const today    = now.toISOString().split('T')[0];
   const isVeterinary = workspaceType === 'Veterinary';
-  const drugStoreSales = opts?.drugStoreSales;
-  const drugStoreOrders = opts?.drugStoreOrders;
-  const isDrugStore = isVeterinary && drugStoreSales !== undefined && drugStoreOrders !== undefined;
+  const isDrugStore = workspaceType === 'DrugStore';
+  const drugStoreSales = opts?.drugStoreSales ?? [];
+  const drugStoreOrders = opts?.drugStoreOrders ?? [];
 
   function yearTotals(y: number) {
     const from = `${y}-01-01`;

@@ -342,3 +342,105 @@ export function applyPenyesuaianStok(input: {
 
   return record;
 }
+
+// ─── Riwayat Stok Obat (Workspace-Filtered) ───────────────────────────────────
+//
+// Fungsi ini mengembalikan riwayat perubahan stok obat yang SUDAH DI-FILTER
+// berdasarkan workspace_id aktif. Data diambil langsung dari Supabase
+// (stok_obat_masuk, stok_obat_keluar, stok_obat_adjustments) — BUKAN dari
+// in-memory store.
+//
+// Setiap entri menyertakan:
+//   - id: identifier unik record
+//   - stokObatId: relasi ke stok_obat.id
+//   - tanggal: tanggal transaksi (received_date / usage_date / adjusted_at)
+//   - jenis: 'Masuk' | 'Keluar' | 'Penyesuaian'
+//   - jumlah: delta perubahan (positif = masuk, negatif = keluar/penyesuaian)
+//   - alasan: sumber/reason transaksi
+//   - workspace_id: untuk verifikasi隔离 (selalu = workspaceId parameter)
+
+import {
+  repoGetStokMasukByWorkspace,
+  repoGetStokKeluarByWorkspace,
+  repoGetStokAdjustmentsByWorkspace,
+} from '../repositories/stokObatRepository';
+import type {
+  StokObatMasukDbRow,
+  StokObatKeluarDbRow,
+  StokObatAdjustmentDbRow,
+} from '../types/stokObat';
+
+export interface RiwayatStokObatEntry {
+  id: string;
+  stokObatId: string;
+  tanggal: string;
+  jenis: 'Masuk' | 'Keluar' | 'Penyesuaian';
+  jumlah: number;
+  alasan: string | null;
+  workspace_id: string;
+  created_at: string;
+}
+
+/**
+ * Seluruh riwayat perubahan stok obat untuk satu workspace, terbaru di atas.
+ * Data diambil dari Supabase (bukan in-memory) dengan filter workspace_id.
+ *
+ * @param workspaceId - UUID workspace aktif (dari useWorkspace().activeWorkspace.workspace_uuid)
+ * @param limit - maksimum record per tabel (default 100)
+ * @returns Array RiwayatStokObatEntry, diurutkan terbaru dulu
+ */
+export async function getAllRiwayatStokObatByWorkspace(
+  workspaceId: string,
+  limit = 100,
+): Promise<RiwayatStokObatEntry[]> {
+  const [masukList, keluarList, adjustmentList] = await Promise.all([
+    repoGetStokMasukByWorkspace(workspaceId, limit),
+    repoGetStokKeluarByWorkspace(workspaceId, limit),
+    repoGetStokAdjustmentsByWorkspace(workspaceId, limit),
+  ]);
+
+  const entries: RiwayatStokObatEntry[] = [];
+
+  for (const row of masukList as StokObatMasukDbRow[]) {
+    entries.push({
+      id: `masuk-${row.id}`,
+      stokObatId: row.stok_obat_id,
+      tanggal: row.received_date,
+      jenis: 'Masuk',
+      jumlah: row.quantity,
+      alasan: row.source,
+      workspace_id: row.workspace_id,
+      created_at: row.created_at,
+    });
+  }
+
+  for (const row of keluarList as StokObatKeluarDbRow[]) {
+    entries.push({
+      id: `keluar-${row.id}`,
+      stokObatId: row.stok_obat_id,
+      tanggal: row.usage_date,
+      jenis: 'Keluar',
+      jumlah: -row.quantity,
+      alasan: row.reason,
+      workspace_id: row.workspace_id,
+      created_at: row.created_at,
+    });
+  }
+
+  for (const row of adjustmentList as StokObatAdjustmentDbRow[]) {
+    entries.push({
+      id: `adj-${row.id}`,
+      stokObatId: row.stok_obat_id,
+      tanggal: row.adjusted_at,
+      jenis: 'Penyesuaian',
+      jumlah: row.quantity_delta,
+      alasan: row.reason,
+      workspace_id: row.workspace_id,
+      created_at: row.adjusted_at,
+    });
+  }
+
+  entries.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+  return entries;
+}

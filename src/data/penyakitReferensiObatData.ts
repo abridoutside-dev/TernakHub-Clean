@@ -6,7 +6,7 @@
 // sendiri, jangan edit modul target.
 
 import { getObatById, type ObatItem } from './obatData';
-import { OBAT_PRODUK_LIST, type ObatProdukKomersial } from './produkKomersialObatData';
+import { getObatProdukKomersialList, type ObatProdukKomersial } from '../services/drugCommercialProductService';
 
 export interface ReferensiObatPenyakit {
   obat: ObatItem;
@@ -19,12 +19,13 @@ export interface ReferensiObatPenyakit {
  * yang mengandung obat tersebut (relasi via ObatProdukKomersial.masterObatUuid).
  * Obat yang id-nya tidak ditemukan di Master Obat dilewati secara aman.
  */
-export function getReferensiObatDenganProduk(obatIds: string[]): ReferensiObatPenyakit[] {
+export async function getReferensiObatDenganProduk(obatIds: string[]): Promise<ReferensiObatPenyakit[]> {
   const hasil: ReferensiObatPenyakit[] = [];
+  const allProducts = await getObatProdukKomersialList();
   for (const id of obatIds) {
     const obat = getObatById(id);
     if (!obat) continue;
-    const produkKomersial = OBAT_PRODUK_LIST.filter(
+    const produkKomersial = allProducts.filter(
       (p) => p.masterObatUuid === obat.uuid && p.status === 'aktif',
     );
     hasil.push({ obat, produkKomersial });

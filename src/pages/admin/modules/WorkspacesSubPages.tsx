@@ -32,6 +32,7 @@ const TYPE_MAP: Record<string, WsTypeDisplay> = {
   FeedStore:         'FeedStore',
   VeterinaryClinic:  'VeterinaryClinic',
   VeterinaryDoctor:  'VeterinaryDoctor',
+  DrugStore:         'DrugStore',
   Transport:         'Transport',
   Marketplace:       'Marketplace',
   // Legacy aliases from old workspace service types

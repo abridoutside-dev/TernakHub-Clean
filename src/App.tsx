@@ -162,6 +162,8 @@ const DrugStoreSalesList = lazy(() => import('./routeBundles/drugStore').then(m 
 const DrugStoreSalesForm = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSalesForm })));
 const DrugStoreSalesDetail = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreSalesDetail })));
 const DrugStoreStokKeluar = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreStokKeluar })));
+const DrugStoreStokMasuk = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStoreStokMasuk })));
+const DrugStorePenyesuaianStok = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStorePenyesuaianStok })));
 // workspace routes
 const TransportWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.TransportWorkspace })));
 const VeterinaryWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.VeterinaryWorkspace })));
@@ -683,6 +685,8 @@ export default function App() {
       <Route path="/workspace/:id/drug-store/sales/:sid"           element={<DrugStoreSalesDetail />} />
       <Route path="/workspace/:id/drug-store/sales/:sid/edit"      element={<DrugStoreSalesForm />} />
       <Route path="/workspace/:id/drug-store/stok-keluar"          element={<DrugStoreStokKeluar />} />
+      <Route path="/workspace/:id/drug-store/stok-masuk"          element={<DrugStoreStokMasuk />} />
+      <Route path="/workspace/:id/drug-store/penyesuaian-stok"    element={<DrugStorePenyesuaianStok />} />
       <Route path="/workspace/:id/farm-profile" element={<FarmProfile />} />
       </Route>
       {/* ── End of ProtectedLayout block ────────────────────────────────── */}

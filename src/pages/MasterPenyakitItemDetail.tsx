@@ -466,12 +466,26 @@ export default function MasterPenyakitItemDetail() {
   }>();
   const navigate = useNavigate();
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [referensiObat, setReferensiObat] = useState<ReferensiObatPenyakit[]>([]);
 
   const ternak = ternakSlug ? getJenisTernakBySlug(ternakSlug) : undefined;
   const kategori = ternak && ternakSlug && kategoriSlug
     ? getKategoriByTernakSlug(ternakSlug, ternak.uuid).find((k) => k.slug === kategoriSlug)
     : undefined;
   const item = penyakitId ? getPenyakitByUuid(penyakitId) : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadReferensi() {
+      const detail = getPenyakitDetailByUuid(item?.uuid ?? '');
+      if (detail?.referensiObatId?.length) {
+        const refs = await getReferensiObatDenganProduk(detail.referensiObatId);
+        if (!cancelled) setReferensiObat(refs);
+      }
+    }
+    loadReferensi();
+    return () => { cancelled = true; };
+  }, [item?.uuid]);
 
   // Guard against cross-category / cross-species deep links: item must belong
   // to this kategoriSlug AND be relevant for this jenis ternak (SP-005).
@@ -504,7 +518,6 @@ export default function MasterPenyakitItemDetail() {
   }
 
   const detail = getPenyakitDetailByUuid(item.uuid);
-  const referensiObat = detail ? getReferensiObatDenganProduk(detail.referensiObatId) : [];
 
   function handleExportPdf() {
     if (pdfLoading) return;

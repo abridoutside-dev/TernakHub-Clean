@@ -29,7 +29,7 @@ import { createSubscriptionChangeRequest } from '../services/workspaceService';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<string, string> = {
-  Farm: '🐄', FeedStore: '🌾', Veterinary: '🩺', Transport: '🚚',
+  Farm: '🐄', FeedStore: '🌾', Veterinary: '🩺', DrugStore: '💊', Transport: '🚚',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

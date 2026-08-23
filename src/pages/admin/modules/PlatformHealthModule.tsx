@@ -3149,8 +3149,8 @@ function AnalysisEngineWidget({ health, loading }: {
 
 // ─── Workspace type labels ─────────────────────────────────────────────────────
 
-const WS_TYPE_LABELS: Record<string, string> = { Farm: 'Farm', FeedStore: 'Toko Pakan', VeterinaryClinic: 'Klinik Hewan', VeterinaryDoctor: 'Dokter Hewan', Transport: 'Transport', Marketplace: 'Marketplace' };
-const WS_TYPE_ICONS:  Record<string, string> = { Farm: '🐄', FeedStore: '🌾', VeterinaryClinic: '🏥', VeterinaryDoctor: '👨‍⚕️', Transport: '🚛', Marketplace: '🛒' };
+const WS_TYPE_LABELS: Record<string, string> = { Farm: 'Farm', FeedStore: 'Toko Pakan', VeterinaryClinic: 'Klinik Hewan', VeterinaryDoctor: 'Dokter Hewan', DrugStore: 'Toko Obat', Transport: 'Transport', Marketplace: 'Marketplace' };
+const WS_TYPE_ICONS:  Record<string, string> = { Farm: '🐄', FeedStore: '🌾', VeterinaryClinic: '🏥', VeterinaryDoctor: '👨‍⚕️', DrugStore: '💊', Transport: '🚛', Marketplace: '🛒' };
 const SEVERITY_CFG: Record<string, { color: string; bg: string }> = { info: { color: '#1d4ed8', bg: '#dbeafe' }, warning: { color: '#d97706', bg: '#fef3c7' }, error: { color: '#dc2626', bg: '#fee2e2' }, critical: { color: '#7c3aed', bg: '#ede9fe' } };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
