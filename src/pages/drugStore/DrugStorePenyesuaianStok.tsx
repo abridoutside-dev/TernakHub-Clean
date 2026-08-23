@@ -12,13 +12,15 @@
 // Note: applyAdjustment currently supports reduction only.
 //       For stock increases, use the Stok Masuk page.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   repoGetStokObatByWorkspace,
 } from '../../repositories/stokObatRepository';
+import { repoGetDrugCatalog } from '../../repositories/drugCatalogRepository';
 import { applyAdjustment } from '../../services/stokObatService';
 import type { StokObatDbRow } from '../../types/stokObat';
+import type { DrugCatalogWithCategory } from '../../types/drugCatalog';
 
 interface PenyesuaianForm {
   stok_obat_id: string;
@@ -31,6 +33,10 @@ interface PenyesuaianForm {
 export default function DrugStorePenyesuaianStok() {
   const { id: workspaceId = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const [catalog, setCatalog] = useState<DrugCatalogWithCategory[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const [stokItems, setStokItems] = useState<StokObatDbRow[]>([]);
   const [stokLoading, setStokLoading] = useState(true);
@@ -60,10 +66,34 @@ export default function DrugStorePenyesuaianStok() {
     }
   }, [workspaceId]);
 
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      const { data } = await repoGetDrugCatalog({ limit: 500 });
+      setCatalog(data);
+    } catch (e) {
+      setCatalogError(e instanceof Error ? e.message : 'Gagal memuat master obat');
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadCatalog(); }, [loadCatalog]);
   useEffect(() => { void loadStok(); }, [loadStok]);
 
-  const selectedItem = stokItems.find((s) => s.id === form.stok_obat_id);
-  const currentQty = Number(selectedItem?.quantity) || 0;
+  const stokMap = useMemo(() => {
+    const map = new Map<string, StokObatDbRow>();
+    for (const s of stokItems) {
+      if (s.drug_id) {
+        map.set(s.drug_id, s);
+      }
+    }
+    return map;
+  }, [stokItems]);
+
+  const selectedStok = form.stok_obat_id ? stokItems.find((s) => s.id === form.stok_obat_id) : undefined;
+  const currentQty = Number(selectedStok?.quantity) || 0;
 
   const handleSubmit = useCallback(async () => {
     setSubmitError(null);
@@ -146,21 +176,31 @@ export default function DrugStorePenyesuaianStok() {
                   value={form.stok_obat_id}
                   onChange={(e) => setForm({ ...form, stok_obat_id: e.target.value })}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #d1d5db', fontSize: 13, marginTop: 4, background: '#fff' }}
-                  disabled={submitting}
+                  disabled={submitting || catalogLoading}
                 >
                   <option value="">Pilih obat...</option>
-                  {stokItems.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.drug_name} (stok: {Number(s.quantity)}) {s.unit ? ` ${s.unit}` : ''}
-                    </option>
-                  ))}
+                  {catalog
+                    .filter((d) => stokMap.has(d.id))
+                    .map((d) => {
+                      const stok = stokMap.get(d.id)!;
+                      const qty = Number(stok.quantity);
+                      return (
+                        <option key={stok.id} value={stok.id}>
+                          {d.name} (stok: {qty}) {stok.unit ? ` ${stok.unit}` : ''}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 
-              {selectedItem && (
+              {selectedStok && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#475569' }}>
-                  Stok saat ini: <strong>{currentQty} {selectedItem.unit ?? ''}</strong>
+                  Stok saat ini: <strong>{currentQty} {selectedStok.unit ?? ''}</strong>
                 </div>
+              )}
+
+              {!selectedStok && form.stok_obat_id && (
+                <p style={{ fontSize: 11, color: '#dc2626', marginTop: 4 }}>Obat tidak ditemukan di stok workspace ini.</p>
               )}
 
               <div>
