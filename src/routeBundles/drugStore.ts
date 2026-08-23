@@ -17,6 +17,8 @@ import DrugStoreSalesList from '../pages/drugStore/DrugStoreSalesList';
 import DrugStoreSalesForm from '../pages/drugStore/DrugStoreSalesForm';
 import DrugStoreSalesDetail from '../pages/drugStore/DrugStoreSalesDetail';
 import DrugStoreStokKeluar from '../pages/drugStore/DrugStoreStokKeluar';
+import DrugStoreStokMasuk from '../pages/drugStore/DrugStoreStokMasuk';
+import DrugStorePenyesuaianStok from '../pages/drugStore/DrugStorePenyesuaianStok';
 
 export {
   DrugStoreWorkspaceRoute,
@@ -33,4 +35,6 @@ export {
   DrugStoreSalesForm,
   DrugStoreSalesDetail,
   DrugStoreStokKeluar,
+  DrugStoreStokMasuk,
+  DrugStorePenyesuaianStok,
 };

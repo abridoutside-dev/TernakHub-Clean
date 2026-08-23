@@ -4,14 +4,19 @@
 // via card menu. Setiap Produk WAJIB terhubung ke Brand dan ke Master Obat
 // (dipilih via MasterObatPickerField — tidak boleh diketik manual).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  getObatBrandListLive, OBAT_PRODUK_LIST,
-  addObatProdukKomersial, updateObatProdukKomersial,
-  softDeleteObatProdukKomersial, restoreObatProdukKomersial,
-  type ObatProdukKomersial, type StatusProdukObat,
-} from '../data/produkKomersialObatData';
+  getObatBrandListLive,
+  getObatProdukKomersialList,
+  addObatProdukKomersial,
+  updateObatProdukKomersial,
+  softDeleteObatProdukKomersial,
+  restoreObatProdukKomersial,
+  type ObatProdukKomersial,
+  type ObatBrand,
+  type StatusProdukObat,
+} from '../services/drugCommercialProductService';
 import { getObatByUuid, type ObatItem } from '../data/obatData';
 import {
   SectionCard, FieldWrap, FieldLabel, ErrorText, BottomSheetShell, inputStyle,
@@ -31,7 +36,7 @@ function toFilterValue(status: StatusProdukObat): StatusFilterValue {
 function ProdukFormSheet({ produk, onClose, onSaved }: {
   produk?: ObatProdukKomersial; onClose: () => void; onSaved: () => void;
 }) {
-  const brandList = getObatBrandListLive();
+  const [brandList, setBrandList] = useState<ObatBrand[]>([]);
   const [brandId, setBrandId] = useState(produk?.brandId ?? '');
   const [masterObatUuid, setMasterObatUuid] = useState(produk?.masterObatUuid ?? '');
   const [nama, setNama] = useState(produk?.nama ?? '');
@@ -46,9 +51,13 @@ function ProdukFormSheet({ produk, onClose, onSaved }: {
   const [status, setStatus] = useState<StatusProdukObat>(produk?.status ?? 'aktif');
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    getObatBrandListLive().then(setBrandList).catch(() => setBrandList([]));
+  }, []);
+
+  const handleSubmit = async () => {
     const trimmedNama = nama.trim();
-    const check = validateObatProdukInput({ brandId, masterObatUuid, nama: trimmedNama }, produk?.uuid);
+    const check = await validateObatProdukInput({ brandId, masterObatUuid, nama: trimmedNama }, produk?.uuid);
     if (!check.valid) {
       setError(check.error ?? 'Data tidak valid.');
       return;
@@ -64,9 +73,9 @@ function ProdukFormSheet({ produk, onClose, onSaved }: {
     };
 
     if (produk) {
-      updateObatProdukKomersial(produk.uuid, { ...payload, status });
+      await updateObatProdukKomersial(produk.uuid, { ...payload, status });
     } else {
-      addObatProdukKomersial(payload);
+      await addObatProdukKomersial(payload);
     }
     onSaved();
     onClose();
@@ -243,7 +252,7 @@ function ProdukCard({ produk, onEdit, onToggleStatus }: {
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isAktif = produk.status === 'aktif';
-  const masterObat = getObatByUuid(produk.masterObatUuid);
+  const masterObat = produk.masterObatUuid ? getObatByUuid(produk.masterObatUuid) : null;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -311,15 +320,33 @@ export default function ProdukKomersialObatAdminProduk() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('Semua');
-  const [, setTick] = useState(0);
+  const [brandList, setBrandList] = useState<ObatBrand[]>([]);
+  const [allProduk, setAllProduk] = useState<ObatProdukKomersial[]>([]);
+  const [, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ObatProdukKomersial | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<{ message: string; tone: SnackbarTone } | undefined>(undefined);
 
-  const refresh = () => setTick((t) => t + 1);
+  const refresh = async () => {
+    try {
+      setLoading(true);
+      const [brands, produk] = await Promise.all([
+        getObatBrandListLive(),
+        getObatProdukKomersialList(),
+      ]);
+      setBrandList(brands);
+      setAllProduk(produk);
+    } catch {
+      setSnackbar({ message: 'Gagal memuat data produk.', tone: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const brandList = getObatBrandListLive();
-  const allProduk = OBAT_PRODUK_LIST;
+  useEffect(() => {
+    refresh();
+  }, []);
+
   const filtered = allProduk.filter((p) => {
     const matchesQuery =
       p.nama.toLowerCase().includes(query.toLowerCase()) ||
@@ -412,15 +439,15 @@ export default function ProdukKomersialObatAdminProduk() {
               key={p.uuid}
               produk={p}
               onEdit={() => { setEditing(p); setFormOpen(true); }}
-              onToggleStatus={() => {
+               onToggleStatus={async () => {
                 if (p.status === 'aktif') {
-                  const result = softDeleteObatProdukKomersial(p.uuid);
+                  const result = await softDeleteObatProdukKomersial(p.uuid);
                   if (!result.ok) {
                     setSnackbar({ message: result.error ?? 'Produk tidak dapat dinonaktifkan.', tone: 'error' });
                     return;
                   }
                 } else {
-                  restoreObatProdukKomersial(p.uuid);
+                  await restoreObatProdukKomersial(p.uuid);
                 }
                 refresh();
               }}

@@ -3,14 +3,25 @@
 // (Brand → Produk), scoped strictly to this module. Master Obat (obatData.ts)
 // stays the read-only Single Source of Truth for masterObatUuid — this file
 // never writes to it, only validates references against it.
+//
+// Source of truth: Supabase (drug_brands, drug_commercial_products tables)
+// All export reads from database, all import writes to database.
 
-import {
-  OBAT_BRAND_LIST, OBAT_PRODUK_LIST,
-  isDuplicateObatBrandNama, isDuplicateObatProdukNama,
-  type ObatBrand, type ObatProdukKomersial, type StatusProdukObat,
-} from '../data/produkKomersialObatData';
 import { getObatByUuid } from '../data/obatData';
 import { logProdukKomersialObatEvent } from './produkKomersialObatAuditLog';
+import {
+  getObatBrandListLive,
+  getObatProdukKomersialList,
+  isDuplicateObatBrandNama,
+  isDuplicateObatProdukNama,
+  addObatBrand,
+  addObatProdukKomersial,
+  updateObatBrand,
+  updateObatProdukKomersial,
+  type ObatBrand,
+  type ObatProdukKomersial,
+  type StatusProdukObat,
+} from '../services/drugCommercialProductService';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_STATUS = new Set<StatusProdukObat>(['aktif', 'nonaktif']);
@@ -41,15 +52,20 @@ export interface ImportStats {
 
 // ─── Export — JSON ─────────────────────────────────────────────────────────────
 
-/** Deep-cloned so later mutations to the live registries never affect an already-downloaded file. */
-export function buildProdukKomersialObatExportPayload(): ProdukKomersialObatExportPayload {
+/** Reads current data from Supabase and builds export payload. */
+export async function buildProdukKomersialObatExportPayload(): Promise<ProdukKomersialObatExportPayload> {
+  const [brands, products] = await Promise.all([
+    getObatBrandListLive(),
+    getObatProdukKomersialList(),
+  ]);
+
   return {
     schema: 'produk-komersial-obat-export',
     version: PRODUK_KOMERSIAL_OBAT_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     data: {
-      brand: JSON.parse(JSON.stringify(OBAT_BRAND_LIST)),
-      produk: JSON.parse(JSON.stringify(OBAT_PRODUK_LIST)),
+      brand: JSON.parse(JSON.stringify(brands)),
+      produk: JSON.parse(JSON.stringify(products)),
     },
   };
 }
@@ -66,8 +82,8 @@ function triggerDownload(content: string, mime: string, filename: string): void 
   URL.revokeObjectURL(url);
 }
 
-export function downloadProdukKomersialObatExportJson(): string {
-  const payload = buildProdukKomersialObatExportPayload();
+export async function downloadProdukKomersialObatExportJson(): Promise<string> {
+  const payload = await buildProdukKomersialObatExportPayload();
   const filename = `produk-komersial-obat-export-${new Date().toISOString().slice(0, 10)}.json`;
   triggerDownload(JSON.stringify(payload, null, 2), 'application/json', filename);
   logProdukKomersialObatEvent('export', 'produk', `format=json, brand=${payload.data.brand.length}, produk=${payload.data.produk.length}`);
@@ -92,10 +108,15 @@ function csvEscape(value: string): string {
   return value;
 }
 
-export function buildProdukKomersialObatExportCsv(): string {
+export async function buildProdukKomersialObatExportCsv(): Promise<string> {
+  const [brands, products] = await Promise.all([
+    getObatBrandListLive(),
+    getObatProdukKomersialList(),
+  ]);
+
   const rows: string[] = [CSV_COLUMNS.join(',')];
 
-  for (const b of OBAT_BRAND_LIST) {
+  for (const b of brands) {
     rows.push([
       'brand', b.uuid, b.slug, b.nama, '', '',
       '', '', '', '', '',
@@ -103,9 +124,9 @@ export function buildProdukKomersialObatExportCsv(): string {
     ].map(v => csvEscape(String(v))).join(','));
   }
 
-  for (const p of OBAT_PRODUK_LIST) {
+  for (const p of products) {
     rows.push([
-      'produk', p.uuid, p.slug, p.namaKomersial ?? p.nama, p.brandId, p.masterObatUuid,
+      'produk', p.uuid, p.slug, p.namaKomersial ?? p.nama, p.brandId, p.masterObatUuid ?? '',
       p.bentukSediaan, p.kemasan, p.produsen ?? '', p.distributor ?? '', p.nomorRegistrasi ?? '',
       p.status, p.catatan ?? '', '', '',
     ].map(v => csvEscape(String(v))).join(','));
@@ -114,12 +135,16 @@ export function buildProdukKomersialObatExportCsv(): string {
   return rows.join('\n');
 }
 
-export function downloadProdukKomersialObatExportCsv(): string {
-  const csv = buildProdukKomersialObatExportCsv();
+export async function downloadProdukKomersialObatExportCsv(): Promise<string> {
+  const csv = await buildProdukKomersialObatExportCsv();
+  const [brands, products] = await Promise.all([
+    getObatBrandListLive(),
+    getObatProdukKomersialList(),
+  ]);
   const filename = `produk-komersial-obat-export-${new Date().toISOString().slice(0, 10)}.csv`;
   // Prepend UTF-8 BOM so Excel auto-detects UTF-8 and renders Indonesian characters correctly.
   triggerDownload('\uFEFF' + csv, 'text/csv;charset=utf-8;', filename);
-  logProdukKomersialObatEvent('export', 'produk', `format=csv, brand=${OBAT_BRAND_LIST.length}, produk=${OBAT_PRODUK_LIST.length}`);
+  logProdukKomersialObatEvent('export', 'produk', `format=csv, brand=${brands.length}, produk=${products.length}`);
   return filename;
 }
 
@@ -184,12 +209,12 @@ export interface ValidationResult {
  * - every record has a valid UUID
  * - no duplicate UUIDs within the file (across brand + produk combined)
  * - every Produk's brand_uuid resolves to a Brand present either in the file
- *   itself or already in the live catalog (never a broken relation)
+ *   itself or already in the database
  * - every Produk's master_obat_uuid resolves to an existing Master Obat entry
  *   (read-only reference — Master Obat itself is never touched)
  * - no required field left empty
  */
-export function validateProdukKomersialObatImport(raw: unknown): ValidationResult {
+export async function validateProdukKomersialObatImport(raw: unknown): Promise<ValidationResult> {
   const errors: string[] = [];
 
   if (typeof raw !== 'object' || raw === null) {
@@ -219,9 +244,9 @@ export function validateProdukKomersialObatImport(raw: unknown): ValidationResul
   return validateBrandAndProduk(brand, produk, obj);
 }
 
-function validateBrandAndProduk(
+async function validateBrandAndProduk(
   brand: ObatBrand[], produk: ObatProdukKomersial[], obj: Record<string, unknown>,
-): ValidationResult {
+): Promise<ValidationResult> {
   const errors: string[] = [];
   const seenUuids = new Set<string>();
   const dupUuids = new Set<string>();
@@ -245,7 +270,8 @@ function validateBrandAndProduk(
     brandUuidsInFile.add(b.uuid);
   });
 
-  const liveBrandUuids = new Set(OBAT_BRAND_LIST.map(b => b.uuid));
+  const liveBrands = await getObatBrandListLive();
+  const liveBrandUuids = new Set(liveBrands.map(b => b.uuid));
 
   const produkNamaByOwner = new Map<string, string>();
   produk.forEach((p, i) => {
@@ -263,7 +289,7 @@ function validateBrandAndProduk(
       errors.push(`Produk "${p.nama}": brand_uuid "${p.brandId}" tidak ditemukan (relasi rusak).`);
     }
 
-    if (!isValidUuid(p.masterObatUuid)) {
+    if (!p.masterObatUuid || !isValidUuid(p.masterObatUuid)) {
       errors.push(`Produk "${p.nama}": master_obat_uuid tidak valid.`);
     } else if (!getObatByUuid(p.masterObatUuid)) {
       errors.push(`Produk "${p.nama}": master_obat_uuid "${p.masterObatUuid}" tidak ditemukan di Master Obat (relasi rusak).`);
@@ -319,7 +345,7 @@ function csvRawToEntities(raw: Record<string, string>[]): { brand: ObatBrand[]; 
         nama: row.nama?.trim(), brandId: row.brand_uuid?.trim(), brandNama: '',
         bentukSediaan: row.bentuk_sediaan?.trim(), kemasan: row.kemasan?.trim(),
         status: (row.status?.trim() as StatusProdukObat) || 'aktif',
-        masterObatUuid: row.master_obat_uuid?.trim(),
+        masterObatUuid: row.master_obat_uuid?.trim() || null,
         namaKomersial: row.nama?.trim(),
         produsen: row.produsen?.trim() || undefined,
         distributor: row.distributor?.trim() || undefined,
@@ -337,7 +363,7 @@ function csvRawToEntities(raw: Record<string, string>[]): { brand: ObatBrand[]; 
 // ─── Parse entry points ──────────────────────────────────────────────────────────
 
 /** Parses raw file text (JSON or CSV, auto-detected) into a validated payload. */
-export function parseProdukKomersialObatImportFile(text: string, format: ImportFormat): ValidationResult {
+export async function parseProdukKomersialObatImportFile(text: string, format: ImportFormat): Promise<ValidationResult> {
   if (format === 'json') {
     let raw: unknown;
     try {
@@ -362,64 +388,182 @@ export function parseProdukKomersialObatImportFile(text: string, format: ImportF
 // ─── Import (apply) ───────────────────────────────────────────────────────────
 
 /**
- * Applies an already-validated payload to the live in-memory registries.
+ * Applies an already-validated payload to Supabase.
  * - 'merge': adds records whose UUID doesn't already exist; updates existing
- *   records in-place when the UUID matches; never removes anything.
- * - 'replace': clears OBAT_BRAND_LIST and OBAT_PRODUK_LIST entirely and
- *   replaces them with the imported records (UUIDs preserved as-is, never
- *   regenerated). Master Obat is never touched by either mode.
+ *   records when the UUID matches; never removes anything.
+ * - 'replace': clears all brands and products and replaces them with the
+ *   imported records (UUIDs preserved as-is, never regenerated).
+ *   Master Obat is never touched by either mode.
  */
-export function applyProdukKomersialObatImport(payload: ProdukKomersialObatExportPayload, mode: ImportMode): ImportStats {
+export async function applyProdukKomersialObatImport(payload: ProdukKomersialObatExportPayload, mode: ImportMode): Promise<ImportStats> {
   const stats: ImportStats = {
     brand: { added: 0, updated: 0, skipped: 0 },
     produk: { added: 0, updated: 0, skipped: 0 },
   };
 
+  const liveBrands = await getObatBrandListLive();
+  const liveProducts = await getObatProdukKomersialList();
+  const brandByUuid = new Map(liveBrands.map(b => [b.uuid, b]));
+
   if (mode === 'replace') {
-    OBAT_BRAND_LIST.splice(0, OBAT_BRAND_LIST.length, ...JSON.parse(JSON.stringify(payload.data.brand)));
-    OBAT_PRODUK_LIST.splice(0, OBAT_PRODUK_LIST.length, ...JSON.parse(JSON.stringify(payload.data.produk)));
-    stats.brand.added = payload.data.brand.length;
-    stats.produk.added = payload.data.produk.length;
+    // Delete all existing products first, then brands
+    for (const p of liveProducts) {
+      const { repoSoftDeleteDrugCommercialProduct } = await import('../repositories/drugCommercialProductRepository');
+      await repoSoftDeleteDrugCommercialProduct(p.uuid);
+    }
+
+    // Insert/update all brands from payload
+    for (const b of payload.data.brand) {
+      const existing = brandByUuid.get(b.uuid);
+      if (existing) {
+        await updateObatBrand(b.uuid, {
+          nama: b.nama,
+          logo: b.logo,
+          deskripsi: b.deskripsi,
+          status: b.status,
+          color: b.color,
+          bg: b.bg,
+        });
+        stats.brand.updated += 1;
+      } else {
+        const { repoCreateDrugBrand } = await import('../repositories/drugCommercialProductRepository');
+        await repoCreateDrugBrand({
+          name: b.nama,
+          slug: b.slug,
+          logo: b.logo,
+          deskripsi: b.deskripsi,
+          color: b.color,
+          bg: b.bg,
+        });
+        stats.brand.added += 1;
+      }
+    }
+
+    // Insert/update all products from payload
+    for (const p of payload.data.produk) {
+      const brandNama = brandByUuid.get(p.brandId)?.nama ?? p.brandNama;
+      const existingProduct = liveProducts.find(lp => lp.uuid === p.uuid);
+      if (existingProduct) {
+        await updateObatProdukKomersial(p.uuid, {
+          brandId: p.brandId,
+          masterObatUuid: p.masterObatUuid ?? undefined,
+          nama: p.nama,
+          namaKomersial: p.namaKomersial,
+          bentukSediaan: p.bentukSediaan,
+          kemasan: p.kemasan,
+          produsen: p.produsen,
+          distributor: p.distributor,
+          nomorRegistrasi: p.nomorRegistrasi,
+          fotoProduk: p.fotoProduk,
+          catatan: p.catatan,
+          status: p.status,
+        });
+        stats.produk.updated += 1;
+      } else {
+        await addObatProdukKomersial({
+          brandId: p.brandId,
+          masterObatUuid: p.masterObatUuid ?? '',
+          nama: p.nama,
+          namaKomersial: p.namaKomersial ?? p.nama,
+          bentukSediaan: p.bentukSediaan,
+          kemasan: p.kemasan,
+          produsen: p.produsen ?? '',
+          distributor: p.distributor,
+          nomorRegistrasi: p.nomorRegistrasi,
+          fotoProduk: p.fotoProduk,
+          catatan: p.catatan,
+          bahanAktif: p.bahanAktif,
+          kekuatan: p.kekuatan,
+          negaraAsal: p.negaraAsal,
+          penyimpanan: p.penyimpanan,
+        });
+        stats.produk.added += 1;
+      }
+    }
+
     logProdukKomersialObatEvent('import', 'brand', `mode=replace, stats=${JSON.stringify(stats)}`);
     logProdukKomersialObatEvent('replace', 'produk', JSON.stringify(stats));
     return stats;
   }
 
   // merge
-  const brandByUuid = new Map(OBAT_BRAND_LIST.map(b => [b.uuid, b]));
   for (const b of payload.data.brand) {
     const existing = brandByUuid.get(b.uuid);
     if (existing) {
-      if (isDuplicateObatBrandNama(b.nama, b.uuid)) { stats.brand.skipped += 1; continue; }
-      Object.assign(existing, JSON.parse(JSON.stringify(b)));
+      const isDup = await isDuplicateObatBrandNama(b.nama, b.uuid);
+      if (isDup) { stats.brand.skipped += 1; continue; }
+      await updateObatBrand(b.uuid, {
+        nama: b.nama,
+        logo: b.logo,
+        deskripsi: b.deskripsi,
+        status: b.status,
+        color: b.color,
+        bg: b.bg,
+      });
       stats.brand.updated += 1;
       continue;
     }
-    if (isDuplicateObatBrandNama(b.nama)) { stats.brand.skipped += 1; continue; }
-    const clone = JSON.parse(JSON.stringify(b));
-    OBAT_BRAND_LIST.push(clone);
-    brandByUuid.set(clone.uuid, clone);
+    const isDup = await isDuplicateObatBrandNama(b.nama);
+    if (isDup) { stats.brand.skipped += 1; continue; }
+    await addObatBrand({
+      nama: b.nama,
+      logo: b.logo,
+      deskripsi: b.deskripsi ?? '',
+    });
     stats.brand.added += 1;
   }
 
-  const produkByUuid = new Map(OBAT_PRODUK_LIST.map(p => [p.uuid, p]));
+  // Refresh brand list after brand merges
+  const updatedBrands = await getObatBrandListLive();
+  const updatedBrandByUuid = new Map(updatedBrands.map(b => [b.uuid, b]));
+  const updatedProducts = await getObatProdukKomersialList();
+  const produkByUuid = new Map(updatedProducts.map(p => [p.uuid, p]));
+
   for (const p of payload.data.produk) {
-    if (!brandByUuid.has(p.brandId)) { stats.produk.skipped += 1; continue; } // parent didn't survive merge — never orphan a record
-    if (!getObatByUuid(p.masterObatUuid)) { stats.produk.skipped += 1; continue; } // master obat reference must exist live
+    if (!updatedBrandByUuid.has(p.brandId)) { stats.produk.skipped += 1; continue; }
+    if (!p.masterObatUuid || !getObatByUuid(p.masterObatUuid)) { stats.produk.skipped += 1; continue; }
 
     const existing = produkByUuid.get(p.uuid);
     if (existing) {
-      if (isDuplicateObatProdukNama(p.brandId, p.nama, p.uuid)) { stats.produk.skipped += 1; continue; }
-      const brandNama = brandByUuid.get(p.brandId)?.nama ?? p.brandNama;
-      Object.assign(existing, JSON.parse(JSON.stringify({ ...p, brandNama })));
+      const isDup = await isDuplicateObatProdukNama(p.brandId, p.nama, p.uuid);
+      if (isDup) { stats.produk.skipped += 1; continue; }
+      await updateObatProdukKomersial(p.uuid, {
+        brandId: p.brandId,
+        masterObatUuid: p.masterObatUuid,
+        nama: p.nama,
+        namaKomersial: p.namaKomersial,
+        bentukSediaan: p.bentukSediaan,
+        kemasan: p.kemasan,
+        produsen: p.produsen,
+        distributor: p.distributor,
+        nomorRegistrasi: p.nomorRegistrasi,
+        fotoProduk: p.fotoProduk,
+        catatan: p.catatan,
+        status: p.status,
+      });
       stats.produk.updated += 1;
       continue;
     }
-    if (isDuplicateObatProdukNama(p.brandId, p.nama)) { stats.produk.skipped += 1; continue; }
-    const brandNama = brandByUuid.get(p.brandId)?.nama ?? p.brandNama;
-    const clone = JSON.parse(JSON.stringify({ ...p, brandNama }));
-    OBAT_PRODUK_LIST.push(clone);
-    produkByUuid.set(clone.uuid, clone);
+    const isDup = await isDuplicateObatProdukNama(p.brandId, p.nama);
+    if (isDup) { stats.produk.skipped += 1; continue; }
+    const brandNama = updatedBrandByUuid.get(p.brandId)?.nama ?? p.brandNama;
+    await addObatProdukKomersial({
+      brandId: p.brandId,
+      masterObatUuid: p.masterObatUuid ?? '',
+      nama: p.nama,
+      namaKomersial: p.namaKomersial ?? p.nama,
+      bentukSediaan: p.bentukSediaan,
+      kemasan: p.kemasan,
+      produsen: p.produsen ?? '',
+      distributor: p.distributor,
+      nomorRegistrasi: p.nomorRegistrasi,
+      fotoProduk: p.fotoProduk,
+      catatan: p.catatan,
+      bahanAktif: p.bahanAktif,
+      kekuatan: p.kekuatan,
+      negaraAsal: p.negaraAsal,
+      penyimpanan: p.penyimpanan,
+    });
     stats.produk.added += 1;
   }
 

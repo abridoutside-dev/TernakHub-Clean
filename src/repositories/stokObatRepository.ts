@@ -233,3 +233,22 @@ export async function repoInsertStokAdjustment(
   guard(error);
   return data as StokObatAdjustmentDbRow;
 }
+
+/**
+ * All stok_obat_adjustments rows for a workspace, ordered by adjusted_at descending.
+ * Used by DrugStore Riwayat to show workspace-scoped adjustment history.
+ */
+export async function repoGetStokAdjustmentsByWorkspace(
+  workspaceId: string,
+  limit = 100,
+): Promise<StokObatAdjustmentDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('stok_obat_adjustments')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('adjusted_at', { ascending: false })
+    .limit(limit);
+  guard(error);
+  return (data ?? []) as StokObatAdjustmentDbRow[];
+}

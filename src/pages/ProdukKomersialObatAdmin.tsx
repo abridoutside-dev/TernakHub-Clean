@@ -3,8 +3,9 @@
 // Master Obat tetap SSOT — Admin ini hanya mengelola katalog produk dagang
 // (Brand & Produk), tidak mengubah Master Obat.
 
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getTotalBrandObat, getTotalProdukObat } from '../data/produkKomersialObatData';
+import { getTotalBrandObat, getTotalProdukObat } from '../services/drugCommercialProductService';
 
 function MenuCard({ icon, label, description, onClick }: {
   icon: string; label: string; description: string; onClick: () => void;
@@ -37,6 +38,22 @@ function MenuCard({ icon, label, description, onClick }: {
 
 export default function ProdukKomersialObatAdmin() {
   const navigate = useNavigate();
+  const [stats, setStats] = useState<{ brand: number; produk: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStats() {
+      try {
+        const [brand, produk] = await Promise.all([getTotalBrandObat(), getTotalProdukObat()]);
+        if (cancelled) return;
+        setStats({ brand, produk });
+      } catch {
+        if (!cancelled) setStats({ brand: 0, produk: 0 });
+      }
+    }
+    loadStats();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -57,7 +74,7 @@ export default function ProdukKomersialObatAdmin() {
           }}>
             <span style={{ fontSize: 20 }}>™️</span>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#6a1b9a', lineHeight: 1.1, marginTop: 2 }}>
-              {getTotalBrandObat()}
+              {stats?.brand ?? '—'}
             </div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6a1b9a', opacity: 0.78 }}>Total Brand</div>
           </div>
@@ -67,7 +84,7 @@ export default function ProdukKomersialObatAdmin() {
           }}>
             <span style={{ fontSize: 20 }}>📦</span>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#1b7a43', lineHeight: 1.1, marginTop: 2 }}>
-              {getTotalProdukObat()}
+              {stats?.produk ?? '—'}
             </div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#1b7a43', opacity: 0.78 }}>Total Produk</div>
           </div>

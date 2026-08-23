@@ -10,14 +10,17 @@
 // Obat) dan MasterPakanItemDetail.tsx (Detail Master Pakan) — tidak membuat
 // desain baru.
 
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  getObatProdukBySlug, getObatBrandByUuid,
-} from '../data/produkKomersialObatData';
+  getObatProdukBySlug,
+  getObatBrandByUuid,
+  type ObatProdukKomersial,
+  type ObatBrand,
+} from '../services/drugCommercialProductService';
 import { getObatByUuid, OBAT_SUB_KATEGORI_STYLE } from '../data/obatData';
 import { getObatKategoriBySlug } from '../data/masterObatKategoriData';
 import { getObatDetail } from '../data/obatDetailData';
-import type { ObatProdukKomersial } from '../data/produkKomersialObatData';
 
 // ─── Shared helpers (identik dengan MasterObatItemDetail) ─────────────────────
 
@@ -94,7 +97,7 @@ function StatusBadge({ status }: { status: ObatProdukKomersial['status'] }) {
 
 // ─── Section 1: Informasi Produk ───────────────────────────────────────────────
 
-function InformasiProdukSection({ produk, brand }: { produk: ObatProdukKomersial; brand: ReturnType<typeof getObatBrandByUuid> }) {
+function InformasiProdukSection({ produk, brand }: { produk: ObatProdukKomersial; brand: ObatBrand | undefined }) {
   return (
     <SectionCard>
       <SectionHeader icon="📦" title="Informasi Produk" color="#0d6efd" />
@@ -122,7 +125,19 @@ function InformasiProdukSection({ produk, brand }: { produk: ObatProdukKomersial
 
 // ─── Section 2: Referensi Master Obat (read-only) ─────────────────────────────
 
-function ReferensiMasterObatSection({ masterObatUuid }: { masterObatUuid: string }) {
+function ReferensiMasterObatSection({ masterObatUuid }: { masterObatUuid: string | null }) {
+  if (!masterObatUuid) {
+    return (
+      <SectionCard>
+        <SectionHeader icon="📖" title="Referensi Master Obat" color="#6a1b9a" />
+        <div style={{ padding: '20px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.6 }}>
+            Produk ini tidak terhubung ke referensi Master Obat.
+          </div>
+        </div>
+      </SectionCard>
+    );
+  }
   const item = getObatByUuid(masterObatUuid);
 
   if (!item) {
@@ -257,8 +272,75 @@ export default function ProdukKomersialObatItemDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
 
-  const produk = slug ? getObatProdukBySlug(slug) : undefined;
-  const brand = produk ? getObatBrandByUuid(produk.brandId) : undefined;
+  const [produk, setProduk] = useState<ObatProdukKomersial | undefined>(undefined);
+  const [brand, setBrand] = useState<ObatBrand | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadData() {
+      if (!slug) { setLoading(false); return; }
+      try {
+        setLoading(true);
+        const p = await getObatProdukBySlug(slug);
+        if (cancelled) return;
+        setProduk(p);
+        if (p) {
+          const b = await getObatBrandByUuid(p.brandId);
+          if (cancelled) return;
+          setBrand(b);
+        }
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Gagal memuat data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadData();
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '60px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>
+          Memuat...
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--color-muted)' }}>
+          Mengambil data produk dari server.
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '60px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>
+          Gagal Memuat
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 24 }}>
+          {error}
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/stok-obat')}
+          style={{
+            padding: '12px 24px', borderRadius: 'var(--radius-md)',
+            border: 'none', background: 'var(--color-primary)', color: '#fff',
+            fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          Kembali
+        </button>
+      </div>
+    );
+  }
 
   if (!produk) {
     return (

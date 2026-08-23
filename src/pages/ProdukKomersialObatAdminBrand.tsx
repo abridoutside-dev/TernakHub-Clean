@@ -4,13 +4,18 @@
 // nonaktifkan/aktifkan via card menu, soft delete (status, tidak pernah
 // dihapus dari data).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  getObatBrandListLive, addObatBrand, updateObatBrand,
-  softDeleteObatBrand, restoreObatBrand, canDeactivateObatBrand,
-  type ObatBrand, type StatusProdukObat,
-} from '../data/produkKomersialObatData';
+  getObatBrandListLive,
+  addObatBrand,
+  updateObatBrand,
+  softDeleteObatBrand,
+  restoreObatBrand,
+  canDeactivateObatBrand,
+  type ObatBrand,
+  type StatusProdukObat,
+} from '../services/drugCommercialProductService';
 import {
   SectionCard, FieldWrap, FieldLabel, ErrorText, BottomSheetShell, inputStyle,
   StatusFilterChips, type StatusFilterValue,
@@ -34,24 +39,24 @@ function BrandFormSheet({ brand, onClose, onSaved }: {
   const [status, setStatus] = useState<StatusProdukObat>(brand?.status ?? 'aktif');
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmed = nama.trim();
-    const check = validateObatBrandInput(trimmed, brand?.uuid);
+    const check = await validateObatBrandInput(trimmed, brand?.uuid);
     if (!check.valid) {
       setError(check.error ?? 'Data tidak valid.');
       return;
     }
     if (brand) {
       if (brand.status === 'aktif' && status === 'nonaktif') {
-        const guard = canDeactivateObatBrand(brand.uuid);
+        const guard = await canDeactivateObatBrand(brand.uuid);
         if (!guard.ok) {
           setError(guard.error ?? 'Brand tidak dapat dinonaktifkan.');
           return;
         }
       }
-      updateObatBrand(brand.uuid, { nama: trimmed, logo, deskripsi, status });
+      await updateObatBrand(brand.uuid, { nama: trimmed, logo, deskripsi, status });
     } else {
-      addObatBrand({ nama: trimmed, logo, deskripsi });
+      await addObatBrand({ nama: trimmed, logo, deskripsi });
     }
     onSaved();
     onClose();
@@ -195,14 +200,28 @@ export default function ProdukKomersialObatAdminBrand() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('Semua');
-  const [, setTick] = useState(0);
+  const [allBrand, setAllBrand] = useState<ObatBrand[]>([]);
+  const [, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ObatBrand | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<{ message: string; tone: SnackbarTone } | undefined>(undefined);
 
-  const refresh = () => setTick((t) => t + 1);
+  const refresh = async () => {
+    try {
+      setLoading(true);
+      const brands = await getObatBrandListLive();
+      setAllBrand(brands);
+    } catch {
+      setSnackbar({ message: 'Gagal memuat data brand.', tone: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const allBrand = getObatBrandListLive();
+  useEffect(() => {
+    refresh();
+  }, []);
+
   const filtered = allBrand.filter((b) => {
     const matchesQuery =
       b.nama.toLowerCase().includes(query.toLowerCase()) ||
@@ -288,15 +307,15 @@ export default function ProdukKomersialObatAdminBrand() {
               key={b.uuid}
               brand={b}
               onEdit={() => { setEditing(b); setFormOpen(true); }}
-              onToggleStatus={() => {
+              onToggleStatus={async () => {
                 if (b.status === 'aktif') {
-                  const result = softDeleteObatBrand(b.uuid);
+                  const result = await softDeleteObatBrand(b.uuid);
                   if (!result.ok) {
                     setSnackbar({ message: result.error ?? 'Brand tidak dapat dinonaktifkan.', tone: 'error' });
                     return;
                   }
                 } else {
-                  restoreObatBrand(b.uuid);
+                  await restoreObatBrand(b.uuid);
                 }
                 refresh();
               }}

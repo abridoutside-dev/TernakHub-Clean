@@ -10,23 +10,35 @@
 // Search dan Filter Status bekerja secara client-side: search mencocokkan
 // nama brand/produk, filter mencocokkan status aktif/nonaktif pada kedua mode.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../utils/useDebounce';
 import {
-  OBAT_PRODUK_LIST, type ObatBrand, type ObatProdukKomersial,
-  getTotalBrandObat, getTotalProdukObat, getTotalProdukAktifObat, getTotalProdukNonaktifObat,
-  getObatProdukByBrandId, getObatBrandListLive,
-} from '../data/produkKomersialObatData';
+  getObatBrandListLive,
+  getObatProdukKomersialList,
+  getTotalBrandObat,
+  getTotalProdukObat,
+  getTotalProdukAktifObat,
+  getTotalProdukNonaktifObat,
+  type ObatBrand,
+  type ObatProdukKomersial,
+} from '../services/drugCommercialProductService';
 
 // ─── Ringkasan ────────────────────────────────────────────────────────────────
 
-function RingkasanCards() {
+interface RingkasanData {
+  totalBrand: number;
+  totalProduk: number;
+  totalAktif: number;
+  totalNonaktif: number;
+}
+
+function RingkasanCards({ data }: { data: RingkasanData | null }) {
   const cards = [
-    { label: 'Total Brand',       value: String(getTotalBrandObat()),          icon: '™️', bg: '#f3e5f5', color: '#6a1b9a' },
-    { label: 'Total Produk',      value: String(getTotalProdukObat()),         icon: '📦', bg: '#e8f5ee', color: '#1b7a43' },
-    { label: 'Produk Aktif',      value: String(getTotalProdukAktifObat()),    icon: '✅', bg: '#e1f5fe', color: '#0277bd' },
-    { label: 'Produk Nonaktif',   value: String(getTotalProdukNonaktifObat()), icon: '⛔', bg: '#ffebee', color: '#c62828' },
+    { label: 'Total Brand',       value: String(data?.totalBrand ?? '—'),          icon: '™️', bg: '#f3e5f5', color: '#6a1b9a' },
+    { label: 'Total Produk',      value: String(data?.totalProduk ?? '—'),         icon: '📦', bg: '#e8f5ee', color: '#1b7a43' },
+    { label: 'Produk Aktif',      value: String(data?.totalAktif ?? '—'),          icon: '✅', bg: '#e1f5fe', color: '#0277bd' },
+    { label: 'Produk Nonaktif',   value: String(data?.totalNonaktif ?? '—'),       icon: '⛔', bg: '#ffebee', color: '#c62828' },
   ];
 
   return (
@@ -253,17 +265,54 @@ export default function ProdukKomersialObatTab() {
   const [filter, setFilter] = useState<FilterKey>('semua');
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
+  const [brandList, setBrandList] = useState<ObatBrand[]>([]);
+  const [produkList, setProdukList] = useState<ObatProdukKomersial[]>([]);
+  const [stats, setStats] = useState<RingkasanData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [brands, products, totalBrand, totalProduk, totalAktif, totalNonaktif] = await Promise.all([
+          getObatBrandListLive(),
+          getObatProdukKomersialList(),
+          getTotalBrandObat(),
+          getTotalProdukObat(),
+          getTotalProdukAktifObat(),
+          getTotalProdukNonaktifObat(),
+        ]);
+        if (cancelled) return;
+        setBrandList(brands);
+        setProdukList(products);
+        setStats({ totalBrand, totalProduk, totalAktif, totalNonaktif });
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Gagal memuat data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadData();
+    return () => { cancelled = true; };
+  }, []);
+
   const normalizedQuery = debouncedQuery.trim().toLowerCase();
   const hasActiveFilter = normalizedQuery.length > 0 || filter !== 'semua';
 
-  const brandList = getObatBrandListLive().filter((brand) => {
+  const filteredBrandList = brandList.filter((brand) => {
     if (filter !== 'semua' && brand.status !== filter) return false;
     if (normalizedQuery && !brand.nama.toLowerCase().includes(normalizedQuery)) return false;
     return true;
   });
 
-  const produkListBase = selectedBrand ? getObatProdukByBrandId(selectedBrand) : OBAT_PRODUK_LIST;
-  const produkList = produkListBase.filter((produk) => {
+  const produkListBase = selectedBrand
+    ? produkList.filter(p => p.brandId === selectedBrand)
+    : produkList;
+  const filteredProdukList = produkListBase.filter((produk) => {
     if (filter !== 'semua' && produk.status !== filter) return false;
     if (normalizedQuery && !(
       produk.nama.toLowerCase().includes(normalizedQuery) ||
@@ -306,7 +355,7 @@ export default function ProdukKomersialObatTab() {
 
       {/* ── Ringkasan ────────────────────────────────────────────────────── */}
       <div style={{ padding: '14px 16px 0', maxWidth: 480, margin: '0 auto' }}>
-        <RingkasanCards />
+        <RingkasanCards data={stats} />
       </div>
 
       {/* ── Mode Selector ────────────────────────────────────────────────── */}
@@ -341,11 +390,15 @@ export default function ProdukKomersialObatTab() {
 
       {/* ── Daftar Data ──────────────────────────────────────────────────── */}
       <div style={{ padding: '14px 16px 0', maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {mode === 'brand' ? (
-          brandList.length === 0 ? (
+        {loading ? (
+          <EmptyState label="Memuat data..." />
+        ) : error ? (
+          <EmptyState label={`Error: ${error}`} />
+        ) : mode === 'brand' ? (
+          filteredBrandList.length === 0 ? (
             <EmptyState label={hasActiveFilter ? 'Tidak ada brand yang cocok dengan pencarian/filter.' : 'Belum ada brand yang terdaftar.'} />
           ) : (
-            brandList.map((brand) => (
+            filteredBrandList.map((brand) => (
               <BrandCard
                 key={brand.slug}
                 brand={brand}
@@ -354,10 +407,10 @@ export default function ProdukKomersialObatTab() {
             ))
           )
         ) : (
-          produkList.length === 0 ? (
+          filteredProdukList.length === 0 ? (
             <EmptyState label={hasActiveFilter ? 'Tidak ada produk yang cocok dengan pencarian/filter.' : 'Belum ada produk yang terdaftar.'} />
           ) : (
-            produkList.map((produk) => (
+            filteredProdukList.map((produk) => (
               <ProdukCard
                 key={produk.slug}
                 produk={produk}

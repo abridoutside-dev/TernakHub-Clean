@@ -7,12 +7,12 @@
 //   Step 2 (form)   — Isi detail batch stok (jumlah, satuan, tanggal, lokasi).
 //   Simpan          — Validasi → addStokObatItem() → navigate('/stok-obat').
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  OBAT_PRODUK_LIST,
+  getObatProdukKomersialList,
   type ObatProdukKomersial,
-} from '../data/produkKomersialObatData';
+} from '../services/drugCommercialProductService';
 import { addStokObatItem } from '../data/stokObatData';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { addStokItem, addStokMasuk } from '../services/stokObatService';
@@ -100,11 +100,25 @@ function ProdukPickerStep({
   onSelect: (produk: ObatProdukKomersial) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [katalog, setKatalog] = useState<ObatProdukKomersial[]>([]);
+  const [, setLoading] = useState(true);
 
-  const katalog = useMemo(
-    () => OBAT_PRODUK_LIST.filter((p) => p.status === 'aktif'),
-    [],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    async function loadKatalog() {
+      try {
+        const products = await getObatProdukKomersialList();
+        if (cancelled) return;
+        setKatalog(products.filter((p) => p.status === 'aktif'));
+      } catch {
+        if (!cancelled) setKatalog([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadKatalog();
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return katalog;
@@ -315,7 +329,7 @@ function DetailFormStep({
       addStokObatItem({
         workspaceUuid: activeWorkspace?.workspace_uuid ?? '',
         produkKomersialUuid: produk.uuid,
-        masterObatUuid: produk.masterObatUuid,
+        masterObatUuid: produk.masterObatUuid ?? '',
         brand: produk.brandNama,
         namaProduk: produk.nama,
         bentukSediaan: produk.bentukSediaan,
@@ -342,7 +356,7 @@ function DetailFormStep({
           bentukSediaan:       produk.bentukSediaan,
           kemasan:             produk.kemasan,
           produkKomersialUuid: produk.uuid,
-          masterObatUuid:      produk.masterObatUuid,
+          masterObatUuid:      produk.masterObatUuid ?? '',
           satuan:              form.satuan,
           tanggalMasuk:        form.tanggalMasuk,
           tanggalExpired:      form.tanggalExpired || null,

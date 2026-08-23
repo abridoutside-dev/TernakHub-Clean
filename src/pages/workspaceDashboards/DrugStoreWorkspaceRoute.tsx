@@ -1,12 +1,13 @@
-// ─── DrugStoreWorkspaceRoute — WORKSPACE-001F ────────────────────────────────
+// ─── DrugStoreWorkspaceRoute — WORKSPACE-001G ────────────────────────────────
 // Member Toko Obat aktif melihat dashboard registry-driven.
 // Tamu atau workspace lain tetap melihat halaman publik sederhana.
+//
+// Guard uses explicit workspace_type === 'DrugStore' (no name-based fallback).
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { getWorkspaceDashboardConfig } from '../../config/workspaceDashboardRegistry';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
-import { getWorkspaceKindFromRecord } from '../../config/workspaceRegistry';
 
 // ─── Public fallback (belum login atau bukan workspace aktif) ─────────────────
 
@@ -67,11 +68,10 @@ export default function DrugStoreWorkspaceRoute() {
   const { currentUser } = useAuth();
   const { activeWorkspace } = useWorkspace();
 
-  const workspaceKind = activeWorkspace ? getWorkspaceKindFromRecord(activeWorkspace) : null;
   const isActiveDrugStore = Boolean(
     currentUser &&
     activeWorkspace?.workspace_uuid === id &&
-    workspaceKind === 'DrugStore',
+    activeWorkspace.workspace_type === 'DrugStore',
   );
 
   if (!isActiveDrugStore) return <DrugStorePublicFallback workspaceId={id} />;

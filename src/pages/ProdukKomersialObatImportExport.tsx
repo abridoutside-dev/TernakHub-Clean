@@ -4,7 +4,7 @@
 // shared Dialog/ProgressOverlay/Snackbar primitives from ImportExportUI.tsx
 // (same components as Master Obat's Import & Export), so no new design.
 
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ImportExportDialog, DialogActions, DialogButton, ImportModeOption,
@@ -15,7 +15,7 @@ import {
   parseProdukKomersialObatImportFile, applyProdukKomersialObatImport,
   type ImportMode, type ImportFormat, type ValidationResult, type ImportStats,
 } from '../utils/produkKomersialObatImportExport';
-import { getTotalBrandObat, getTotalProdukObat } from '../data/produkKomersialObatData';
+import { getTotalBrandObat, getTotalProdukObat } from '../services/drugCommercialProductService';
 
 type ActiveDialog = 'export' | 'import' | null;
 
@@ -75,9 +75,22 @@ export default function ProdukKomersialObatImportExport() {
   const [mode, setMode] = useState<ImportMode>('merge');
   const [busy, setBusy] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{ message: string; tone: SnackbarTone } | null>(null);
+  const [stats, setStats] = useState<{ brand: number; produk: number }>({ brand: 0, produk: 0 });
 
   const [pendingFile, setPendingFile] = useState<{ text: string; format: ImportFormat; name: string } | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStats() {
+      try {
+        const [brand, produk] = await Promise.all([getTotalBrandObat(), getTotalProdukObat()]);
+        if (!cancelled) setStats({ brand, produk });
+      } catch { /* ignore */ }
+    }
+    loadStats();
+    return () => { cancelled = true; };
+  }, []);
 
   function resetImportState() {
     setPendingFile(null);
@@ -118,9 +131,9 @@ export default function ProdukKomersialObatImportExport() {
 
     setBusy('Memvalidasi berkas…');
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const text = String(reader.result ?? '');
-      const result = parseProdukKomersialObatImportFile(text, format);
+      const result = await parseProdukKomersialObatImportFile(text, format);
       setPendingFile({ text, format, name: file.name });
       setValidation(result);
       setBusy(null);
@@ -132,12 +145,12 @@ export default function ProdukKomersialObatImportExport() {
     reader.readAsText(file);
   }
 
-  function handleConfirmImport() {
+  async function handleConfirmImport() {
     if (!validation?.valid || !validation.payload) return;
     setBusy(mode === 'merge' ? 'Menggabungkan data…' : 'Mengganti data…');
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        const stats: ImportStats = applyProdukKomersialObatImport(validation.payload!, mode);
+        const stats: ImportStats = await applyProdukKomersialObatImport(validation.payload!, mode);
         const summary =
           `Brand: +${stats.brand.added}${stats.brand.updated ? ` ↻${stats.brand.updated}` : ''}${stats.brand.skipped ? ` (${stats.brand.skipped} dilewati)` : ''}\n` +
           `Produk: +${stats.produk.added}${stats.produk.updated ? ` ↻${stats.produk.updated}` : ''}${stats.produk.skipped ? ` (${stats.produk.skipped} dilewati)` : ''}`;
@@ -164,8 +177,8 @@ export default function ProdukKomersialObatImportExport() {
 
       <div style={{ padding: '14px 16px 0', maxWidth: 480, margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <SummaryCard color="#6a1b9a" bg="#f3e5f5" icon="™️" label="Total Brand" value={getTotalBrandObat()} />
-          <SummaryCard color="#1b7a43" bg="#e8f5ee" icon="📦" label="Total Produk" value={getTotalProdukObat()} />
+          <SummaryCard color="#6a1b9a" bg="#f3e5f5" icon="™️" label="Total Brand" value={stats.brand} />
+          <SummaryCard color="#1b7a43" bg="#e8f5ee" icon="📦" label="Total Produk" value={stats.produk} />
         </div>
       </div>
 
