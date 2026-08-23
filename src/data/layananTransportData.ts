@@ -79,6 +79,7 @@ const LAYANAN_TRANSPORT: LayananTransportRecord[] = [
     jenisKendaraan: 'Truk Pickup',
     kapasitasMuatan: '2 ton',
     rute: 'Jawa Barat (area Priangan)',
+    targetTernak: [],
   },
   {
     uuid: 'a1b2c3d4-t004-4000-8001-000000000004',

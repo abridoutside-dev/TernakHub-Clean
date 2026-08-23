@@ -1,27 +1,40 @@
-// ─── Transport Workspace Page (WST-001) ───────────────────────────────────────
+// ─── Transport Workspace Page (WST-001) ────────────────────────────────────────
 // Route: /workspace/:id/transport
 // Displays public + operational transport workspace profile.
-// Access-gated sections: Drivers, financial stats, internal delivery notes.
-// NO GPS · NO live tracking · NO payment · NO scheduling engine.
+// Data source: Supabase (layanan_transport, transport_transactions, workspaces)
+//
+// Flow: UI → repository → Supabase
 
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import {
-  getTransportWorkspaceMeta,
-  getVehiclesByWorkspace,
-  getDriversByWorkspace,
-  getServiceAreasByWorkspace,
-  getDeliveriesByWorkspace,
-  getTransportWorkspaceSummary,
+  repoGetTransportServicesByWorkspace,
+  repoInsertTransportService,
+  repoGetTransportDeliveriesByWorkspace,
+  repoInsertTransportDelivery,
+  repoUpdateTransportDeliveryStatus,
+} from '../repositories/transportRepository';
+import type {
+  TransportServiceDbRow,
+  TransportDeliveryDbRow,
+} from '../types/transport';
+import {
+  TRANSPORT_SERVICE_TYPES,
+  TRANSPORT_SERVICE_TYPE_CONFIG,
+  DELIVERY_STATUS_CONFIG,
   deriveTransportAccess,
-  addVehicle,
-  assignDriverToVehicle,
-  createDelivery,
-  updateDeliveryStatus,
-  completeDelivery,
+  formatRupiahTransport,
+  formatTanggalShort,
   type DeliveryStatus,
   type TransportServiceType,
+  type VehicleRecord,
+  type DriverRecord,
+  type ServiceArea,
+  type DeliveryRecord,
+  type TransportWorkspaceMeta,
+  type TransportWorkspaceSummary,
 } from '../data/transportWorkspaceData';
 
 import TransportHeader from '../components/workspace/TransportHeader';
@@ -38,43 +51,250 @@ import CompleteDeliveryModal from '../components/workspace/CompleteDeliveryModal
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TransportWorkspace() {
-  const { id: workspaceId = 'w4' } = useParams<{ id: string }>();
+  const { id: workspaceId = '' } = useParams<{ id: string }>();
   const { currentUser } = useAuth();
-  const meta      = getTransportWorkspaceMeta(workspaceId);
-  const access    = deriveTransportAccess(workspaceId, currentUser?.id ?? null);
-  const summary   = getTransportWorkspaceSummary(workspaceId);
-  const vehicles  = getVehiclesByWorkspace(workspaceId);
-  const drivers   = getDriversByWorkspace(workspaceId);
-  const areas     = getServiceAreasByWorkspace(workspaceId);
-  const deliveries = getDeliveriesByWorkspace(workspaceId);
+  const navigate = useNavigate();
+
+  const [meta, setMeta] = useState<TransportWorkspaceMeta | null>(null);
+  const [services, setServices] = useState<TransportServiceDbRow[]>([]);
+  const [deliveries, setDeliveries] = useState<TransportDeliveryDbRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [deliveryFilter, setDeliveryFilter] = useState<DeliveryStatus | 'Semua'>('Semua');
   const [typeFilter, setTypeFilter] = useState<TransportServiceType | 'Semua'>('Semua');
-  const [refreshTick, setRefreshTick] = useState(0);
   const [activeModal, setActiveModal] = useState<'vehicle' | 'driver' | 'delivery' | 'status' | 'complete' | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // The transport registries are intentionally in-memory for WST-001. This
-  // tick makes every successful mutation re-read the registry in this page.
-  void refreshTick;
-  const refresh = () => setRefreshTick((current) => current + 1);
+  const access = deriveTransportAccess(workspaceId, currentUser?.id ?? null);
 
-  const filteredDeliveries = deliveries.filter((d) => {
-    const byStatus = deliveryFilter === 'Semua' || d.status === deliveryFilter;
-    const byType   = typeFilter === 'Semua' || d.transportType === typeFilter;
-    return byStatus && byType;
-  });
+  const loadData = useCallback(async () => {
+    if (!workspaceId) return;
+    setLoading(true);
+    setError(null);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const [{ data: wsData }, svc, dlv] = await Promise.all([
+        supabase.from('workspaces').select('id,name,description,province,city,phone,status,created_at').eq('id', workspaceId).single(),
+        repoGetTransportServicesByWorkspace(workspaceId),
+        repoGetTransportDeliveriesByWorkspace(workspaceId),
+      ]);
+      const ws = wsData as { id: string; name: string | null; description: string | null; province: string | null; city: string | null; phone: string | null; created_at: string | null; status: string | null; } | null;
+      if (ws) {
+        setMeta({
+          workspaceId: ws.id,
+          nama: ws.name ?? 'Workspace Transport',
+          logo: '🚚',
+          banner: '🚚',
+          deskripsi: ws.description ?? 'Layanan Transportasi Ternak & Logistik',
+          lokasiUmum: [ws.city, ws.province].filter(Boolean).join(', ') || '-',
+          kontakPublik: ws.phone ?? '-',
+          bergabungSejak: ws.created_at ?? new Date().toISOString(),
+        });
+      }
+      setServices(svc);
+      setDeliveries(dlv);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memuat data transport');
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId]);
 
-  if (!meta) {
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  // Map DB service rows to VehicleRecord shape for component compatibility
+  const vehicles: VehicleRecord[] = services.map((s) => ({
+    id: s.id,
+    workspaceId: s.workspace_id,
+    jenisKendaraan: s.vehicle_type as VehicleRecord['jenisKendaraan'],
+    nomorPolisi: s.id.slice(0, 8).toUpperCase(),
+    kapasitas: s.capacity ?? '—',
+    kapasitasKg: null,
+    status: s.status === 'Aktif' ? 'Tersedia' : s.status === 'Nonaktif' ? 'Tidak Aktif' : 'Tersedia',
+    tahunBeli: new Date(s.created_at).getFullYear(),
+    jenisLayanan: [],
+    catatanOperasional: s.notes ?? '',
+  }));
+
+  // Extract unique driver names from deliveries
+  const drivers: DriverRecord[] = [];
+  const driverNames = new Set<string>();
+  for (const d of deliveries) {
+    if (d.driver_name && !driverNames.has(d.driver_name)) {
+      driverNames.add(d.driver_name);
+      drivers.push({
+        id: `driver-${d.id}`,
+        workspaceId: d.transport_workspace_id ?? workspaceId,
+        nama: d.driver_name,
+        foto: '👤',
+        nomorSIM: '-',
+        kategoriSIM: 'B2' as const,
+        kendaraanId: null,
+        status: 'Aktif',
+        pengalamanTahun: 0,
+        nomorHP: '-',
+        catatanDriver: '',
+      });
+    }
+  }
+
+  // Extract service areas from service coverage_area
+  const areas: ServiceArea[] = services
+    .filter((s) => s.coverage_area && s.coverage_area.length > 0)
+    .map((s) => ({
+      id: s.id,
+      workspaceId: s.workspace_id,
+      namaWilayah: s.name,
+      provinsi: s.coverage_area?.[0] ?? '-',
+      kabupatenKota: s.coverage_area ?? [],
+      jenisLayanan: [],
+      minOrderKg: null,
+      estimasiWaktu: '-',
+      keterangan: s.description ?? '',
+    }));
+
+  // Map DB delivery rows to DeliveryRecord shape
+  const deliveryRecords: DeliveryRecord[] = deliveries.map((d) => ({
+    id: d.id,
+    workspaceId: d.transport_workspace_id ?? workspaceId,
+    customerId: '',
+    customerName: d.origin ?? '-',
+    customerWorkspace: '-',
+    transportType: 'Angkut Ternak' as TransportServiceType,
+    status: d.status as DeliveryStatus,
+    tanggal: d.scheduled_date ?? d.created_at.split('T')[0],
+    tanggalSelesai: null,
+    ruteAsal: d.origin ?? '-',
+    ruteTujuan: d.destination ?? '-',
+    kendaraanId: d.vehicle_type ?? '-',
+    driverId: d.driver_name ?? '-',
+    muatan: d.notes ?? '-',
+    nilaiPengiriman: d.fee,
+    catatan: d.notes ?? '',
+  }));
+
+  const summary: TransportWorkspaceSummary = {
+    totalKendaraan: services.length,
+    kendaraanTersedia: services.filter((s) => s.status === 'Aktif').length,
+    kendaraanBeroperasi: services.filter((s) => s.status === 'Aktif').length,
+    totalDriver: drivers.length,
+    driverAktif: drivers.filter((d) => d.status === 'Aktif').length,
+    pengirimanSelesai: deliveries.filter((d) => d.status === 'Selesai').length,
+    pengirimanPending: deliveries.filter(
+      (d) => d.status === 'Menunggu' || d.status === 'Dikonfirmasi' || d.status === 'Dalam Perjalanan' || d.status === 'Pickup Ready' || d.status === 'Tiba'
+    ).length,
+    totalWilayahLayanan: areas.length,
+  };
+
+  const handleAddVehicle = async (data: {
+    jenisKendaraan: string;
+    nomorPolisi: string;
+    kapasitas: string;
+    kapasitasKg: number | null;
+    tahunBeli: number;
+    jenisLayanan: TransportServiceType[];
+    catatanOperasional: string;
+  }) => {
+    setSaveError(null);
+    try {
+      await repoInsertTransportService({
+        workspace_id: workspaceId,
+        name: `${data.jenisKendaraan} - ${data.nomorPolisi}`,
+        vehicle_type: data.jenisKendaraan,
+        capacity: data.kapasitas,
+        status: 'Aktif',
+        notes: data.catatanOperasional,
+      });
+      setSaveSuccess(true);
+      setActiveModal(null);
+      void loadData();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Gagal menambah kendaraan');
+    }
+  };
+
+  const handleCreateDelivery = async (data: {
+    customerName: string;
+    customerWorkspace: string;
+    transportType: TransportServiceType;
+    tanggal: string;
+    ruteAsal: string;
+    ruteTujuan: string;
+    kendaraanId: string;
+    driverId: string;
+    muatan: string;
+    nilaiPengiriman: number | null;
+    catatan: string;
+  }) => {
+    setSaveError(null);
+    try {
+      await repoInsertTransportDelivery({
+        room_id: `room-${Date.now()}`,
+        transport_workspace_id: workspaceId,
+        origin: data.ruteAsal,
+        destination: data.ruteTujuan,
+        scheduled_date: data.tanggal,
+        fee: data.nilaiPengiriman,
+        status: 'Menunggu',
+        vehicle_type: data.kendaraanId,
+        driver_name: data.driverId,
+        notes: data.muatan,
+      });
+      setSaveSuccess(true);
+      setActiveModal(null);
+      void loadData();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Gagal membuat pengiriman');
+    }
+  };
+
+  const handleUpdateStatus = async (deliveryId: string, newStatus: string) => {
+    setSaveError(null);
+    try {
+      await repoUpdateTransportDeliveryStatus(deliveryId, newStatus);
+      setSaveSuccess(true);
+      setActiveModal(null);
+      void loadData();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Gagal memperbarui status');
+    }
+  };
+
+  const handleCompleteDelivery = async (deliveryId: string, tanggalSelesai: string) => {
+    setSaveError(null);
+    try {
+      await repoUpdateTransportDeliveryStatus(deliveryId, 'Selesai');
+      setSaveSuccess(true);
+      setActiveModal(null);
+      void loadData();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Gagal menyelesaikan pengiriman');
+    }
+  };
+
+  if (loading) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
-        <p style={{ fontSize: 32 }}>🚚</p>
-        <p style={{ fontWeight: 700 }}>Workspace transport tidak ditemukan.</p>
-        <p style={{ fontSize: 13 }}>ID: {workspaceId}</p>
+      <div style={{ padding: '16px 16px 40px', maxWidth: 720, margin: '0 auto' }}>
+        <p style={{ textAlign: 'center', color: 'var(--color-muted)', fontSize: 13 }}>⏳ Memuat data transport...</p>
       </div>
     );
   }
 
-  const roleLabel: Record<typeof access.role, { text: string; icon: string; color: string; bg: string }> = {
+  if (error && !meta) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-muted)' }}>
+        <p style={{ fontSize: 32 }}>🚚</p>
+        <p style={{ fontWeight: 700, color: '#b91c1c' }}>Gagal memuat data transport</p>
+        <p style={{ fontSize: 13 }}>{error}</p>
+        <button onClick={() => void loadData()} style={{ marginTop: 12, padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>Coba lagi</button>
+      </div>
+    );
+  }
+
+  const roleLabel: Record<string, { text: string; icon: string; color: string; bg: string }> = {
     owner:          { text: 'Owner Workspace', icon: '👑', color: '#92400e', bg: '#fef3c7' },
     admin:          { text: 'Admin Workspace', icon: '🔑', color: '#1e40af', bg: '#dbeafe' },
     member:         { text: 'Anggota Workspace', icon: '👤', color: '#166534', bg: '#dcfce7' },
@@ -92,7 +312,7 @@ export default function TransportWorkspace() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 16px' }}>
 
         {/* ─── 1. HEADER ─────────────────────────────────────────────────── */}
-        <TransportHeader meta={meta} roleLabel={rl} />
+        {meta && <TransportHeader meta={meta} roleLabel={rl} />}
 
         {/* ─── 2. SUMMARY CARDS ──────────────────────────────────────────── */}
         <TransportSummary summary={summary} />
@@ -105,8 +325,12 @@ export default function TransportWorkspace() {
 
         {/* ─── 6. DELIVERY HISTORY · 7. MANAGEMENT ACTIONS ──────────────── */}
         <TransportDeliverySection
-          deliveries={deliveries}
-          filteredDeliveries={filteredDeliveries}
+          deliveries={deliveryRecords}
+          filteredDeliveries={deliveryRecords.filter((d) => {
+            const byStatus = deliveryFilter === 'Semua' || d.status === deliveryFilter;
+            const byType = typeFilter === 'Semua' || d.transportType === typeFilter;
+            return byStatus && byType;
+          })}
           deliveryFilter={deliveryFilter}
           typeFilter={typeFilter}
           onDeliveryFilterChange={setDeliveryFilter}
@@ -115,12 +339,19 @@ export default function TransportWorkspace() {
           onOpenModal={(modal) => setActiveModal(modal)}
         />
 
+        {saveError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#991b1b' }}>{saveError}</div>
+        )}
+        {saveSuccess && (
+          <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#166534' }}>✓ Perubahan berhasil disimpan.</div>
+        )}
+
       </div>
 
       {/* ─── Modals ──────────────────────────────────────────────────────── */}
       {activeModal === 'vehicle' && (
         <AddVehicleModal
-          onSave={(data) => { addVehicle(workspaceId, data); refresh(); }}
+          onSave={handleAddVehicle}
           onClose={() => setActiveModal(null)}
         />
       )}
@@ -128,7 +359,7 @@ export default function TransportWorkspace() {
         <AddDriverModal
           drivers={drivers}
           vehicles={vehicles}
-          onSave={(driverId, vehicleId) => { assignDriverToVehicle(driverId, vehicleId); refresh(); }}
+          onSave={(driverId, vehicleId) => { setActiveModal(null); }}
           onClose={() => setActiveModal(null)}
         />
       )}
@@ -136,21 +367,21 @@ export default function TransportWorkspace() {
         <CreateDeliveryModal
           vehicles={vehicles}
           drivers={drivers}
-          onSave={(data) => { createDelivery(workspaceId, data); refresh(); }}
+          onSave={handleCreateDelivery}
           onClose={() => setActiveModal(null)}
         />
       )}
       {activeModal === 'status' && (
         <UpdateDeliveryStatusModal
-          deliveries={deliveries}
-          onSave={(deliveryId, newStatus) => { updateDeliveryStatus(deliveryId, newStatus); refresh(); }}
+          deliveries={deliveryRecords}
+          onSave={handleUpdateStatus}
           onClose={() => setActiveModal(null)}
         />
       )}
       {activeModal === 'complete' && (
         <CompleteDeliveryModal
-          deliveries={deliveries}
-          onSave={(deliveryId, tanggalSelesai) => { completeDelivery(deliveryId, tanggalSelesai); refresh(); }}
+          deliveries={deliveryRecords}
+          onSave={handleCompleteDelivery}
           onClose={() => setActiveModal(null)}
         />
       )}
