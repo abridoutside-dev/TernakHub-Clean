@@ -1020,7 +1020,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'chlortetracycline',
-    uuid: 'a1b2c3d4-0033-4000-8000-00000000000033',
+    uuid: 'a1b2c3d4-0033-4000-8000-000000000033',
     namaGenerik: 'Chlortetracycline',
     namaLatin: 'Chlortetracyclinum',
     kategoriSlug: 'antibiotik',
@@ -1044,7 +1044,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'cefazolin',
-    uuid: 'a1b2c3d4-0034-4000-8000-00000000000034',
+    uuid: 'a1b2c3d4-0034-4000-8000-000000000034',
     namaGenerik: 'Cefazolin',
     namaLatin: 'Cefazolinum',
     kategoriSlug: 'antibiotik',
@@ -1068,7 +1068,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'ceftiofur',
-    uuid: 'a1b2c3d4-0035-4000-8000-00000000000035',
+    uuid: 'a1b2c3d4-0035-4000-8000-000000000035',
     namaGenerik: 'Ceftiofur',
     namaLatin: 'Ceftiofurum',
     kategoriSlug: 'antibiotik',
@@ -1092,7 +1092,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'cephalexin',
-    uuid: 'a1b2c3d4-0036-4000-8000-00000000000036',
+    uuid: 'a1b2c3d4-0036-4000-8000-000000000036',
     namaGenerik: 'Cephalexin',
     namaLatin: 'Cephalexinum',
     kategoriSlug: 'antibiotik',
@@ -1116,7 +1116,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'penicillin-g-procaine',
-    uuid: 'a1b2c3d4-0037-4000-8000-00000000000037',
+    uuid: 'a1b2c3d4-0037-4000-8000-000000000037',
     namaGenerik: 'Penicillin G Procaine',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -1140,7 +1140,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'cloxacillin',
-    uuid: 'a1b2c3d4-0038-4000-8000-00000000000038',
+    uuid: 'a1b2c3d4-0038-4000-8000-000000000038',
     namaGenerik: 'Cloxacillin',
     namaLatin: 'Cloxacillinum',
     kategoriSlug: 'antibiotik',
@@ -1164,7 +1164,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'trimethoprim-sulfa',
-    uuid: 'a1b2c3d4-0039-4000-8000-00000000000039',
+    uuid: 'a1b2c3d4-0039-4000-8000-000000000039',
     namaGenerik: 'Trimethoprim-Sulfamethoxazole',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -1188,7 +1188,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'sulfaquinoxaline',
-    uuid: 'a1b2c3d4-0040-4000-8000-00000000000040',
+    uuid: 'a1b2c3d4-0040-4000-8000-000000000040',
     namaGenerik: 'Sulfaquinoxaline',
     namaLatin: 'Sulfaquinoxalinum',
     kategoriSlug: 'antibiotik',
@@ -1212,7 +1212,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'gentamicin',
-    uuid: 'a1b2c3d4-0041-4000-8000-00000000000041',
+    uuid: 'a1b2c3d4-0041-4000-8000-000000000041',
     namaGenerik: 'Gentamicin',
     namaLatin: 'Gentamicinum',
     kategoriSlug: 'antibiotik',
@@ -1236,7 +1236,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'neomycin',
-    uuid: 'a1b2c3d4-0042-4000-8000-00000000000042',
+    uuid: 'a1b2c3d4-0042-4000-8000-000000000042',
     namaGenerik: 'Neomycin',
     namaLatin: 'Neomycinum',
     kategoriSlug: 'antibiotik',
@@ -1260,7 +1260,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'streptomycin',
-    uuid: 'a1b2c3d4-0043-4000-8000-00000000000043',
+    uuid: 'a1b2c3d4-0043-4000-8000-000000000043',
     namaGenerik: 'Streptomycin',
     namaLatin: 'Streptomycinum',
     kategoriSlug: 'antibiotik',
@@ -1284,7 +1284,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'norfloxacin',
-    uuid: 'a1b2c3d4-0044-4000-8000-00000000000044',
+    uuid: 'a1b2c3d4-0044-4000-8000-000000000044',
     namaGenerik: 'Norfloxacin',
     namaLatin: 'Norfloxacinum',
     kategoriSlug: 'antibiotik',
@@ -1308,7 +1308,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'danofloxacin',
-    uuid: 'a1b2c3d4-0045-4000-8000-00000000000045',
+    uuid: 'a1b2c3d4-0045-4000-8000-000000000045',
     namaGenerik: 'Danofloxacin',
     namaLatin: 'Danofloxacinum',
     kategoriSlug: 'antibiotik',
@@ -1332,7 +1332,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'erythromycin',
-    uuid: 'a1b2c3d4-0046-4000-8000-00000000000046',
+    uuid: 'a1b2c3d4-0046-4000-8000-000000000046',
     namaGenerik: 'Erythromycin',
     namaLatin: 'Erythromycinum',
     kategoriSlug: 'antibiotik',
@@ -1356,7 +1356,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'lincomycin',
-    uuid: 'a1b2c3d4-0047-4000-8000-00000000000047',
+    uuid: 'a1b2c3d4-0047-4000-8000-000000000047',
     namaGenerik: 'Lincomycin',
     namaLatin: 'Lincomycinum',
     kategoriSlug: 'antibiotik',
@@ -1380,7 +1380,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'oxfendazole',
-    uuid: 'a1b2c3d4-0048-4000-8000-00000000000048',
+    uuid: 'a1b2c3d4-0048-4000-8000-000000000048',
     namaGenerik: 'Oxfendazole',
     namaLatin: 'Oxfendazolum',
     kategoriSlug: 'antiparasit',
@@ -1404,7 +1404,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'triclabendazole',
-    uuid: 'a1b2c3d4-0049-4000-8000-00000000000049',
+    uuid: 'a1b2c3d4-0049-4000-8000-000000000049',
     namaGenerik: 'Triclabendazole',
     namaLatin: 'Triclabendazolum',
     kategoriSlug: 'antiparasit',
@@ -1428,7 +1428,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'levamisole',
-    uuid: 'a1b2c3d4-0050-4000-8000-00000000000050',
+    uuid: 'a1b2c3d4-0050-4000-8000-000000000050',
     namaGenerik: 'Levamisole',
     namaLatin: 'Levamisolum',
     kategoriSlug: 'antiparasit',
@@ -1452,7 +1452,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'closantel',
-    uuid: 'a1b2c3d4-0051-4000-8000-00000000000051',
+    uuid: 'a1b2c3d4-0051-4000-8000-000000000051',
     namaGenerik: 'Closantel',
     namaLatin: 'Closantelum',
     kategoriSlug: 'antiparasit',
@@ -1476,7 +1476,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'praziquantel',
-    uuid: 'a1b2c3d4-0052-4000-8000-00000000000052',
+    uuid: 'a1b2c3d4-0052-4000-8000-000000000052',
     namaGenerik: 'Praziquantel',
     namaLatin: 'Praziquantelum',
     kategoriSlug: 'antiparasit',
@@ -1500,7 +1500,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'doramectin',
-    uuid: 'a1b2c3d4-0053-4000-8000-00000000000053',
+    uuid: 'a1b2c3d4-0053-4000-8000-000000000053',
     namaGenerik: 'Doramectin',
     namaLatin: 'Doramectinum',
     kategoriSlug: 'antiparasit',
@@ -1524,7 +1524,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'moxidectin',
-    uuid: 'a1b2c3d4-0054-4000-8000-00000000000054',
+    uuid: 'a1b2c3d4-0054-4000-8000-000000000054',
     namaGenerik: 'Moxidectin',
     namaLatin: 'Moxidectinum',
     kategoriSlug: 'antiparasit',
@@ -1548,7 +1548,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'abamectin',
-    uuid: 'a1b2c3d4-0055-4000-8000-00000000000055',
+    uuid: 'a1b2c3d4-0055-4000-8000-000000000055',
     namaGenerik: 'Abamectin',
     namaLatin: 'Abamectinum',
     kategoriSlug: 'antiparasit',
@@ -1572,7 +1572,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'toltrazuril',
-    uuid: 'a1b2c3d4-0056-4000-8000-00000000000056',
+    uuid: 'a1b2c3d4-0056-4000-8000-000000000056',
     namaGenerik: 'Toltrazuril',
     namaLatin: 'Toltrazurilum',
     kategoriSlug: 'antiparasit',
@@ -1596,7 +1596,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'diclazuril',
-    uuid: 'a1b2c3d4-0057-4000-8000-00000000000057',
+    uuid: 'a1b2c3d4-0057-4000-8000-000000000057',
     namaGenerik: 'Diclazuril',
     namaLatin: 'Diclazurilum',
     kategoriSlug: 'antiparasit',
@@ -1620,7 +1620,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'amitraz',
-    uuid: 'a1b2c3d4-0058-4000-8000-00000000000058',
+    uuid: 'a1b2c3d4-0058-4000-8000-000000000058',
     namaGenerik: 'Amitraz',
     namaLatin: 'Amitrazum',
     kategoriSlug: 'antiparasit',
@@ -1644,7 +1644,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'fipronil',
-    uuid: 'a1b2c3d4-0059-4000-8000-00000000000059',
+    uuid: 'a1b2c3d4-0059-4000-8000-000000000059',
     namaGenerik: 'Fipronil',
     namaLatin: 'Fipronilum',
     kategoriSlug: 'antiparasit',
@@ -1668,7 +1668,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'permethrin',
-    uuid: 'a1b2c3d4-0060-4000-8000-00000000000060',
+    uuid: 'a1b2c3d4-0060-4000-8000-000000000060',
     namaGenerik: 'Permethrin',
     namaLatin: 'Permethrinum',
     kategoriSlug: 'antiparasit',
@@ -1692,7 +1692,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'toltrazuril-sulfone',
-    uuid: 'a1b2c3d4-0061-4000-8000-00000000000061',
+    uuid: 'a1b2c3d4-0061-4000-8000-000000000061',
     namaGenerik: 'Ponazuril (Toltrazuril Sulfone)',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -1716,7 +1716,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'diminazene',
-    uuid: 'a1b2c3d4-0062-4000-8000-00000000000062',
+    uuid: 'a1b2c3d4-0062-4000-8000-000000000062',
     namaGenerik: 'Diminazene Aceturate',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -1740,7 +1740,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'imidocarb',
-    uuid: 'a1b2c3d4-0063-4000-8000-00000000000063',
+    uuid: 'a1b2c3d4-0063-4000-8000-000000000063',
     namaGenerik: 'Imidocarb Dipropionate',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -1764,7 +1764,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'niclosamide',
-    uuid: 'a1b2c3d4-0064-4000-8000-00000000000064',
+    uuid: 'a1b2c3d4-0064-4000-8000-000000000064',
     namaGenerik: 'Niclosamide',
     namaLatin: 'Niclosamidum',
     kategoriSlug: 'antiparasit',
@@ -1788,7 +1788,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vitamin-e-selenium',
-    uuid: 'a1b2c3d4-0065-4000-8000-00000000000065',
+    uuid: 'a1b2c3d4-0065-4000-8000-000000000065',
     namaGenerik: 'Vitamin E + Selenium',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1812,7 +1812,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vitamin-k3',
-    uuid: 'a1b2c3d4-0066-4000-8000-00000000000066',
+    uuid: 'a1b2c3d4-0066-4000-8000-000000000066',
     namaGenerik: 'Vitamin K3 (Menadione)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1836,7 +1836,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vitamin-d3-tunggal',
-    uuid: 'a1b2c3d4-0067-4000-8000-00000000000067',
+    uuid: 'a1b2c3d4-0067-4000-8000-000000000067',
     namaGenerik: 'Vitamin D3 (Cholecalciferol)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1860,7 +1860,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'biotin',
-    uuid: 'a1b2c3d4-0068-4000-8000-00000000000068',
+    uuid: 'a1b2c3d4-0068-4000-8000-000000000068',
     namaGenerik: 'Biotin (Vitamin B7)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1884,7 +1884,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'folic-acid',
-    uuid: 'a1b2c3d4-0069-4000-8000-00000000000069',
+    uuid: 'a1b2c3d4-0069-4000-8000-000000000069',
     namaGenerik: 'Asam Folat (Vitamin B9)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1908,7 +1908,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'kalsium-borogluconate',
-    uuid: 'a1b2c3d4-0070-4000-8000-00000000000070',
+    uuid: 'a1b2c3d4-0070-4000-8000-000000000070',
     namaGenerik: 'Kalsium Borogluconate',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1932,7 +1932,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'magnesium-sulfate',
-    uuid: 'a1b2c3d4-0071-4000-8000-00000000000071',
+    uuid: 'a1b2c3d4-0071-4000-8000-000000000071',
     namaGenerik: 'Magnesium Sulfat',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1956,7 +1956,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'zinc-sulfate',
-    uuid: 'a1b2c3d4-0072-4000-8000-00000000000072',
+    uuid: 'a1b2c3d4-0072-4000-8000-000000000072',
     namaGenerik: 'Zinc Sulfate (Seng Sulfat)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -1980,7 +1980,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'copper-sulfate',
-    uuid: 'a1b2c3d4-0073-4000-8000-00000000000073',
+    uuid: 'a1b2c3d4-0073-4000-8000-000000000073',
     namaGenerik: 'Copper Sulfate (Tembaga Sulfat)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -2004,7 +2004,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'iodine-larutan-lugol',
-    uuid: 'a1b2c3d4-0074-4000-8000-00000000000074',
+    uuid: 'a1b2c3d4-0074-4000-8000-000000000074',
     namaGenerik: 'Larutan Lugol (Iodine-Kalium Iodida)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -2028,7 +2028,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vitamin-e-tunggal',
-    uuid: 'a1b2c3d4-0075-4000-8000-00000000000075',
+    uuid: 'a1b2c3d4-0075-4000-8000-000000000075',
     namaGenerik: 'Vitamin E (Tocopherol) Tunggal',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -2052,7 +2052,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-antraks',
-    uuid: 'a1b2c3d4-0076-4000-8000-00000000000076',
+    uuid: 'a1b2c3d4-0076-4000-8000-000000000076',
     namaGenerik: 'Vaksin Antraks (Spora Hidup Sterne)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2076,7 +2076,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-tetanus-toksoid',
-    uuid: 'a1b2c3d4-0077-4000-8000-00000000000077',
+    uuid: 'a1b2c3d4-0077-4000-8000-000000000077',
     namaGenerik: 'Vaksin Tetanus Toksoid',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2100,7 +2100,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-enterotoksemia',
-    uuid: 'a1b2c3d4-0078-4000-8000-00000000000078',
+    uuid: 'a1b2c3d4-0078-4000-8000-000000000078',
     namaGenerik: 'Vaksin Enterotoksemia (Clostridium perfringens C&D)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2124,7 +2124,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-blackleg',
-    uuid: 'a1b2c3d4-0079-4000-8000-00000000000079',
+    uuid: 'a1b2c3d4-0079-4000-8000-000000000079',
     namaGenerik: 'Vaksin Blackleg (Clostridium chauvoei)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2148,7 +2148,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-ibr',
-    uuid: 'a1b2c3d4-0080-4000-8000-00000000000080',
+    uuid: 'a1b2c3d4-0080-4000-8000-000000000080',
     namaGenerik: 'Vaksin IBR (Infectious Bovine Rhinotracheitis)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2172,7 +2172,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-bvd',
-    uuid: 'a1b2c3d4-0081-4000-8000-00000000000081',
+    uuid: 'a1b2c3d4-0081-4000-8000-000000000081',
     namaGenerik: 'Vaksin BVD (Bovine Viral Diarrhea)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2196,7 +2196,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-nd',
-    uuid: 'a1b2c3d4-0082-4000-8000-00000000000082',
+    uuid: 'a1b2c3d4-0082-4000-8000-000000000082',
     namaGenerik: 'Vaksin ND (Newcastle Disease)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2220,7 +2220,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-gumboro',
-    uuid: 'a1b2c3d4-0083-4000-8000-00000000000083',
+    uuid: 'a1b2c3d4-0083-4000-8000-000000000083',
     namaGenerik: 'Vaksin Gumboro (Infectious Bursal Disease)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2244,7 +2244,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-ai',
-    uuid: 'a1b2c3d4-0084-4000-8000-00000000000084',
+    uuid: 'a1b2c3d4-0084-4000-8000-000000000084',
     namaGenerik: 'Vaksin AI (Avian Influenza) H5N1 Inaktif',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2268,7 +2268,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-orf',
-    uuid: 'a1b2c3d4-0085-4000-8000-00000000000085',
+    uuid: 'a1b2c3d4-0085-4000-8000-000000000085',
     namaGenerik: 'Vaksin Orf (Contagious Ecthyma)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2292,7 +2292,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-ilt',
-    uuid: 'a1b2c3d4-0086-4000-8000-00000000000086',
+    uuid: 'a1b2c3d4-0086-4000-8000-000000000086',
     namaGenerik: 'Vaksin ILT (Infectious Laryngotracheitis)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -2316,7 +2316,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'boric-acid',
-    uuid: 'a1b2c3d4-0087-4000-8000-00000000000087',
+    uuid: 'a1b2c3d4-0087-4000-8000-000000000087',
     namaGenerik: 'Asam Borat',
     namaLatin: 'Acidum boricum',
     kategoriSlug: 'antiseptik',
@@ -2340,7 +2340,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'gentian-violet',
-    uuid: 'a1b2c3d4-0088-4000-8000-00000000000088',
+    uuid: 'a1b2c3d4-0088-4000-8000-000000000088',
     namaGenerik: 'Gentian Violet',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2364,7 +2364,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'hydrogen-peroxide',
-    uuid: 'a1b2c3d4-0089-4000-8000-00000000000089',
+    uuid: 'a1b2c3d4-0089-4000-8000-000000000089',
     namaGenerik: 'Hidrogen Peroksida',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2388,7 +2388,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'benzalkonium-chloride',
-    uuid: 'a1b2c3d4-0090-4000-8000-00000000000090',
+    uuid: 'a1b2c3d4-0090-4000-8000-000000000090',
     namaGenerik: 'Benzalkonium Chloride',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2412,7 +2412,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'sodium-hypochlorite',
-    uuid: 'a1b2c3d4-0091-4000-8000-00000000000091',
+    uuid: 'a1b2c3d4-0091-4000-8000-000000000091',
     namaGenerik: 'Sodium Hipoklorit (Larutan Klorin)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2436,7 +2436,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'formalin',
-    uuid: 'a1b2c3d4-0092-4000-8000-00000000000092',
+    uuid: 'a1b2c3d4-0092-4000-8000-000000000092',
     namaGenerik: 'Formalin (Formaldehyde 37%)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2460,7 +2460,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'kalium-permanganat',
-    uuid: 'a1b2c3d4-0093-4000-8000-00000000000093',
+    uuid: 'a1b2c3d4-0093-4000-8000-000000000093',
     namaGenerik: 'Kalium Permanganat (KMnO4)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2484,7 +2484,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'asam-asetat-cuka',
-    uuid: 'a1b2c3d4-0094-4000-8000-00000000000094',
+    uuid: 'a1b2c3d4-0094-4000-8000-000000000094',
     namaGenerik: 'Asam Asetat (Larutan Cuka Encer)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2508,7 +2508,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'quaternary-ammonium-teat-dip',
-    uuid: 'a1b2c3d4-0095-4000-8000-00000000000095',
+    uuid: 'a1b2c3d4-0095-4000-8000-000000000095',
     namaGenerik: 'Teat Dip Amonium Kuaterner',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -2532,7 +2532,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'flunixin-meglumine',
-    uuid: 'a1b2c3d4-0096-4000-8000-00000000000096',
+    uuid: 'a1b2c3d4-0096-4000-8000-000000000096',
     namaGenerik: 'Flunixin Meglumine',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2556,7 +2556,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'carprofen',
-    uuid: 'a1b2c3d4-0097-4000-8000-00000000000097',
+    uuid: 'a1b2c3d4-0097-4000-8000-000000000097',
     namaGenerik: 'Carprofen',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2580,7 +2580,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'phenylbutazone',
-    uuid: 'a1b2c3d4-0098-4000-8000-00000000000098',
+    uuid: 'a1b2c3d4-0098-4000-8000-000000000098',
     namaGenerik: 'Phenylbutazone',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2604,7 +2604,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'firocoxib',
-    uuid: 'a1b2c3d4-0099-4000-8000-00000000000099',
+    uuid: 'a1b2c3d4-0099-4000-8000-000000000099',
     namaGenerik: 'Firocoxib',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2628,7 +2628,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'prednisolone',
-    uuid: 'a1b2c3d4-0100-4000-8000-00000000000100',
+    uuid: 'a1b2c3d4-0100-4000-8000-000000000100',
     namaGenerik: 'Prednisolone',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2652,7 +2652,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'triamcinolone',
-    uuid: 'a1b2c3d4-0101-4000-8000-00000000000101',
+    uuid: 'a1b2c3d4-0101-4000-8000-000000000101',
     namaGenerik: 'Triamcinolone Acetonide',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2676,7 +2676,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'aspirin-ternak',
-    uuid: 'a1b2c3d4-0102-4000-8000-00000000000102',
+    uuid: 'a1b2c3d4-0102-4000-8000-000000000102',
     namaGenerik: 'Asam Asetilsalisilat (Aspirin)',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -2700,7 +2700,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'dimethyl-sulfoxide',
-    uuid: 'a1b2c3d4-0103-4000-8000-00000000000103',
+    uuid: 'a1b2c3d4-0103-4000-8000-000000000103',
     namaGenerik: 'DMSO (Dimethyl Sulfoxide)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -2724,7 +2724,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'bromhexine',
-    uuid: 'a1b2c3d4-0104-4000-8000-00000000000104',
+    uuid: 'a1b2c3d4-0104-4000-8000-000000000104',
     namaGenerik: 'Bromhexine',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -2748,7 +2748,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'gnrh-analog',
-    uuid: 'a1b2c3d4-0105-4000-8000-00000000000105',
+    uuid: 'a1b2c3d4-0105-4000-8000-000000000105',
     namaGenerik: 'GnRH Analog (Gonadorelin)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2772,7 +2772,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'pgf2alpha',
-    uuid: 'a1b2c3d4-0106-4000-8000-00000000000106',
+    uuid: 'a1b2c3d4-0106-4000-8000-000000000106',
     namaGenerik: 'Prostaglandin F2α (Dinoprost)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2796,7 +2796,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'ecg-pmsg',
-    uuid: 'a1b2c3d4-0107-4000-8000-00000000000107',
+    uuid: 'a1b2c3d4-0107-4000-8000-000000000107',
     namaGenerik: 'eCG/PMSG (Equine Chorionic Gonadotropin)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2820,7 +2820,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'progesterone-cidr',
-    uuid: 'a1b2c3d4-0108-4000-8000-00000000000108',
+    uuid: 'a1b2c3d4-0108-4000-8000-000000000108',
     namaGenerik: 'Progesterone (CIDR/Spons Intravaginal)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2844,7 +2844,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'estradiol-benzoate',
-    uuid: 'a1b2c3d4-0109-4000-8000-00000000000109',
+    uuid: 'a1b2c3d4-0109-4000-8000-000000000109',
     namaGenerik: 'Estradiol Benzoate',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2868,7 +2868,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'altrenogest',
-    uuid: 'a1b2c3d4-0111-4000-8000-00000000000111',
+    uuid: 'a1b2c3d4-0111-4000-8000-000000000111',
     namaGenerik: 'Altrenogest',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2892,7 +2892,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'hcg',
-    uuid: 'a1b2c3d4-0112-4000-8000-00000000000112',
+    uuid: 'a1b2c3d4-0112-4000-8000-000000000112',
     namaGenerik: 'hCG (Human Chorionic Gonadotropin)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2916,7 +2916,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'melatonin-implant',
-    uuid: 'a1b2c3d4-0113-4000-8000-00000000000113',
+    uuid: 'a1b2c3d4-0113-4000-8000-000000000113',
     namaGenerik: 'Melatonin (Implan Subkutan)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2940,7 +2940,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'cloprostenol',
-    uuid: 'a1b2c3d4-0114-4000-8000-00000000000114',
+    uuid: 'a1b2c3d4-0114-4000-8000-000000000114',
     namaGenerik: 'Cloprostenol Sodium',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -2964,7 +2964,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'probiotik-lactobacillus',
-    uuid: 'a1b2c3d4-0115-4000-8000-00000000000115',
+    uuid: 'a1b2c3d4-0115-4000-8000-000000000115',
     namaGenerik: 'Probiotik Lactobacillus sp.',
     namaLatin: 'Lactobacillus acidophilus',
     kategoriSlug: 'suplemen',
@@ -2988,7 +2988,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'probiotik-saccharomyces',
-    uuid: 'a1b2c3d4-0116-4000-8000-00000000000116',
+    uuid: 'a1b2c3d4-0116-4000-8000-000000000116',
     namaGenerik: 'Probiotik Ragi (Saccharomyces cerevisiae)',
     namaLatin: 'Saccharomyces cerevisiae',
     kategoriSlug: 'suplemen',
@@ -3012,7 +3012,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'prebiotik-mos',
-    uuid: 'a1b2c3d4-0117-4000-8000-00000000000117',
+    uuid: 'a1b2c3d4-0117-4000-8000-000000000117',
     namaGenerik: 'Prebiotik MOS (Mannan Oligosaccharide)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3036,7 +3036,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'amilase-enzim',
-    uuid: 'a1b2c3d4-0118-4000-8000-00000000000118',
+    uuid: 'a1b2c3d4-0118-4000-8000-000000000118',
     namaGenerik: 'Amilase (Enzim Pencernaan Pati)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3060,7 +3060,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'protease-enzim',
-    uuid: 'a1b2c3d4-0119-4000-8000-00000000000119',
+    uuid: 'a1b2c3d4-0119-4000-8000-000000000119',
     namaGenerik: 'Protease (Enzim Pencernaan Protein)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3084,7 +3084,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'fitase-enzim',
-    uuid: 'a1b2c3d4-0120-4000-8000-00000000000120',
+    uuid: 'a1b2c3d4-0120-4000-8000-000000000120',
     namaGenerik: 'Fitase (Enzim Pemecah Asam Fitat)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3108,7 +3108,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'xylanase-enzim',
-    uuid: 'a1b2c3d4-0121-4000-8000-00000000000121',
+    uuid: 'a1b2c3d4-0121-4000-8000-000000000121',
     namaGenerik: 'Xilanase (Enzim Pemecah Serat NSP)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3132,7 +3132,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'asam-amino-lisin',
-    uuid: 'a1b2c3d4-0122-4000-8000-00000000000122',
+    uuid: 'a1b2c3d4-0122-4000-8000-000000000122',
     namaGenerik: 'L-Lysine HCl',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3156,7 +3156,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'asam-amino-metionin',
-    uuid: 'a1b2c3d4-0123-4000-8000-00000000000123',
+    uuid: 'a1b2c3d4-0123-4000-8000-000000000123',
     namaGenerik: 'DL-Methionine',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3180,7 +3180,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'kolin-klorida',
-    uuid: 'a1b2c3d4-0124-4000-8000-00000000000124',
+    uuid: 'a1b2c3d4-0124-4000-8000-000000000124',
     namaGenerik: 'Choline Chloride (Kolin Klorida)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3204,7 +3204,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'karnitin-l',
-    uuid: 'a1b2c3d4-0125-4000-8000-00000000000125',
+    uuid: 'a1b2c3d4-0125-4000-8000-000000000125',
     namaGenerik: 'L-Carnitine',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3228,7 +3228,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'sodium-bikarbonat',
-    uuid: 'a1b2c3d4-0126-4000-8000-00000000000126',
+    uuid: 'a1b2c3d4-0126-4000-8000-000000000126',
     namaGenerik: 'Sodium Bikarbonat (Buffer Rumen)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3252,7 +3252,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'elektrolit-oral-rehidrasi',
-    uuid: 'a1b2c3d4-0127-4000-8000-00000000000127',
+    uuid: 'a1b2c3d4-0127-4000-8000-000000000127',
     namaGenerik: 'Larutan Elektrolit Oral (ORS Ternak)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3276,7 +3276,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'kalium-klorida-suplemen',
-    uuid: 'a1b2c3d4-0128-4000-8000-00000000000128',
+    uuid: 'a1b2c3d4-0128-4000-8000-000000000128',
     namaGenerik: 'Kalium Klorida (Suplemen Kalium)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3300,7 +3300,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'propilen-glikol',
-    uuid: 'a1b2c3d4-0129-4000-8000-00000000000129',
+    uuid: 'a1b2c3d4-0129-4000-8000-000000000129',
     namaGenerik: 'Propylene Glycol',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3324,7 +3324,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'kalsium-propionat',
-    uuid: 'a1b2c3d4-0130-4000-8000-00000000000130',
+    uuid: 'a1b2c3d4-0130-4000-8000-000000000130',
     namaGenerik: 'Kalsium Propionat (Bolus Metabolik)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3348,7 +3348,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'toner-rumen-yeast-culture',
-    uuid: 'a1b2c3d4-0131-4000-8000-00000000000131',
+    uuid: 'a1b2c3d4-0131-4000-8000-000000000131',
     namaGenerik: 'Yeast Culture (Kultur Ragi Kering)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3372,7 +3372,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'niasin-suplemen',
-    uuid: 'a1b2c3d4-0132-4000-8000-00000000000132',
+    uuid: 'a1b2c3d4-0132-4000-8000-000000000132',
     namaGenerik: 'Niacin (Vitamin B3) Rumen-Protected',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -3396,7 +3396,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'levamisole-imunostimulan',
-    uuid: 'a1b2c3d4-0133-4000-8000-00000000000133',
+    uuid: 'a1b2c3d4-0133-4000-8000-000000000133',
     namaGenerik: 'Levamisole (Dosis Imunostimulan)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3420,7 +3420,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'beta-glucan',
-    uuid: 'a1b2c3d4-0134-4000-8000-00000000000134',
+    uuid: 'a1b2c3d4-0134-4000-8000-000000000134',
     namaGenerik: 'Beta-Glucan (Imunomodulator Dinding Sel Ragi)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3444,7 +3444,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'interferon-alpha',
-    uuid: 'a1b2c3d4-0135-4000-8000-00000000000135',
+    uuid: 'a1b2c3d4-0135-4000-8000-000000000135',
     namaGenerik: 'Interferon Alpha Rekombinan',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3468,7 +3468,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'levamisole-suntik-cacing',
-    uuid: 'a1b2c3d4-0136-4000-8000-00000000000136',
+    uuid: 'a1b2c3d4-0136-4000-8000-000000000136',
     namaGenerik: 'Levamisole HCl Injeksi (Antelmintik)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3492,7 +3492,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'salep-antijamur-topikal',
-    uuid: 'a1b2c3d4-0137-4000-8000-00000000000137',
+    uuid: 'a1b2c3d4-0137-4000-8000-000000000137',
     namaGenerik: 'Salep Antijamur Topikal (Miconazole)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3516,7 +3516,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'semprot-luka-alumunium',
-    uuid: 'a1b2c3d4-0138-4000-8000-00000000000138',
+    uuid: 'a1b2c3d4-0138-4000-8000-000000000138',
     namaGenerik: 'Semprot Luka Aluminium Spray',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3540,7 +3540,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'salep-mata-antibiotik',
-    uuid: 'a1b2c3d4-0139-4000-8000-00000000000139',
+    uuid: 'a1b2c3d4-0139-4000-8000-000000000139',
     namaGenerik: 'Salep Mata Antibiotik (Tetrasiklin Oftalmik)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3564,7 +3564,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'salep-luka-kaki-footrot',
-    uuid: 'a1b2c3d4-0140-4000-8000-00000000000140',
+    uuid: 'a1b2c3d4-0140-4000-8000-000000000140',
     namaGenerik: 'Salep Foot Rot Topikal',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3588,7 +3588,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'nasal-decongestant-ternak',
-    uuid: 'a1b2c3d4-0141-4000-8000-00000000000141',
+    uuid: 'a1b2c3d4-0141-4000-8000-000000000141',
     namaGenerik: 'Larutan Nasal Dekongestan (Uap Menthol-Eucalyptus)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3612,7 +3612,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'ekspektoran-ammonium-klorida',
-    uuid: 'a1b2c3d4-0142-4000-8000-00000000000142',
+    uuid: 'a1b2c3d4-0142-4000-8000-000000000142',
     namaGenerik: 'Ammonium Chloride (Ekspektoran)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3636,7 +3636,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'kalium-iodida-ekspektoran',
-    uuid: 'a1b2c3d4-0143-4000-8000-00000000000143',
+    uuid: 'a1b2c3d4-0143-4000-8000-000000000143',
     namaGenerik: 'Kalium Iodida (Ekspektoran)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3660,7 +3660,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'bronkodilator-clenbuterol',
-    uuid: 'a1b2c3d4-0144-4000-8000-00000000000144',
+    uuid: 'a1b2c3d4-0144-4000-8000-000000000144',
     namaGenerik: 'Clenbuterol (Bronkodilator Terapeutik)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3684,7 +3684,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'imunoglobulin-kolostrum',
-    uuid: 'a1b2c3d4-0145-4000-8000-00000000000145',
+    uuid: 'a1b2c3d4-0145-4000-8000-000000000145',
     namaGenerik: 'Suplemen Imunoglobulin Kolostrum (Kering)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3708,7 +3708,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'levamisole-imunostimulan-unggas',
-    uuid: 'a1b2c3d4-0146-4000-8000-00000000000146',
+    uuid: 'a1b2c3d4-0146-4000-8000-000000000146',
     namaGenerik: 'Levamisole (Dosis Imunostimulan Unggas)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3732,7 +3732,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'salep-antipruritus',
-    uuid: 'a1b2c3d4-0147-4000-8000-00000000000147',
+    uuid: 'a1b2c3d4-0147-4000-8000-000000000147',
     namaGenerik: 'Salep Antipruritus (Hydrocortisone Topikal)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3758,7 +3758,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'salep-penyembuh-luka-madu',
-    uuid: 'a1b2c3d4-0151-4000-8000-00000000000151',
+    uuid: 'a1b2c3d4-0151-4000-8000-000000000151',
     namaGenerik: 'Salep Madu Medis (Manuka Honey Dressing)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -3782,7 +3782,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'oxytocin-sintetik-partus',
-    uuid: 'a1b2c3d4-0152-4000-8000-00000000000152',
+    uuid: 'a1b2c3d4-0152-4000-8000-000000000152',
     namaGenerik: 'Oxytocin Sintetik (Sediaan Partus)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -3806,7 +3806,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'povidone-iodine-scrub-bedah',
-    uuid: 'a1b2c3d4-0153-4000-8000-00000000000153',
+    uuid: 'a1b2c3d4-0153-4000-8000-000000000153',
     namaGenerik: 'Povidone Iodine Scrub (Persiapan Bedah)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -3830,7 +3830,7 @@ export const OBAT_DB: ObatItem[] = [
   },
   {
     id: 'vaksin-brucellosis-s19',
-    uuid: 'a1b2c3d4-0154-4000-8000-00000000000154',
+    uuid: 'a1b2c3d4-0154-4000-8000-000000000154',
     namaGenerik: 'Vaksin Brucellosis (Strain 19)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -3857,7 +3857,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'florfenicol',
-    uuid: 'a1b2c3d4-0155-4000-8000-00000000000155',
+    uuid: 'a1b2c3d4-0155-4000-8000-000000000155',
     namaGenerik: 'Florfenicol',
     namaLatin: 'Florfenicol',
     kategoriSlug: 'antibiotik',
@@ -3882,7 +3882,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tulathromycin',
-    uuid: 'a1b2c3d4-0156-4000-8000-00000000000156',
+    uuid: 'a1b2c3d4-0156-4000-8000-000000000156',
     namaGenerik: 'Tulathromycin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -3907,7 +3907,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tiamulin',
-    uuid: 'a1b2c3d4-0157-4000-8000-00000000000157',
+    uuid: 'a1b2c3d4-0157-4000-8000-000000000157',
     namaGenerik: 'Tiamulin',
     namaLatin: 'Tiamulinum',
     kategoriSlug: 'antibiotik',
@@ -3932,7 +3932,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'spectinomycin',
-    uuid: 'a1b2c3d4-0158-4000-8000-00000000000158',
+    uuid: 'a1b2c3d4-0158-4000-8000-000000000158',
     namaGenerik: 'Spectinomycin',
     namaLatin: 'Spectinomycinum',
     kategoriSlug: 'antibiotik',
@@ -3957,7 +3957,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'colistin-sulfate',
-    uuid: 'a1b2c3d4-0159-4000-8000-00000000000159',
+    uuid: 'a1b2c3d4-0159-4000-8000-000000000159',
     namaGenerik: 'Colistin Sulfate',
     namaLatin: 'Colistinum sulfuricum',
     kategoriSlug: 'antibiotik',
@@ -3982,7 +3982,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'amoxicillin-clavulanate',
-    uuid: 'a1b2c3d4-0160-4000-8000-00000000000160',
+    uuid: 'a1b2c3d4-0160-4000-8000-000000000160',
     namaGenerik: 'Amoxicillin-Clavulanate',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4007,7 +4007,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'marbofloxacin',
-    uuid: 'a1b2c3d4-0161-4000-8000-00000000000161',
+    uuid: 'a1b2c3d4-0161-4000-8000-000000000161',
     namaGenerik: 'Marbofloxacin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4032,7 +4032,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cefquinome',
-    uuid: 'a1b2c3d4-0162-4000-8000-00000000000162',
+    uuid: 'a1b2c3d4-0162-4000-8000-000000000162',
     namaGenerik: 'Cefquinome',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4057,7 +4057,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tilmicosin',
-    uuid: 'a1b2c3d4-0163-4000-8000-00000000000163',
+    uuid: 'a1b2c3d4-0163-4000-8000-000000000163',
     namaGenerik: 'Tilmicosin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4082,7 +4082,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'pirlimycin',
-    uuid: 'a1b2c3d4-0164-4000-8000-00000000000164',
+    uuid: 'a1b2c3d4-0164-4000-8000-000000000164',
     namaGenerik: 'Pirlimycin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4107,7 +4107,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cefapirin-sodium',
-    uuid: 'a1b2c3d4-0165-4000-8000-00000000000165',
+    uuid: 'a1b2c3d4-0165-4000-8000-000000000165',
     namaGenerik: 'Cefapirin Sodium',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4132,7 +4132,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'amikacin',
-    uuid: 'a1b2c3d4-0166-4000-8000-00000000000166',
+    uuid: 'a1b2c3d4-0166-4000-8000-000000000166',
     namaGenerik: 'Amikacin',
     namaLatin: 'Amikacinum',
     kategoriSlug: 'antibiotik',
@@ -4157,7 +4157,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tetracycline-hcl',
-    uuid: 'a1b2c3d4-0167-4000-8000-00000000000167',
+    uuid: 'a1b2c3d4-0167-4000-8000-000000000167',
     namaGenerik: 'Tetracycline HCl',
     namaLatin: 'Tetracyclinum hydrochloridum',
     kategoriSlug: 'antibiotik',
@@ -4182,7 +4182,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'spiramycin',
-    uuid: 'a1b2c3d4-0168-4000-8000-00000000000168',
+    uuid: 'a1b2c3d4-0168-4000-8000-000000000168',
     namaGenerik: 'Spiramycin',
     namaLatin: 'Spiramycinum',
     kategoriSlug: 'antibiotik',
@@ -4207,7 +4207,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'gamithromycin',
-    uuid: 'a1b2c3d4-0169-4000-8000-00000000000169',
+    uuid: 'a1b2c3d4-0169-4000-8000-000000000169',
     namaGenerik: 'Gamithromycin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4232,7 +4232,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'valnemulin',
-    uuid: 'a1b2c3d4-0170-4000-8000-00000000000170',
+    uuid: 'a1b2c3d4-0170-4000-8000-000000000170',
     namaGenerik: 'Valnemulin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4257,7 +4257,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'sarafloxacin',
-    uuid: 'a1b2c3d4-0171-4000-8000-00000000000171',
+    uuid: 'a1b2c3d4-0171-4000-8000-000000000171',
     namaGenerik: 'Sarafloxacin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -4282,7 +4282,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'chloramphenicol-vet',
-    uuid: 'a1b2c3d4-0172-4000-8000-00000000000172',
+    uuid: 'a1b2c3d4-0172-4000-8000-000000000172',
     namaGenerik: 'Chloramphenicol (Veteriner)',
     namaLatin: 'Chloramphenicolum',
     kategoriSlug: 'antibiotik',
@@ -4309,7 +4309,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'eprinomectin',
-    uuid: 'a1b2c3d4-0173-4000-8000-00000000000173',
+    uuid: 'a1b2c3d4-0173-4000-8000-000000000173',
     namaGenerik: 'Eprinomectin',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4334,7 +4334,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'rafoxanide',
-    uuid: 'a1b2c3d4-0174-4000-8000-00000000000174',
+    uuid: 'a1b2c3d4-0174-4000-8000-000000000174',
     namaGenerik: 'Rafoxanide',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4359,7 +4359,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'oxyclozanide',
-    uuid: 'a1b2c3d4-0175-4000-8000-00000000000175',
+    uuid: 'a1b2c3d4-0175-4000-8000-000000000175',
     namaGenerik: 'Oxyclozanide',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4384,7 +4384,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'pyrantel-pamoate',
-    uuid: 'a1b2c3d4-0176-4000-8000-00000000000176',
+    uuid: 'a1b2c3d4-0176-4000-8000-000000000176',
     namaGenerik: 'Pyrantel Pamoate',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4409,7 +4409,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'morantel-tartrate',
-    uuid: 'a1b2c3d4-0177-4000-8000-00000000000177',
+    uuid: 'a1b2c3d4-0177-4000-8000-000000000177',
     namaGenerik: 'Morantel Tartrate',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4434,7 +4434,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cypermethrin',
-    uuid: 'a1b2c3d4-0178-4000-8000-00000000000178',
+    uuid: 'a1b2c3d4-0178-4000-8000-000000000178',
     namaGenerik: 'Cypermethrin',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4459,7 +4459,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'coumaphos',
-    uuid: 'a1b2c3d4-0179-4000-8000-00000000000179',
+    uuid: 'a1b2c3d4-0179-4000-8000-000000000179',
     namaGenerik: 'Coumaphos',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4484,7 +4484,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cyromazine',
-    uuid: 'a1b2c3d4-0180-4000-8000-00000000000180',
+    uuid: 'a1b2c3d4-0180-4000-8000-000000000180',
     namaGenerik: 'Cyromazine',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4509,7 +4509,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'nitroxynil',
-    uuid: 'a1b2c3d4-0181-4000-8000-00000000000181',
+    uuid: 'a1b2c3d4-0181-4000-8000-000000000181',
     namaGenerik: 'Nitroxynil',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4534,7 +4534,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'selamectin',
-    uuid: 'a1b2c3d4-0182-4000-8000-00000000000182',
+    uuid: 'a1b2c3d4-0182-4000-8000-000000000182',
     namaGenerik: 'Selamectin',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -4561,7 +4561,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'iron-dextran',
-    uuid: 'a1b2c3d4-0183-4000-8000-00000000000183',
+    uuid: 'a1b2c3d4-0183-4000-8000-000000000183',
     namaGenerik: 'Iron Dextran',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -4586,7 +4586,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'sodium-selenite-injectable',
-    uuid: 'a1b2c3d4-0184-4000-8000-00000000000184',
+    uuid: 'a1b2c3d4-0184-4000-8000-000000000184',
     namaGenerik: 'Sodium Selenite Injectable',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -4611,7 +4611,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'thiamine-b1-injectable',
-    uuid: 'a1b2c3d4-0185-4000-8000-00000000000185',
+    uuid: 'a1b2c3d4-0185-4000-8000-000000000185',
     namaGenerik: 'Thiamine HCl (Vitamin B1) Injectable',
     namaLatin: 'Thiamini hydrochloridum',
     kategoriSlug: 'vitamin',
@@ -4636,7 +4636,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'pyridoxine-b6',
-    uuid: 'a1b2c3d4-0186-4000-8000-00000000000186',
+    uuid: 'a1b2c3d4-0186-4000-8000-000000000186',
     namaGenerik: 'Pyridoxine HCl (Vitamin B6)',
     namaLatin: 'Pyridoxini hydrochloridum',
     kategoriSlug: 'vitamin',
@@ -4661,7 +4661,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cyanocobalamin-b12',
-    uuid: 'a1b2c3d4-0187-4000-8000-00000000000187',
+    uuid: 'a1b2c3d4-0187-4000-8000-000000000187',
     namaGenerik: 'Cyanocobalamin (Vitamin B12)',
     namaLatin: 'Cyanocobalaminum',
     kategoriSlug: 'vitamin',
@@ -4686,7 +4686,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'pantothenic-acid-suplemen',
-    uuid: 'a1b2c3d4-0188-4000-8000-00000000000188',
+    uuid: 'a1b2c3d4-0188-4000-8000-000000000188',
     namaGenerik: 'Asam Pantotenat (Vitamin B5)',
     namaLatin: 'Acidum pantothenicum',
     kategoriSlug: 'vitamin',
@@ -4711,7 +4711,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'riboflavin-b2',
-    uuid: 'a1b2c3d4-0189-4000-8000-00000000000189',
+    uuid: 'a1b2c3d4-0189-4000-8000-000000000189',
     namaGenerik: 'Riboflavin (Vitamin B2)',
     namaLatin: 'Riboflavinum',
     kategoriSlug: 'vitamin',
@@ -4736,7 +4736,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cobalt-chloride-suplemen',
-    uuid: 'a1b2c3d4-0190-4000-8000-00000000000190',
+    uuid: 'a1b2c3d4-0190-4000-8000-000000000190',
     namaGenerik: 'Cobalt Chloride (Suplemen Kobalt)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -4761,7 +4761,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ascorbic-acid-injectable',
-    uuid: 'a1b2c3d4-0191-4000-8000-00000000000191',
+    uuid: 'a1b2c3d4-0191-4000-8000-000000000191',
     namaGenerik: 'Asam Askorbat (Vitamin C) Injectable',
     namaLatin: 'Acidum ascorbicum',
     kategoriSlug: 'vitamin',
@@ -4788,7 +4788,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-ppr',
-    uuid: 'a1b2c3d4-0192-4000-8000-00000000000192',
+    uuid: 'a1b2c3d4-0192-4000-8000-000000000192',
     namaGenerik: 'Vaksin PPR (Peste des Petits Ruminants)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4813,7 +4813,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-prrs',
-    uuid: 'a1b2c3d4-0193-4000-8000-00000000000193',
+    uuid: 'a1b2c3d4-0193-4000-8000-000000000193',
     namaGenerik: 'Vaksin PRRS (Porcine Reproductive and Respiratory Syndrome)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4838,7 +4838,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-aujeszky',
-    uuid: 'a1b2c3d4-0194-4000-8000-00000000000194',
+    uuid: 'a1b2c3d4-0194-4000-8000-000000000194',
     namaGenerik: 'Vaksin Penyakit Aujeszky (Pseudorabies)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4863,7 +4863,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-leptospira',
-    uuid: 'a1b2c3d4-0195-4000-8000-00000000000195',
+    uuid: 'a1b2c3d4-0195-4000-8000-000000000195',
     namaGenerik: 'Vaksin Leptospirosis',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4888,7 +4888,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-pasteurella',
-    uuid: 'a1b2c3d4-0196-4000-8000-00000000000196',
+    uuid: 'a1b2c3d4-0196-4000-8000-000000000196',
     namaGenerik: 'Vaksin Pasteurellosis (Haemorrhagic Septicaemia)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4913,7 +4913,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-clostridial-multi',
-    uuid: 'a1b2c3d4-0197-4000-8000-00000000000197',
+    uuid: 'a1b2c3d4-0197-4000-8000-000000000197',
     namaGenerik: 'Vaksin Clostridial Multivalen',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4938,7 +4938,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-eev',
-    uuid: 'a1b2c3d4-0198-4000-8000-00000000000198',
+    uuid: 'a1b2c3d4-0198-4000-8000-000000000198',
     namaGenerik: 'Vaksin Equine Encephalomyelitis (EEV)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4963,7 +4963,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-csf',
-    uuid: 'a1b2c3d4-0199-4000-8000-00000000000199',
+    uuid: 'a1b2c3d4-0199-4000-8000-000000000199',
     namaGenerik: 'Vaksin Classical Swine Fever (Kolera Babi / CSF)',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -4990,7 +4990,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'betamethasone-vet',
-    uuid: 'a1b2c3d4-0200-4000-8000-00000000000200',
+    uuid: 'a1b2c3d4-0200-4000-8000-000000000200',
     namaGenerik: 'Betamethasone',
     namaLatin: 'Betamethasonum',
     kategoriSlug: 'anti-inflamasi',
@@ -5015,7 +5015,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tolfenamic-acid',
-    uuid: 'a1b2c3d4-0201-4000-8000-00000000000201',
+    uuid: 'a1b2c3d4-0201-4000-8000-000000000201',
     namaGenerik: 'Tolfenamic Acid',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -5040,7 +5040,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'metamizole-sodium',
-    uuid: 'a1b2c3d4-0202-4000-8000-00000000000202',
+    uuid: 'a1b2c3d4-0202-4000-8000-000000000202',
     namaGenerik: 'Metamizole Sodium (Dipyrone)',
     namaLatin: 'Metamizolum natricum',
     kategoriSlug: 'anti-inflamasi',
@@ -5065,7 +5065,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'diclofenac-sodium-vet',
-    uuid: 'a1b2c3d4-0203-4000-8000-00000000000203',
+    uuid: 'a1b2c3d4-0203-4000-8000-000000000203',
     namaGenerik: 'Diclofenac Sodium (Veteriner)',
     namaLatin: 'Diclofenacum natricum',
     kategoriSlug: 'anti-inflamasi',
@@ -5092,7 +5092,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'deslorelin-implant',
-    uuid: 'a1b2c3d4-0204-4000-8000-00000000000204',
+    uuid: 'a1b2c3d4-0204-4000-8000-000000000204',
     namaGenerik: 'Deslorelin Acetate (Implant)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -5117,7 +5117,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'norgestomet-implant',
-    uuid: 'a1b2c3d4-0205-4000-8000-00000000000205',
+    uuid: 'a1b2c3d4-0205-4000-8000-000000000205',
     namaGenerik: 'Norgestomet (Implant Progestagen)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -5142,7 +5142,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'testosterone-propionate-vet',
-    uuid: 'a1b2c3d4-0206-4000-8000-00000000000206',
+    uuid: 'a1b2c3d4-0206-4000-8000-000000000206',
     namaGenerik: 'Testosterone Propionate',
     namaLatin: 'Testosteroni propionas',
     kategoriSlug: 'hormon',
@@ -5167,7 +5167,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'bst-bovine-somatotropin',
-    uuid: 'a1b2c3d4-0207-4000-8000-00000000000207',
+    uuid: 'a1b2c3d4-0207-4000-8000-000000000207',
     namaGenerik: 'Bovine Somatotropin (bST / rbST)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -5192,7 +5192,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'medroxyprogesterone-acetate',
-    uuid: 'a1b2c3d4-0208-4000-8000-00000000000208',
+    uuid: 'a1b2c3d4-0208-4000-8000-000000000208',
     namaGenerik: 'Medroxyprogesterone Acetate (MPA)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -5219,7 +5219,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'butaphosphan-cyanocobalamin',
-    uuid: 'a1b2c3d4-0209-4000-8000-00000000000209',
+    uuid: 'a1b2c3d4-0209-4000-8000-000000000209',
     namaGenerik: 'Butaphosphan + Cyanocobalamin',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -5244,7 +5244,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'dexpanthenol-injectable',
-    uuid: 'a1b2c3d4-0210-4000-8000-00000000000210',
+    uuid: 'a1b2c3d4-0210-4000-8000-000000000210',
     namaGenerik: 'Dexpanthenol (Pro-Vitamin B5) Injectable',
     namaLatin: 'Dexpanthenolum',
     kategoriSlug: 'suplemen',
@@ -5269,7 +5269,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'betaine-anhydrous-suplemen',
-    uuid: 'a1b2c3d4-0211-4000-8000-00000000000211',
+    uuid: 'a1b2c3d4-0211-4000-8000-000000000211',
     namaGenerik: 'Betaine Anhydrous (Trimethylglycine)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -5294,7 +5294,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'selenium-yeast-organik',
-    uuid: 'a1b2c3d4-0212-4000-8000-00000000000212',
+    uuid: 'a1b2c3d4-0212-4000-8000-000000000212',
     namaGenerik: 'Selenium Organik (Sel-Plex / Ragi Selenium)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -5319,7 +5319,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'chromium-propionate-suplemen',
-    uuid: 'a1b2c3d4-0213-4000-8000-00000000000213',
+    uuid: 'a1b2c3d4-0213-4000-8000-000000000213',
     namaGenerik: 'Chromium Propionate (Suplemen Kromium)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -5344,7 +5344,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'saccharomyces-cerevisiae-live',
-    uuid: 'a1b2c3d4-0214-4000-8000-00000000000214',
+    uuid: 'a1b2c3d4-0214-4000-8000-000000000214',
     namaGenerik: 'Saccharomyces cerevisiae (Live Yeast Rumen)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -5371,7 +5371,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'glucose-5pct-infus',
-    uuid: 'a1b2c3d4-0215-4000-8000-00000000000215',
+    uuid: 'a1b2c3d4-0215-4000-8000-000000000215',
     namaGenerik: 'Glukosa 5% (Dextrose 5% in Water)',
     namaLatin: 'Glucosum 5%',
     kategoriSlug: 'lainnya',
@@ -5396,7 +5396,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'dextrose-40pct-infus',
-    uuid: 'a1b2c3d4-0216-4000-8000-00000000000216',
+    uuid: 'a1b2c3d4-0216-4000-8000-000000000216',
     namaGenerik: 'Dextrose 40% (Glukosa Hipertonik)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -5421,7 +5421,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'atropine-sulfate-vet',
-    uuid: 'a1b2c3d4-0217-4000-8000-00000000000217',
+    uuid: 'a1b2c3d4-0217-4000-8000-000000000217',
     namaGenerik: 'Atropine Sulfate',
     namaLatin: 'Atropini sulfas',
     kategoriSlug: 'lainnya',
@@ -5446,7 +5446,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'xylazine-hcl-vet',
-    uuid: 'a1b2c3d4-0218-4000-8000-00000000000218',
+    uuid: 'a1b2c3d4-0218-4000-8000-000000000218',
     namaGenerik: 'Xylazine HCl',
     namaLatin: 'Xylazinum hydrochloridum',
     kategoriSlug: 'lainnya',
@@ -5471,7 +5471,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ketamine-hcl-vet',
-    uuid: 'a1b2c3d4-0219-4000-8000-00000000000219',
+    uuid: 'a1b2c3d4-0219-4000-8000-000000000219',
     namaGenerik: 'Ketamine HCl',
     namaLatin: 'Ketaminum hydrochloridum',
     kategoriSlug: 'lainnya',
@@ -5496,7 +5496,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'lidocaine-hcl-vet',
-    uuid: 'a1b2c3d4-0220-4000-8000-00000000000220',
+    uuid: 'a1b2c3d4-0220-4000-8000-000000000220',
     namaGenerik: 'Lidocaine HCl',
     namaLatin: 'Lidocainum hydrochloridum',
     kategoriSlug: 'lainnya',
@@ -5521,7 +5521,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'epinephrine-adrenaline-vet',
-    uuid: 'a1b2c3d4-0221-4000-8000-00000000000221',
+    uuid: 'a1b2c3d4-0221-4000-8000-000000000221',
     namaGenerik: 'Epinephrine (Adrenaline)',
     namaLatin: 'Epinephrinum',
     kategoriSlug: 'lainnya',
@@ -5546,7 +5546,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'furosemide-vet',
-    uuid: 'a1b2c3d4-0222-4000-8000-00000000000222',
+    uuid: 'a1b2c3d4-0222-4000-8000-000000000222',
     namaGenerik: 'Furosemide (Frusemide)',
     namaLatin: 'Furosemidum',
     kategoriSlug: 'lainnya',
@@ -5571,7 +5571,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'mannitol-20pct-iv',
-    uuid: 'a1b2c3d4-0223-4000-8000-00000000000223',
+    uuid: 'a1b2c3d4-0223-4000-8000-000000000223',
     namaGenerik: 'Mannitol 20%',
     namaLatin: 'Mannitolum 20%',
     kategoriSlug: 'lainnya',
@@ -5596,7 +5596,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'neostigmine-methylsulfate-vet',
-    uuid: 'a1b2c3d4-0224-4000-8000-00000000000224',
+    uuid: 'a1b2c3d4-0224-4000-8000-000000000224',
     namaGenerik: 'Neostigmine Methylsulfate',
     namaLatin: 'Neostigmini methylsulfas',
     kategoriSlug: 'lainnya',
@@ -5621,7 +5621,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'acepromazine-maleate-vet',
-    uuid: 'a1b2c3d4-0225-4000-8000-00000000000225',
+    uuid: 'a1b2c3d4-0225-4000-8000-000000000225',
     namaGenerik: 'Acepromazine Maleate',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -5646,7 +5646,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'diazepam-vet',
-    uuid: 'a1b2c3d4-0226-4000-8000-00000000000226',
+    uuid: 'a1b2c3d4-0226-4000-8000-000000000226',
     namaGenerik: 'Diazepam',
     namaLatin: 'Diazepamum',
     kategoriSlug: 'lainnya',
@@ -5671,7 +5671,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'hyoscine-butylbromide-vet',
-    uuid: 'a1b2c3d4-0227-4000-8000-00000000000227',
+    uuid: 'a1b2c3d4-0227-4000-8000-000000000227',
     namaGenerik: 'Hyoscine Butylbromide (Scopolamine Butylbromide)',
     namaLatin: 'Scopolamini butylbromidum',
     kategoriSlug: 'lainnya',
@@ -5696,7 +5696,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'diphenhydramine-vet',
-    uuid: 'a1b2c3d4-0228-4000-8000-00000000000228',
+    uuid: 'a1b2c3d4-0228-4000-8000-000000000228',
     namaGenerik: 'Diphenhydramine HCl',
     namaLatin: 'Diphenhydramini hydrochloridum',
     kategoriSlug: 'lainnya',
@@ -5721,7 +5721,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'romifidine-vet',
-    uuid: 'a1b2c3d4-0229-4000-8000-00000000000229',
+    uuid: 'a1b2c3d4-0229-4000-8000-000000000229',
     namaGenerik: 'Romifidine',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -5746,7 +5746,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'detomidine-vet',
-    uuid: 'a1b2c3d4-0230-4000-8000-00000000000230',
+    uuid: 'a1b2c3d4-0230-4000-8000-000000000230',
     namaGenerik: 'Detomidine HCl',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -5771,7 +5771,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'calcium-gluconate-20pct-iv',
-    uuid: 'a1b2c3d4-0231-4000-8000-00000000000231',
+    uuid: 'a1b2c3d4-0231-4000-8000-000000000231',
     namaGenerik: 'Calcium Gluconate 20% Injectable',
     namaLatin: 'Calcii gluconas 20%',
     kategoriSlug: 'lainnya',
@@ -5796,7 +5796,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'potassium-chloride-iv',
-    uuid: 'a1b2c3d4-0232-4000-8000-00000000000232',
+    uuid: 'a1b2c3d4-0232-4000-8000-000000000232',
     namaGenerik: 'Potassium Chloride (KCl) Injectable',
     namaLatin: 'Kalii chloridum',
     kategoriSlug: 'lainnya',
@@ -5821,7 +5821,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'sodium-bicarbonate-84pct-iv',
-    uuid: 'a1b2c3d4-0233-4000-8000-00000000000233',
+    uuid: 'a1b2c3d4-0233-4000-8000-000000000233',
     namaGenerik: 'Sodium Bicarbonate 8,4% Injectable',
     namaLatin: 'Natrii hydrogenocarbonas 8,4%',
     kategoriSlug: 'lainnya',
@@ -5846,7 +5846,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'dextran-70-plasma-expander',
-    uuid: 'a1b2c3d4-0234-4000-8000-00000000000234',
+    uuid: 'a1b2c3d4-0234-4000-8000-000000000234',
     namaGenerik: 'Dextran 70 (Plasma Expander)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -5871,7 +5871,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'butorphanol-vet',
-    uuid: 'a1b2c3d4-0235-4000-8000-00000000000235',
+    uuid: 'a1b2c3d4-0235-4000-8000-000000000235',
     namaGenerik: 'Butorphanol Tartrate',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -5896,7 +5896,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'isopropanol-70pct',
-    uuid: 'a1b2c3d4-0236-4000-8000-00000000000236',
+    uuid: 'a1b2c3d4-0236-4000-8000-000000000236',
     namaGenerik: 'Isopropanol (Isopropyl Alcohol) 70%',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -5921,7 +5921,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'acriflavine-vet',
-    uuid: 'a1b2c3d4-0237-4000-8000-00000000000237',
+    uuid: 'a1b2c3d4-0237-4000-8000-000000000237',
     namaGenerik: 'Acriflavine (Proflavine)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -5946,7 +5946,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'creolin-desinfektan',
-    uuid: 'a1b2c3d4-0238-4000-8000-00000000000238',
+    uuid: 'a1b2c3d4-0238-4000-8000-000000000238',
     namaGenerik: 'Creolin (Coal Tar Disinfectant)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -5971,7 +5971,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'zinc-oxide-topikal',
-    uuid: 'a1b2c3d4-0239-4000-8000-00000000000239',
+    uuid: 'a1b2c3d4-0239-4000-8000-000000000239',
     namaGenerik: 'Zinc Oxide (Topikal)',
     namaLatin: 'Zinci oxidum',
     kategoriSlug: 'lainnya',
@@ -5996,7 +5996,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'propolis-topikal',
-    uuid: 'a1b2c3d4-0240-4000-8000-00000000000240',
+    uuid: 'a1b2c3d4-0240-4000-8000-000000000240',
     namaGenerik: 'Propolis (Ekstrak Lebah)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6021,7 +6021,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'yucca-schidigera-suplemen',
-    uuid: 'a1b2c3d4-0241-4000-8000-00000000000241',
+    uuid: 'a1b2c3d4-0241-4000-8000-000000000241',
     namaGenerik: 'Yucca Schidigera Extract',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6046,7 +6046,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'humic-acid-suplemen',
-    uuid: 'a1b2c3d4-0242-4000-8000-00000000000242',
+    uuid: 'a1b2c3d4-0242-4000-8000-000000000242',
     namaGenerik: 'Humic Acid (Asam Humat) Suplemen',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6071,7 +6071,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'thymol-oregano-vet',
-    uuid: 'a1b2c3d4-0243-4000-8000-00000000000243',
+    uuid: 'a1b2c3d4-0243-4000-8000-000000000243',
     namaGenerik: 'Thymol + Carvacrol (Oregano Oil)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6096,7 +6096,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ferrous-sulfate-oral',
-    uuid: 'a1b2c3d4-0244-4000-8000-00000000000244',
+    uuid: 'a1b2c3d4-0244-4000-8000-000000000244',
     namaGenerik: 'Ferrous Sulfate (FeSO4) Oral',
     namaLatin: 'Ferrosi sulfas',
     kategoriSlug: 'vitamin',
@@ -6121,7 +6121,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'mannan-oligosakarida',
-    uuid: 'a1b2c3d4-0245-4000-8000-00000000000245',
+    uuid: 'a1b2c3d4-0245-4000-8000-000000000245',
     namaGenerik: 'Mannan Oligosakarida (MOS)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6146,7 +6146,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'inulin-prebiotik',
-    uuid: 'a1b2c3d4-0246-4000-8000-00000000000246',
+    uuid: 'a1b2c3d4-0246-4000-8000-000000000246',
     namaGenerik: 'Inulin (Fructooligosaccharide / FOS)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6171,7 +6171,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'omega-3-suplemen-ternak',
-    uuid: 'a1b2c3d4-0247-4000-8000-00000000000247',
+    uuid: 'a1b2c3d4-0247-4000-8000-000000000247',
     namaGenerik: 'Omega-3 Fatty Acid (EPA + DHA) Suplemen Ternak',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6196,7 +6196,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'netobimin',
-    uuid: 'a1b2c3d4-0248-4000-8000-00000000000248',
+    uuid: 'a1b2c3d4-0248-4000-8000-000000000248',
     namaGenerik: 'Netobimin',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -6221,7 +6221,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tetramisole-hcl',
-    uuid: 'a1b2c3d4-0249-4000-8000-00000000000249',
+    uuid: 'a1b2c3d4-0249-4000-8000-000000000249',
     namaGenerik: 'Tetramisole HCl (DL-Levamisole)',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -6246,7 +6246,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'succinylcholine-klorida',
-    uuid: 'a1b2c3d4-0250-4000-8000-00000000000250',
+    uuid: 'a1b2c3d4-0250-4000-8000-000000000250',
     namaGenerik: 'Succinylcholine Chloride (Suxamethonium)',
     namaLatin: 'Succinylcholini chloridum',
     kategoriSlug: 'lainnya',
@@ -6271,7 +6271,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'medetomidine-vet',
-    uuid: 'a1b2c3d4-0251-4000-8000-00000000000251',
+    uuid: 'a1b2c3d4-0251-4000-8000-000000000251',
     namaGenerik: 'Medetomidine HCl',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6296,7 +6296,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'guaifenesin-vet',
-    uuid: 'a1b2c3d4-0252-4000-8000-00000000000252',
+    uuid: 'a1b2c3d4-0252-4000-8000-000000000252',
     namaGenerik: 'Guaifenesin (Glyceryl Guaiacolate)',
     namaLatin: 'Guaifenesinum',
     kategoriSlug: 'lainnya',
@@ -6321,7 +6321,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'phenobarbitone-vet',
-    uuid: 'a1b2c3d4-0253-4000-8000-00000000000253',
+    uuid: 'a1b2c3d4-0253-4000-8000-000000000253',
     namaGenerik: 'Phenobarbital (Phenobarbitone)',
     namaLatin: 'Phenobarbitalum',
     kategoriSlug: 'lainnya',
@@ -6348,7 +6348,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vitamin-a-injeksi',
-    uuid: 'a1b2c3d4-0255-4000-8000-00000000000255',
+    uuid: 'a1b2c3d4-0255-4000-8000-000000000255',
     namaGenerik: 'Vitamin A (Retinol Palmitate)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -6373,7 +6373,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'sodium-fosfat-injeksi',
-    uuid: 'a1b2c3d4-0256-4000-8000-00000000000256',
+    uuid: 'a1b2c3d4-0256-4000-8000-000000000256',
     namaGenerik: 'Sodium Fosfat (Suplemen Fosfor)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -6398,7 +6398,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ammonium-klorida-suplemen',
-    uuid: 'a1b2c3d4-0257-4000-8000-00000000000257',
+    uuid: 'a1b2c3d4-0257-4000-8000-000000000257',
     namaGenerik: 'Ammonium Klorida (Suplemen Klorida / Pengasam Urin)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6423,7 +6423,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'trace-mineral-premix',
-    uuid: 'a1b2c3d4-0258-4000-8000-00000000000258',
+    uuid: 'a1b2c3d4-0258-4000-8000-000000000258',
     namaGenerik: 'Trace Mineral Premix (Suplemen Mineral Mikro Lengkap)',
     namaLatin: null,
     kategoriSlug: 'vitamin',
@@ -6448,7 +6448,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'garam-ternak-nacl-pakan',
-    uuid: 'a1b2c3d4-0259-4000-8000-00000000000259',
+    uuid: 'a1b2c3d4-0259-4000-8000-000000000259',
     namaGenerik: 'Natrium Klorida Pakan (Garam Ternak / Salt Lick)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6473,7 +6473,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'liver-tonic-hepatoprotektor',
-    uuid: 'a1b2c3d4-0260-4000-8000-00000000000260',
+    uuid: 'a1b2c3d4-0260-4000-8000-000000000260',
     namaGenerik: 'Liver Tonic (Hepatoprotektor Kombinasi)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6498,7 +6498,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'energy-tonic-suplemen',
-    uuid: 'a1b2c3d4-0261-4000-8000-00000000000261',
+    uuid: 'a1b2c3d4-0261-4000-8000-000000000261',
     namaGenerik: 'Energy Tonic (Tonikum Energi Kombinasi)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -6525,7 +6525,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ketoconazole',
-    uuid: 'a1b2c3d4-0267-4000-8000-00000000000267',
+    uuid: 'a1b2c3d4-0267-4000-8000-000000000267',
     namaGenerik: 'Ketoconazole',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6550,7 +6550,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'itraconazole',
-    uuid: 'a1b2c3d4-0268-4000-8000-00000000000268',
+    uuid: 'a1b2c3d4-0268-4000-8000-000000000268',
     namaGenerik: 'Itraconazole',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6575,7 +6575,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'clotrimazole',
-    uuid: 'a1b2c3d4-0269-4000-8000-00000000000269',
+    uuid: 'a1b2c3d4-0269-4000-8000-000000000269',
     namaGenerik: 'Clotrimazole',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6600,7 +6600,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'nystatin',
-    uuid: 'a1b2c3d4-0270-4000-8000-00000000000270',
+    uuid: 'a1b2c3d4-0270-4000-8000-000000000270',
     namaGenerik: 'Nystatin',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6625,7 +6625,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'virkon-desinfektan',
-    uuid: 'a1b2c3d4-0271-4000-8000-00000000000271',
+    uuid: 'a1b2c3d4-0271-4000-8000-000000000271',
     namaGenerik: 'Virkon (Kalium Peroksimonosulfat)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -6650,7 +6650,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'dextrose-saline-infus',
-    uuid: 'a1b2c3d4-0272-4000-8000-00000000000272',
+    uuid: 'a1b2c3d4-0272-4000-8000-000000000272',
     namaGenerik: 'Dextrose Saline (Dextrose 5% dalam NaCl)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6675,7 +6675,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'probiotik-bacillus',
-    uuid: 'a1b2c3d4-0273-4000-8000-00000000000273',
+    uuid: 'a1b2c3d4-0273-4000-8000-000000000273',
     namaGenerik: 'Probiotik Bacillus spp.',
     namaLatin: 'Bacillus subtilis',
     kategoriSlug: 'suplemen',
@@ -6700,7 +6700,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'kaolin-pectin',
-    uuid: 'a1b2c3d4-0274-4000-8000-00000000000274',
+    uuid: 'a1b2c3d4-0274-4000-8000-000000000274',
     namaGenerik: 'Kaolin-Pectin',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6725,7 +6725,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'smectite-diosmectite',
-    uuid: 'a1b2c3d4-0275-4000-8000-00000000000275',
+    uuid: 'a1b2c3d4-0275-4000-8000-000000000275',
     namaGenerik: 'Smectite (Diosmectite)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6750,7 +6750,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ambroxol',
-    uuid: 'a1b2c3d4-0276-4000-8000-00000000000276',
+    uuid: 'a1b2c3d4-0276-4000-8000-000000000276',
     namaGenerik: 'Ambroxol',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6775,7 +6775,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'aminophylline',
-    uuid: 'a1b2c3d4-0277-4000-8000-00000000000277',
+    uuid: 'a1b2c3d4-0277-4000-8000-000000000277',
     namaGenerik: 'Aminophylline',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6800,7 +6800,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'chlorpheniramine-maleate',
-    uuid: 'a1b2c3d4-0278-4000-8000-00000000000278',
+    uuid: 'a1b2c3d4-0278-4000-8000-000000000278',
     namaGenerik: 'Chlorpheniramine Maleate',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6827,7 +6827,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-rabies',
-    uuid: 'a1b2c3d4-0264-4000-8000-00000000000264',
+    uuid: 'a1b2c3d4-0264-4000-8000-000000000264',
     namaGenerik: 'Vaksin Rabies Inaktif',
     namaLatin: null,
     kategoriSlug: 'vaksin',
@@ -6852,7 +6852,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'serum-antitetanus',
-    uuid: 'a1b2c3d4-0265-4000-8000-00000000000265',
+    uuid: 'a1b2c3d4-0265-4000-8000-000000000265',
     namaGenerik: 'Serum Antitetanus (Tetanus Antitoxin)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6877,7 +6877,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'antivenom-bisa-ular',
-    uuid: 'a1b2c3d4-0266-4000-8000-00000000000266',
+    uuid: 'a1b2c3d4-0266-4000-8000-000000000266',
     namaGenerik: 'Serum Anti Bisa Ular Polivalen (Antivenom)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6904,7 +6904,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'buserelin-acetate',
-    uuid: 'a1b2c3d4-0262-4000-8000-00000000000262',
+    uuid: 'a1b2c3d4-0262-4000-8000-000000000262',
     namaGenerik: 'Buserelin Acetate',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -6929,7 +6929,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'melengestrol-acetate',
-    uuid: 'a1b2c3d4-0263-4000-8000-00000000000263',
+    uuid: 'a1b2c3d4-0263-4000-8000-000000000263',
     namaGenerik: 'Melengestrol Acetate (MGA)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -6954,7 +6954,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'yohimbine-antidot',
-    uuid: 'a1b2c3d4-0254-4000-8000-00000000000254',
+    uuid: 'a1b2c3d4-0254-4000-8000-000000000254',
     namaGenerik: 'Yohimbine HCl (Antagonis Alpha-2)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -6984,7 +6984,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'piperazine-antelmintik',
-    uuid: 'a1b2c3d4-0279-4000-8000-00000000000279',
+    uuid: 'a1b2c3d4-0279-4000-8000-000000000279',
     namaGenerik: 'Piperazine',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7009,7 +7009,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'monensin-koksidiostat',
-    uuid: 'a1b2c3d4-0280-4000-8000-00000000000280',
+    uuid: 'a1b2c3d4-0280-4000-8000-000000000280',
     namaGenerik: 'Monensin Sodium',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7034,7 +7034,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'salinomycin-koksidiostat',
-    uuid: 'a1b2c3d4-0281-4000-8000-00000000000281',
+    uuid: 'a1b2c3d4-0281-4000-8000-000000000281',
     namaGenerik: 'Salinomycin Sodium',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7059,7 +7059,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'lasalocid-koksidiostat',
-    uuid: 'a1b2c3d4-0282-4000-8000-00000000000282',
+    uuid: 'a1b2c3d4-0282-4000-8000-000000000282',
     namaGenerik: 'Lasalocid Sodium',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7084,7 +7084,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'maduramicin-koksidiostat',
-    uuid: 'a1b2c3d4-0283-4000-8000-00000000000283',
+    uuid: 'a1b2c3d4-0283-4000-8000-000000000283',
     namaGenerik: 'Maduramicin Ammonium',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7109,7 +7109,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'halofuginone',
-    uuid: 'a1b2c3d4-0284-4000-8000-00000000000284',
+    uuid: 'a1b2c3d4-0284-4000-8000-000000000284',
     namaGenerik: 'Halofuginone Hydrobromide',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7134,7 +7134,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'narasin-koksidiostat',
-    uuid: 'a1b2c3d4-0285-4000-8000-00000000000285',
+    uuid: 'a1b2c3d4-0285-4000-8000-000000000285',
     namaGenerik: 'Narasin',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7159,7 +7159,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'flumethrin',
-    uuid: 'a1b2c3d4-0286-4000-8000-00000000000286',
+    uuid: 'a1b2c3d4-0286-4000-8000-000000000286',
     namaGenerik: 'Flumethrin',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7184,7 +7184,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'phoxim-pour-on',
-    uuid: 'a1b2c3d4-0287-4000-8000-00000000000287',
+    uuid: 'a1b2c3d4-0287-4000-8000-000000000287',
     namaGenerik: 'Phoxim',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
@@ -7211,7 +7211,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'bacitracin-zinc',
-    uuid: 'a1b2c3d4-0288-4000-8000-00000000000288',
+    uuid: 'a1b2c3d4-0288-4000-8000-000000000288',
     namaGenerik: 'Bacitracin Zinc',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -7236,7 +7236,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'virginiamycin',
-    uuid: 'a1b2c3d4-0289-4000-8000-00000000000289',
+    uuid: 'a1b2c3d4-0289-4000-8000-000000000289',
     namaGenerik: 'Virginiamycin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -7261,7 +7261,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'rifampicin-vet',
-    uuid: 'a1b2c3d4-0290-4000-8000-00000000000290',
+    uuid: 'a1b2c3d4-0290-4000-8000-000000000290',
     namaGenerik: 'Rifampicin (Rifampin)',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -7286,7 +7286,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'difloxacin',
-    uuid: 'a1b2c3d4-0291-4000-8000-00000000000291',
+    uuid: 'a1b2c3d4-0291-4000-8000-000000000291',
     namaGenerik: 'Difloxacin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -7311,7 +7311,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'avilamycin',
-    uuid: 'a1b2c3d4-0292-4000-8000-00000000000292',
+    uuid: 'a1b2c3d4-0292-4000-8000-000000000292',
     namaGenerik: 'Avilamycin',
     namaLatin: null,
     kategoriSlug: 'antibiotik',
@@ -7338,7 +7338,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-marek',
-    uuid: 'a1b2c3d4-0293-4000-8000-00000000000293',
+    uuid: 'a1b2c3d4-0293-4000-8000-000000000293',
     namaGenerik: 'Vaksin Penyakit Marek (MDV)',
     namaLatin: 'Marek\'s Disease Virus (Herpesvirus of Turkeys — HVT)',
     kategoriSlug: 'vaksin',
@@ -7363,7 +7363,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-coccidiosis-eimeria',
-    uuid: 'a1b2c3d4-0294-4000-8000-00000000000294',
+    uuid: 'a1b2c3d4-0294-4000-8000-000000000294',
     namaGenerik: 'Vaksin Koksidiosis (Eimeria Live Oocysts)',
     namaLatin: 'Eimeria spp.',
     kategoriSlug: 'vaksin',
@@ -7388,7 +7388,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-mycoplasma-swine',
-    uuid: 'a1b2c3d4-0295-4000-8000-00000000000295',
+    uuid: 'a1b2c3d4-0295-4000-8000-000000000295',
     namaGenerik: 'Vaksin Mycoplasma hyopneumoniae (Babi)',
     namaLatin: 'Mycoplasma hyopneumoniae',
     kategoriSlug: 'vaksin',
@@ -7413,7 +7413,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-rotavirus-neonatal',
-    uuid: 'a1b2c3d4-0296-4000-8000-00000000000296',
+    uuid: 'a1b2c3d4-0296-4000-8000-000000000296',
     namaGenerik: 'Vaksin Rotavirus (Neonatal)',
     namaLatin: 'Rotavirus spp.',
     kategoriSlug: 'vaksin',
@@ -7438,7 +7438,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-erysipelas',
-    uuid: 'a1b2c3d4-0297-4000-8000-00000000000297',
+    uuid: 'a1b2c3d4-0297-4000-8000-000000000297',
     namaGenerik: 'Vaksin Erisipelas Babi (Erysipelothrix rhusiopathiae)',
     namaLatin: 'Erysipelothrix rhusiopathiae',
     kategoriSlug: 'vaksin',
@@ -7463,7 +7463,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vaksin-campylobacter',
-    uuid: 'a1b2c3d4-0298-4000-8000-00000000000298',
+    uuid: 'a1b2c3d4-0298-4000-8000-000000000298',
     namaGenerik: 'Vaksin Campylobacter (Unggas)',
     namaLatin: 'Campylobacter jejuni / coli',
     kategoriSlug: 'vaksin',
@@ -7490,7 +7490,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'l-threonine-suplemen',
-    uuid: 'a1b2c3d4-0299-4000-8000-00000000000299',
+    uuid: 'a1b2c3d4-0299-4000-8000-000000000299',
     namaGenerik: 'L-Threonine',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -7515,7 +7515,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'inositol-suplemen',
-    uuid: 'a1b2c3d4-0300-4000-8000-00000000000300',
+    uuid: 'a1b2c3d4-0300-4000-8000-000000000300',
     namaGenerik: 'Inositol (Myo-Inositol)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -7540,7 +7540,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'selenium-organik-ragi',
-    uuid: 'a1b2c3d4-0301-4000-8000-00000000000301',
+    uuid: 'a1b2c3d4-0301-4000-8000-000000000301',
     namaGenerik: 'Selenium Organik (Seleno-Methionine dari Ragi)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -7565,7 +7565,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'omega-3-fish-oil-suplemen',
-    uuid: 'a1b2c3d4-0302-4000-8000-00000000000302',
+    uuid: 'a1b2c3d4-0302-4000-8000-000000000302',
     namaGenerik: 'Suplemen Omega-3 (Minyak Ikan DHA/EPA)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -7590,7 +7590,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'copper-methionine-chelate',
-    uuid: 'a1b2c3d4-0303-4000-8000-00000000000303',
+    uuid: 'a1b2c3d4-0303-4000-8000-000000000303',
     namaGenerik: 'Copper Methionine Chelate (Tembaga Organik)',
     namaLatin: null,
     kategoriSlug: 'suplemen',
@@ -7617,7 +7617,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'trenbolone-acetate-implan',
-    uuid: 'a1b2c3d4-0304-4000-8000-00000000000304',
+    uuid: 'a1b2c3d4-0304-4000-8000-000000000304',
     namaGenerik: 'Trenbolone Acetate (Implan Anabolik)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -7642,7 +7642,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'zeranol-implan',
-    uuid: 'a1b2c3d4-0305-4000-8000-00000000000305',
+    uuid: 'a1b2c3d4-0305-4000-8000-000000000305',
     namaGenerik: 'Zeranol (Zearalenol) — Implan Growth Promoter',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -7667,7 +7667,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'carbetocin',
-    uuid: 'a1b2c3d4-0306-4000-8000-00000000000306',
+    uuid: 'a1b2c3d4-0306-4000-8000-000000000306',
     namaGenerik: 'Carbetocin',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -7692,7 +7692,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ergonovine-maleate',
-    uuid: 'a1b2c3d4-0307-4000-8000-00000000000307',
+    uuid: 'a1b2c3d4-0307-4000-8000-000000000307',
     namaGenerik: 'Ergonovine Maleate (Ergometrine)',
     namaLatin: null,
     kategoriSlug: 'hormon',
@@ -7719,7 +7719,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'vedaprofen',
-    uuid: 'a1b2c3d4-0308-4000-8000-00000000000308',
+    uuid: 'a1b2c3d4-0308-4000-8000-000000000308',
     namaGenerik: 'Vedaprofen',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -7744,7 +7744,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'grapiprant',
-    uuid: 'a1b2c3d4-0309-4000-8000-00000000000309',
+    uuid: 'a1b2c3d4-0309-4000-8000-000000000309',
     namaGenerik: 'Grapiprant',
     namaLatin: null,
     kategoriSlug: 'anti-inflamasi',
@@ -7771,7 +7771,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cresol-compound-solution',
-    uuid: 'a1b2c3d4-0310-4000-8000-00000000000310',
+    uuid: 'a1b2c3d4-0310-4000-8000-000000000310',
     namaGenerik: 'Cresol Compound Solution (Lysol)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -7796,7 +7796,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'potassium-permanganate-desinfektan',
-    uuid: 'a1b2c3d4-0311-4000-8000-00000000000311',
+    uuid: 'a1b2c3d4-0311-4000-8000-000000000311',
     namaGenerik: 'Kalium Permanganat (Potassium Permanganate)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -7821,7 +7821,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'chloramine-t-desinfektan',
-    uuid: 'a1b2c3d4-0312-4000-8000-00000000000312',
+    uuid: 'a1b2c3d4-0312-4000-8000-000000000312',
     namaGenerik: 'Chloramine-T (Sodium Tosylchloramide)',
     namaLatin: null,
     kategoriSlug: 'antiseptik',
@@ -7848,7 +7848,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'propofol',
-    uuid: 'a1b2c3d4-0313-4000-8000-00000000000313',
+    uuid: 'a1b2c3d4-0313-4000-8000-000000000313',
     namaGenerik: 'Propofol',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -7873,7 +7873,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'alfaxalone',
-    uuid: 'a1b2c3d4-0314-4000-8000-00000000000314',
+    uuid: 'a1b2c3d4-0314-4000-8000-000000000314',
     namaGenerik: 'Alfaxalone',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -7898,7 +7898,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'tiletamine-zolazepam-telazol',
-    uuid: 'a1b2c3d4-0315-4000-8000-00000000000315',
+    uuid: 'a1b2c3d4-0315-4000-8000-000000000315',
     namaGenerik: 'Tiletamine-Zolazepam (Telazol)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -7923,7 +7923,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'glycopyrrolate',
-    uuid: 'a1b2c3d4-0316-4000-8000-00000000000316',
+    uuid: 'a1b2c3d4-0316-4000-8000-000000000316',
     namaGenerik: 'Glycopyrrolate (Glycopyrronium Bromide)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -7950,7 +7950,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'naloxone-hcl',
-    uuid: 'a1b2c3d4-0317-4000-8000-00000000000317',
+    uuid: 'a1b2c3d4-0317-4000-8000-000000000317',
     namaGenerik: 'Naloxone HCl',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -7975,7 +7975,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'atipamezole-hcl',
-    uuid: 'a1b2c3d4-0318-4000-8000-00000000000318',
+    uuid: 'a1b2c3d4-0318-4000-8000-000000000318',
     namaGenerik: 'Atipamezole HCl',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8000,7 +8000,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'sodium-thiosulfate-antidot',
-    uuid: 'a1b2c3d4-0319-4000-8000-00000000000319',
+    uuid: 'a1b2c3d4-0319-4000-8000-000000000319',
     namaGenerik: 'Sodium Thiosulfate (Antidot)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8027,7 +8027,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'pentobarbital-sodium-euthanasia',
-    uuid: 'a1b2c3d4-0320-4000-8000-00000000000320',
+    uuid: 'a1b2c3d4-0320-4000-8000-000000000320',
     namaGenerik: 'Pentobarbital Sodium (Euthanasia)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8054,7 +8054,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'sucralfate-vet',
-    uuid: 'a1b2c3d4-0321-4000-8000-00000000000321',
+    uuid: 'a1b2c3d4-0321-4000-8000-000000000321',
     namaGenerik: 'Sucralfate',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8079,7 +8079,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'omeprazole-vet',
-    uuid: 'a1b2c3d4-0322-4000-8000-00000000000322',
+    uuid: 'a1b2c3d4-0322-4000-8000-000000000322',
     namaGenerik: 'Omeprazole',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8104,7 +8104,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'ranitidine-vet',
-    uuid: 'a1b2c3d4-0323-4000-8000-00000000000323',
+    uuid: 'a1b2c3d4-0323-4000-8000-000000000323',
     namaGenerik: 'Ranitidine HCl',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8129,7 +8129,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'metoclopramide-vet',
-    uuid: 'a1b2c3d4-0324-4000-8000-00000000000324',
+    uuid: 'a1b2c3d4-0324-4000-8000-000000000324',
     namaGenerik: 'Metoclopramide',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8154,7 +8154,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'cisapride-vet',
-    uuid: 'a1b2c3d4-0325-4000-8000-00000000000325',
+    uuid: 'a1b2c3d4-0325-4000-8000-000000000325',
     namaGenerik: 'Cisapride',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8181,7 +8181,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'mineral-oil-paraffin',
-    uuid: 'a1b2c3d4-0326-4000-8000-00000000000326',
+    uuid: 'a1b2c3d4-0326-4000-8000-000000000326',
     namaGenerik: 'Mineral Oil (Parafin Cair / Liquid Paraffin)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8206,7 +8206,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'lactulose-vet',
-    uuid: 'a1b2c3d4-0327-4000-8000-00000000000327',
+    uuid: 'a1b2c3d4-0327-4000-8000-000000000327',
     namaGenerik: 'Lactulose',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8231,7 +8231,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'dimercaprol-bal',
-    uuid: 'a1b2c3d4-0328-4000-8000-00000000000328',
+    uuid: 'a1b2c3d4-0328-4000-8000-000000000328',
     namaGenerik: 'Dimercaprol (BAL — British Anti-Lewisite)',
     namaLatin: null,
     kategoriSlug: 'lainnya',
@@ -8256,7 +8256,7 @@ export const OBAT_DB: ObatItem[] = [
 
   {
     id: 'pyrantel-tartrate-feed',
-    uuid: 'a1b2c3d4-0329-4000-8000-00000000000329',
+    uuid: 'a1b2c3d4-0329-4000-8000-000000000329',
     namaGenerik: 'Pyrantel Tartrate (Feed Grade)',
     namaLatin: null,
     kategoriSlug: 'antiparasit',
