@@ -9,9 +9,11 @@
 //   LIVE → ringkasan data operasional dari tabel yang tersedia
 
 import { type ReactElement } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import { getWorkspaceOperationalConfig } from '../../config/workspaceOperationalRegistry';
 import { getWorkspaceDashboardConfig } from '../../config/workspaceDashboardRegistry';
+import { resolveWorkspaceRoute } from '../../config/workspaceRegistry';
 import {
   useDrugStoreDashboardData,
   getLowStokObatItems,
@@ -57,6 +59,7 @@ function LoadingSkeleton() {
 
 export default function DrugStoreOperational(): ReactElement {
   const { id: workspaceId = '' } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const config          = getWorkspaceOperationalConfig('DrugStore');
   const dashboardConfig = getWorkspaceDashboardConfig('DrugStore');
@@ -171,6 +174,24 @@ export default function DrugStoreOperational(): ReactElement {
     },
   ];
 
+  const SECTION_ROUTES: Record<string, string> = {
+    'master-obat':       '/stok-obat',
+    'stok-obat':         '/stok-obat',
+    'batch-expired':     '/stok-obat',
+    'transaksi-masuk':   '/workspace/:id/drug-store/stok-masuk',
+    'transaksi-keluar':  '/workspace/:id/drug-store/stok-keluar',
+    'supplier':          '/workspace/:id/drug-store/suppliers',
+    'purchase':          '/workspace/:id/drug-store/orders',
+    'sales':             '/workspace/:id/drug-store/sales',
+    'reports':           '/workspace/:id/drug-store/sales',
+  };
+
+  const handleSectionClick = (sectionId: string) => {
+    const route = SECTION_ROUTES[sectionId];
+    if (!route) return;
+    navigate(resolveWorkspaceRoute(route, workspaceId));
+  };
+
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '18px 16px 24px', background: 'var(--color-bg)' }}>
 
@@ -256,14 +277,21 @@ export default function DrugStoreOperational(): ReactElement {
             const isLive = true;
 
             return (
-              <div
+              <button
                 key={section.id}
+                type="button"
+                onClick={() => handleSectionClick(section.id)}
                 style={{
+                  textAlign: 'left',
                   border: `1.5px solid ${borderColor}`,
                   borderRadius: 'var(--radius-md)',
                   background: bgColor,
                   padding: 13,
+                  cursor: 'pointer',
                   minHeight: 108,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -276,24 +304,24 @@ export default function DrugStoreOperational(): ReactElement {
                     {badgeLabel}
                   </span>
                 </div>
-                <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>
                   {section.title}
                 </p>
                 {isLive ? (
                   <>
-                    <p style={{ margin: '3px 0 0', fontSize: 10, color: COLORS.text, fontWeight: 600, lineHeight: 1.35 }}>
+                    <p style={{ margin: 0, fontSize: 10, color: COLORS.text, fontWeight: 600, lineHeight: 1.35 }}>
                       {section.count}
                     </p>
-                    <p style={{ margin: '3px 0 0', fontSize: 9, color: 'var(--color-muted)', lineHeight: 1.35 }}>
+                    <p style={{ margin: 0, fontSize: 9, color: 'var(--color-muted)', lineHeight: 1.35 }}>
                       {section.description}
                     </p>
                   </>
                 ) : (
-                  <p style={{ margin: '3px 0 0', fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.35 }}>
+                  <p style={{ margin: 0, fontSize: 10, color: 'var(--color-muted)', lineHeight: 1.35 }}>
                     {section.description}
                   </p>
                 )}
-              </div>
+              </button>
             );
           })}
         </section>
