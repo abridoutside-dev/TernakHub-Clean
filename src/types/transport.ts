@@ -37,7 +37,7 @@ export interface TransportServiceCreateInput {
 
 export interface TransportDeliveryDbRow {
   id: string;
-  room_id: string;
+  room_id: string | null;
   transport_workspace_id: string | null;
   transport_listing_id: string | null;
   quotation_id: string | null;
@@ -49,12 +49,13 @@ export interface TransportDeliveryDbRow {
   vehicle_type: string | null;
   driver_name: string | null;
   notes: string | null;
+  transport_type: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface TransportDeliveryCreateInput {
-  room_id: string;
+  room_id?: string | null;
   transport_workspace_id?: string | null;
   transport_listing_id?: string | null;
   quotation_id?: string | null;
@@ -66,4 +67,5 @@ export interface TransportDeliveryCreateInput {
   vehicle_type?: string | null;
   driver_name?: string | null;
   notes?: string | null;
+  transport_type?: string | null;
 }

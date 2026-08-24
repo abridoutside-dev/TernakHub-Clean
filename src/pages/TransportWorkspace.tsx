@@ -6,7 +6,7 @@
 // Flow: UI → repository → Supabase
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -68,6 +68,16 @@ export default function TransportWorkspace() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const access = deriveTransportAccess(workspaceId, currentUser?.id ?? null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'vehicle') setActiveModal('vehicle');
+    else if (action === 'driver') setActiveModal('driver');
+    else if (action === 'delivery') setActiveModal('delivery');
+    else if (action === 'status') setActiveModal('status');
+    else if (action === 'complete') setActiveModal('complete');
+  }, [searchParams, setSearchParams]);
 
   const loadData = useCallback(async () => {
     if (!workspaceId) return;
@@ -163,9 +173,9 @@ export default function TransportWorkspace() {
     customerId: '',
     customerName: d.origin ?? '-',
     customerWorkspace: '-',
-    transportType: 'Angkut Ternak' as TransportServiceType,
+    transportType: (d.transport_type as TransportServiceType) ?? 'Angkut Ternak',
     status: d.status as DeliveryStatus,
-    tanggal: d.scheduled_date ?? d.created_at.split('T')[0],
+    tanggal: d.scheduled_date ?? d.created_at?.split('T')[0] ?? '-',
     tanggalSelesai: null,
     ruteAsal: d.origin ?? '-',
     ruteTujuan: d.destination ?? '-',
@@ -232,7 +242,7 @@ export default function TransportWorkspace() {
     setSaveError(null);
     try {
       await repoInsertTransportDelivery({
-        room_id: `room-${Date.now()}`,
+        room_id: crypto.randomUUID(),
         transport_workspace_id: workspaceId,
         origin: data.ruteAsal,
         destination: data.ruteTujuan,
@@ -242,9 +252,14 @@ export default function TransportWorkspace() {
         vehicle_type: data.kendaraanId,
         driver_name: data.driverId,
         notes: data.muatan,
+        transport_type: data.transportType,
       });
       setSaveSuccess(true);
       setActiveModal(null);
+      setSearchParams((prev) => {
+        prev.delete('action');
+        return prev;
+      });
       void loadData();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Gagal membuat pengiriman');
@@ -352,7 +367,7 @@ export default function TransportWorkspace() {
       {activeModal === 'vehicle' && (
         <AddVehicleModal
           onSave={handleAddVehicle}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
       {activeModal === 'driver' && (
@@ -360,7 +375,7 @@ export default function TransportWorkspace() {
           drivers={drivers}
           vehicles={vehicles}
           onSave={(driverId, vehicleId) => { setActiveModal(null); }}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
       {activeModal === 'delivery' && (
@@ -368,21 +383,21 @@ export default function TransportWorkspace() {
           vehicles={vehicles}
           drivers={drivers}
           onSave={handleCreateDelivery}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
       {activeModal === 'status' && (
         <UpdateDeliveryStatusModal
           deliveries={deliveryRecords}
           onSave={handleUpdateStatus}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
       {activeModal === 'complete' && (
         <CompleteDeliveryModal
           deliveries={deliveryRecords}
           onSave={handleCompleteDelivery}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
     </div>
