@@ -6,7 +6,7 @@
 // Flow: UI → repository → Supabase
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -21,12 +21,7 @@ import type {
   TransportDeliveryDbRow,
 } from '../types/transport';
 import {
-  TRANSPORT_SERVICE_TYPES,
-  TRANSPORT_SERVICE_TYPE_CONFIG,
-  DELIVERY_STATUS_CONFIG,
   deriveTransportAccess,
-  formatRupiahTransport,
-  formatTanggalShort,
   type DeliveryStatus,
   type TransportServiceType,
   type VehicleRecord,
@@ -53,7 +48,6 @@ import CompleteDeliveryModal from '../components/workspace/CompleteDeliveryModal
 export default function TransportWorkspace() {
   const { id: workspaceId = '' } = useParams<{ id: string }>();
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
 
   const [meta, setMeta] = useState<TransportWorkspaceMeta | null>(null);
   const [services, setServices] = useState<TransportServiceDbRow[]>([]);
@@ -278,7 +272,7 @@ export default function TransportWorkspace() {
     }
   };
 
-  const handleCompleteDelivery = async (deliveryId: string, tanggalSelesai: string) => {
+  const handleCompleteDelivery = async (deliveryId: string, _tanggalSelesai: string) => {
     setSaveError(null);
     try {
       await repoUpdateTransportDeliveryStatus(deliveryId, 'Selesai');
@@ -374,7 +368,7 @@ export default function TransportWorkspace() {
         <AddDriverModal
           drivers={drivers}
           vehicles={vehicles}
-          onSave={(driverId, vehicleId) => { setActiveModal(null); }}
+          onSave={(_driverId, _vehicleId) => { setActiveModal(null); }}
           onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
