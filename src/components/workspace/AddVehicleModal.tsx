@@ -70,7 +70,7 @@ const VEHICLE_TYPES: VehicleType[] = [
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface AddVehicleData {
-  jenisKendaraan: VehicleType;
+  jenisKendaraan: string;
   nomorPolisi: string;
   kapasitas: string;
   kapasitasKg: number | null;
@@ -87,7 +87,7 @@ interface AddVehicleModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddVehicleModal({ onSave, onClose }: AddVehicleModalProps) {
-  const [jenisKendaraan, setJenisKendaraan] = useState<VehicleType>('Pick-up Bak Terbuka');
+  const [jenisKendaraan, setJenisKendaraan] = useState<string>('Pick-up Bak Terbuka');
   const [nomorPolisi, setNomorPolisi] = useState('');
   const [kapasitas, setKapasitas] = useState('');
   const [kapasitasKg, setKapasitasKg] = useState('');
@@ -129,7 +129,7 @@ export default function AddVehicleModal({ onSave, onClose }: AddVehicleModalProp
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label style={labelStyle}>
           Jenis Kendaraan
-          <select value={jenisKendaraan} onChange={e => setJenisKendaraan(e.target.value as VehicleType)} style={fieldStyle}>
+          <select value={jenisKendaraan} onChange={e => setJenisKendaraan(e.target.value)} style={fieldStyle}>
             {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>

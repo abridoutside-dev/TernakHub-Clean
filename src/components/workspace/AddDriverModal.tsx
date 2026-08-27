@@ -1,14 +1,10 @@
 // ─── AddDriverModal (WST-002) ─────────────────────────────────────────────────
-// Form modal for assigning a driver to a vehicle in a Transport Workspace.
-// No registry imports — the parent provides onSave which calls assignDriverToVehicle().
+// Form modal for creating a new driver and assigning them to a vehicle.
+// No registry imports — the parent provides onSave which persists the driver.
 
 import { useState } from 'react';
-import {
-  type DriverRecord,
-  type VehicleRecord,
-} from '../../data/transportWorkspaceData';
 
-// ─── Shared modal primitives ──────────────────────────────────────────────────
+// ─── Shared modal primitives ────────────────────────────────────────────────────
 
 const fieldStyle: React.CSSProperties = {
   padding: '8px 12px',
@@ -54,25 +50,47 @@ function ModalOverlay({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// ─── Props ─────────────────────────────────────────────────────────────────────
+
+export interface AddDriverData {
+  nama: string;
+  nomorSIM: string;
+  kategoriSIM: string;
+  kendaraanId: string | null;
+  pengalamanTahun: number;
+  nomorHP: string;
+  catatan: string;
+}
 
 interface AddDriverModalProps {
-  drivers: DriverRecord[];
-  vehicles: VehicleRecord[];
-  onSave: (driverId: string, vehicleId: string | null) => void;
+  vehicles: { id: string; jenisKendaraan: string; nomorPolisi: string }[];
+  onSave: (data: AddDriverData) => void;
   onClose: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddDriverModal({ drivers, vehicles, onSave, onClose }: AddDriverModalProps) {
-  const [driverId, setDriverId] = useState(drivers[0]?.id ?? '');
-  const [vehicleId, setVehicleId] = useState<string>(vehicles[0]?.id ?? '');
+export default function AddDriverModal({ vehicles, onSave, onClose }: AddDriverModalProps) {
+  const [nama, setNama] = useState('');
+  const [nomorSIM, setNomorSIM] = useState('');
+  const [kategoriSIM, setKategoriSIM] = useState('B2');
+  const [kendaraanId, setKendaraanId] = useState<string>(vehicles[0]?.id ?? '');
+  const [pengalamanTahun, setPengalamanTahun] = useState('0');
+  const [nomorHP, setNomorHP] = useState('');
+  const [catatan, setCatatan] = useState('');
   const [error, setError] = useState('');
 
   function handleSubmit() {
-    if (!driverId) { setError('Pilih pengemudi.'); return; }
-    onSave(driverId, vehicleId || null);
+    if (!nama.trim()) { setError('Nama pengemudi wajib diisi.'); return; }
+    onSave({
+      nama: nama.trim(),
+      nomorSIM: nomorSIM.trim(),
+      kategoriSIM: kategoriSIM.trim() || 'B2',
+      kendaraanId: kendaraanId || null,
+      pengalamanTahun: parseInt(pengalamanTahun, 10) || 0,
+      nomorHP: nomorHP.trim(),
+      catatan: catatan.trim(),
+    });
     onClose();
   }
 
@@ -83,22 +101,48 @@ export default function AddDriverModal({ drivers, vehicles, onSave, onClose }: A
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label style={labelStyle}>
-          Pengemudi *
-          <select value={driverId} onChange={e => setDriverId(e.target.value)} style={fieldStyle}>
-            {drivers.map(d => (
-              <option key={d.id} value={d.id}>{d.nama} ({d.status})</option>
-            ))}
+          Nama Pengemudi *
+          <input value={nama} onChange={e => setNama(e.target.value)} placeholder="Nama lengkap pengemudi" style={fieldStyle} />
+        </label>
+
+        <label style={labelStyle}>
+          Nomor SIM
+          <input value={nomorSIM} onChange={e => setNomorSIM(e.target.value)} placeholder="contoh: SIM-B2-1234567890" style={fieldStyle} />
+        </label>
+
+        <label style={labelStyle}>
+          Kategori SIM
+          <select value={kategoriSIM} onChange={e => setKategoriSIM(e.target.value)} style={fieldStyle}>
+            <option value="B1">B1</option>
+            <option value="B2">B2</option>
+            <option value="A">A</option>
+            <option value="C">C</option>
           </select>
         </label>
 
         <label style={labelStyle}>
           Kendaraan
-          <select value={vehicleId} onChange={e => setVehicleId(e.target.value)} style={fieldStyle}>
+          <select value={kendaraanId} onChange={e => setKendaraanId(e.target.value)} style={fieldStyle}>
             <option value="">— Tidak ditugaskan —</option>
             {vehicles.map(v => (
-              <option key={v.id} value={v.id}>{v.id} · {v.jenisKendaraan} ({v.status})</option>
+              <option key={v.id} value={v.id}>{v.jenisKendaraan} · {v.nomorPolisi}</option>
             ))}
           </select>
+        </label>
+
+        <label style={labelStyle}>
+          Pengalaman (tahun)
+          <input type="number" value={pengalamanTahun} onChange={e => setPengalamanTahun(e.target.value)} style={fieldStyle} />
+        </label>
+
+        <label style={labelStyle}>
+          Nomor HP
+          <input value={nomorHP} onChange={e => setNomorHP(e.target.value)} placeholder="contoh: 0812-3456-7890" style={fieldStyle} />
+        </label>
+
+        <label style={labelStyle}>
+          Catatan
+          <textarea value={catatan} onChange={e => setCatatan(e.target.value)} rows={3} style={fieldStyle} />
         </label>
       </div>
 

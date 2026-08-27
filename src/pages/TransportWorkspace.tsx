@@ -15,9 +15,16 @@ import {
   repoGetTransportDeliveriesByWorkspace,
   repoInsertTransportDelivery,
   repoUpdateTransportDeliveryStatus,
+  repoGetTransportVehiclesByWorkspace,
+  repoInsertTransportVehicle,
+  repoGetTransportDriversByWorkspace,
+  repoInsertTransportDriver,
+  repoUpdateTransportDriver,
 } from '../repositories/transportRepository';
 import type {
   TransportServiceDbRow,
+  TransportVehicleDbRow,
+  TransportDriverDbRow,
   TransportDeliveryDbRow,
 } from '../types/transport';
 import {
@@ -53,6 +60,8 @@ export default function TransportWorkspace() {
 
   const [meta, setMeta] = useState<TransportWorkspaceMeta | null>(null);
   const [services, setServices] = useState<TransportServiceDbRow[]>([]);
+  const [vehicles, setVehicles] = useState<TransportVehicleDbRow[]>([]);
+  const [drivers, setDrivers] = useState<TransportDriverDbRow[]>([]);
   const [deliveries, setDeliveries] = useState<TransportDeliveryDbRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +98,11 @@ export default function TransportWorkspace() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const [{ data: wsData }, svc, dlv, members] = await Promise.all([
+      const [{ data: wsData }, svc, vehiclesData, driversData, dlv, members] = await Promise.all([
         supabase.from('workspaces').select('id,name,description,province,city,phone,status,created_at,owner_user_uuid').eq('id', workspaceId).single(),
         repoGetTransportServicesByWorkspace(workspaceId),
+        repoGetTransportVehiclesByWorkspace(workspaceId),
+        repoGetTransportDriversByWorkspace(workspaceId),
         repoGetTransportDeliveriesByWorkspace(workspaceId),
         getWorkspaceMembers(workspaceId),
       ]);
@@ -126,6 +137,8 @@ export default function TransportWorkspace() {
         setAccess({ role: 'public', canViewOperational: false, canViewFinancial: false, canEditFleet: false });
       }
       setServices(svc);
+      setVehicles(vehiclesData);
+      setDrivers(driversData);
       setDeliveries(dlv);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data transport');
@@ -136,41 +149,34 @@ export default function TransportWorkspace() {
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  // Map DB service rows to VehicleRecord shape for component compatibility
-  const vehicles: VehicleRecord[] = services.map((s) => ({
-    id: s.id,
-    workspaceId: s.workspace_id,
-    jenisKendaraan: s.vehicle_type as VehicleRecord['jenisKendaraan'],
-    nomorPolisi: s.id.slice(0, 8).toUpperCase(),
-    kapasitas: s.capacity ?? '—',
-    kapasitasKg: null,
-    status: s.status === 'Aktif' ? 'Tersedia' : s.status === 'Nonaktif' ? 'Tidak Aktif' : 'Tersedia',
-    tahunBeli: new Date(s.created_at).getFullYear(),
-    jenisLayanan: [],
-    catatanOperasional: s.notes ?? '',
+  // Map DB vehicle rows to VehicleRecord shape for component compatibility
+  const vehicleRecords: VehicleRecord[] = vehicles.map((v) => ({
+    id: v.id,
+    workspaceId: v.workspace_id,
+    jenisKendaraan: v.jenis_kendaraan as VehicleRecord['jenisKendaraan'],
+    nomorPolisi: v.nomor_polisi,
+    kapasitas: v.kapasitas_kg ? `${v.kapasitas_kg.toLocaleString('id-ID')} kg` : '—',
+    kapasitasKg: v.kapasitas_kg,
+    status: v.status === 'Tersedia' ? 'Tersedia' : v.status === 'Beroperasi' ? 'Beroperasi' : v.status === 'Servis' ? 'Servis' : 'Tidak Aktif',
+    tahunBeli: v.tahun_beli ?? new Date().getFullYear(),
+    jenisLayanan: (v.jenis_layanan ?? []) as VehicleRecord['jenisLayanan'],
+    catatanOperasional: v.catatan_operasional ?? '',
   }));
 
-  // Extract unique driver names from deliveries
-  const drivers: DriverRecord[] = [];
-  const driverNames = new Set<string>();
-  for (const d of deliveries) {
-    if (d.driver_name && !driverNames.has(d.driver_name)) {
-      driverNames.add(d.driver_name);
-      drivers.push({
-        id: `driver-${d.id}`,
-        workspaceId: d.transport_workspace_id ?? workspaceId,
-        nama: d.driver_name,
-        foto: '👤',
-        nomorSIM: '-',
-        kategoriSIM: 'B2' as const,
-        kendaraanId: null,
-        status: 'Aktif',
-        pengalamanTahun: 0,
-        nomorHP: '-',
-        catatanDriver: '',
-      });
-    }
-  }
+  // Map DB driver rows to DriverRecord shape for component compatibility
+  const driverRecords: DriverRecord[] = drivers.map((d) => ({
+    id: d.id,
+    workspaceId: d.workspace_id,
+    nama: d.nama,
+    foto: '👤',
+    nomorSIM: d.nomor_sim ?? '-',
+    kategoriSIM: (d.kategori_sim as DriverRecord['kategoriSIM']) ?? 'B2',
+    kendaraanId: d.kendaraan_id,
+    status: d.status === 'Aktif' ? 'Aktif' : d.status === 'Tidak Aktif' ? 'Tidak Aktif' : 'Cuti',
+    pengalamanTahun: d.pengalaman_tahun,
+    nomorHP: d.nomor_hp ?? '-',
+    catatanDriver: d.catatan ?? '',
+  }));
 
   // Extract service areas from service coverage_area
   const areas: ServiceArea[] = services
@@ -208,9 +214,9 @@ export default function TransportWorkspace() {
   }));
 
   const summary: TransportWorkspaceSummary = {
-    totalKendaraan: services.length,
-    kendaraanTersedia: services.filter((s) => s.status === 'Aktif').length,
-    kendaraanBeroperasi: services.filter((s) => s.status === 'Aktif').length,
+    totalKendaraan: vehicles.length,
+    kendaraanTersedia: vehicles.filter((v) => v.status === 'Tersedia').length,
+    kendaraanBeroperasi: vehicles.filter((v) => v.status === 'Beroperasi').length,
     totalDriver: drivers.length,
     driverAktif: drivers.filter((d) => d.status === 'Aktif').length,
     pengirimanSelesai: deliveries.filter((d) => d.status === 'Selesai').length,
@@ -231,19 +237,51 @@ export default function TransportWorkspace() {
   }) => {
     setSaveError(null);
     try {
-      await repoInsertTransportService({
+      await repoInsertTransportVehicle({
         workspace_id: workspaceId,
-        name: `${data.jenisKendaraan} - ${data.nomorPolisi}`,
-        vehicle_type: data.jenisKendaraan,
-        capacity: data.kapasitas,
-        status: 'Aktif',
-        notes: data.catatanOperasional,
+        jenis_kendaraan: data.jenisKendaraan,
+        nomor_polisi: data.nomorPolisi,
+        kapasitas_kg: data.kapasitasKg,
+        tahun_beli: data.tahunBeli,
+        jenis_layanan: data.jenisLayanan,
+        catatan_operasional: data.catatanOperasional,
+        status: 'Tersedia',
       });
       setSaveSuccess(true);
       setActiveModal(null);
       void loadData();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Gagal menambah kendaraan');
+    }
+  };
+
+  const handleAddDriver = async (data: {
+    nama: string;
+    nomorSIM: string;
+    kategoriSIM: string;
+    kendaraanId: string | null;
+    pengalamanTahun: number;
+    nomorHP: string;
+    catatan: string;
+  }) => {
+    setSaveError(null);
+    try {
+      await repoInsertTransportDriver({
+        workspace_id: workspaceId,
+        nama: data.nama,
+        nomor_sim: data.nomorSIM || null,
+        kategori_sim: data.kategoriSIM || null,
+        kendaraan_id: data.kendaraanId || null,
+        pengalaman_tahun: data.pengalamanTahun,
+        nomor_hp: data.nomorHP || null,
+        catatan: data.catatan || null,
+        status: 'Aktif',
+      });
+      setSaveSuccess(true);
+      setActiveModal(null);
+      void loadData();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Gagal menambah pengemudi');
     }
   };
 
@@ -372,8 +410,8 @@ export default function TransportWorkspace() {
         {isArmada ? (
           /* ─── ARMADA: Fleet Management ─────────────────────────────── */
           <>
-            <TransportVehicleSection vehicles={vehicles} access={access} />
-            <TransportDriverSection drivers={drivers} areas={areas} access={access} />
+            <TransportVehicleSection vehicles={vehicleRecords} access={access} />
+            <TransportDriverSection drivers={driverRecords} areas={areas} access={access} />
 
             <div style={{
               background: 'var(--color-surface)',
@@ -496,16 +534,15 @@ export default function TransportWorkspace() {
       )}
       {activeModal === 'driver' && (
         <AddDriverModal
-          drivers={drivers}
-          vehicles={vehicles}
-          onSave={(_driverId, _vehicleId) => { setActiveModal(null); }}
+          vehicles={vehicleRecords.map(v => ({ id: v.id, jenisKendaraan: v.jenisKendaraan, nomorPolisi: v.nomorPolisi }))}
+          onSave={handleAddDriver}
           onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
       {activeModal === 'delivery' && (
         <CreateDeliveryModal
-          vehicles={vehicles}
-          drivers={drivers}
+          vehicles={vehicleRecords}
+          drivers={driverRecords}
           onSave={handleCreateDelivery}
           onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />

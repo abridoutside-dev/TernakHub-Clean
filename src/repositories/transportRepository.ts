@@ -15,6 +15,10 @@ import { requireAuthSession } from '../lib/authSession';
 import type {
   TransportServiceDbRow,
   TransportServiceCreateInput,
+  TransportVehicleDbRow,
+  TransportVehicleCreateInput,
+  TransportDriverDbRow,
+  TransportDriverCreateInput,
   TransportDeliveryDbRow,
   TransportDeliveryCreateInput,
 } from '../types/transport';
@@ -112,6 +116,170 @@ export async function repoDeleteTransportService(
   await requireAuthSession();
   const { error } = await supabase
     .from('layanan_transport')
+    .delete()
+    .eq('id', id);
+  guard(error);
+}
+
+// ─── transport_vehicles ─────────────────────────────────────────────────────────
+
+/**
+ * All vehicles for a transport workspace, ordered by created_at descending.
+ */
+export async function repoGetTransportVehiclesByWorkspace(
+  workspaceId: string,
+): Promise<TransportVehicleDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_vehicles')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false });
+  guard(error);
+  return (data ?? []) as TransportVehicleDbRow[];
+}
+
+/**
+ * Single vehicle by ID.
+ */
+export async function repoGetTransportVehicleById(
+  id: string,
+): Promise<TransportVehicleDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_vehicles')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  guard(error);
+  return data as TransportVehicleDbRow | null;
+}
+
+/**
+ * Insert a new vehicle.
+ */
+export async function repoInsertTransportVehicle(
+  input: TransportVehicleCreateInput,
+): Promise<TransportVehicleDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_vehicles')
+    .insert(input)
+    .select()
+    .single();
+  guard(error);
+  return data as TransportVehicleDbRow;
+}
+
+/**
+ * Update a vehicle by ID.
+ */
+export async function repoUpdateTransportVehicle(
+  id: string,
+  patch: Partial<TransportVehicleCreateInput>,
+): Promise<TransportVehicleDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_vehicles')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as TransportVehicleDbRow;
+}
+
+/**
+ * Delete a vehicle by ID.
+ */
+export async function repoDeleteTransportVehicle(
+  id: string,
+): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('transport_vehicles')
+    .delete()
+    .eq('id', id);
+  guard(error);
+}
+
+// ─── transport_drivers ─────────────────────────────────────────────────────────
+
+/**
+ * All drivers for a transport workspace, ordered by created_at descending.
+ */
+export async function repoGetTransportDriversByWorkspace(
+  workspaceId: string,
+): Promise<TransportDriverDbRow[]> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_drivers')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false });
+  guard(error);
+  return (data ?? []) as TransportDriverDbRow[];
+}
+
+/**
+ * Single driver by ID.
+ */
+export async function repoGetTransportDriverById(
+  id: string,
+): Promise<TransportDriverDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_drivers')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  guard(error);
+  return data as TransportDriverDbRow | null;
+}
+
+/**
+ * Insert a new driver.
+ */
+export async function repoInsertTransportDriver(
+  input: TransportDriverCreateInput,
+): Promise<TransportDriverDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_drivers')
+    .insert(input)
+    .select()
+    .single();
+  guard(error);
+  return data as TransportDriverDbRow;
+}
+
+/**
+ * Update a driver by ID.
+ */
+export async function repoUpdateTransportDriver(
+  id: string,
+  patch: Partial<TransportDriverCreateInput>,
+): Promise<TransportDriverDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transport_drivers')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as TransportDriverDbRow;
+}
+
+/**
+ * Delete a driver by ID.
+ */
+export async function repoDeleteTransportDriver(
+  id: string,
+): Promise<void> {
+  await requireAuthSession();
+  const { error } = await supabase
+    .from('transport_drivers')
     .delete()
     .eq('id', id);
   guard(error);

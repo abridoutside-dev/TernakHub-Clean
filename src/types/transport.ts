@@ -2,6 +2,9 @@
 //
 // Supabase row types for transport tables:
 //   layanan_transport      → service listings / fleet registry
+//   transport_vehicles     → fleet vehicles
+//   transport_drivers      → drivers
+//   transport_schedules    → scheduled transport requests
 //   transport_transactions → delivery / transport order records
 
 export interface TransportServiceDbRow {
@@ -33,6 +36,58 @@ export interface TransportServiceCreateInput {
   description?: string | null;
   available_days?: string[] | null;
   notes?: string | null;
+}
+
+export interface TransportVehicleDbRow {
+  id: string;
+  workspace_id: string;
+  jenis_kendaraan: string;
+  nomor_polisi: string;
+  kapasitas_kg: number | null;
+  status: string;
+  tahun_beli: number | null;
+  jenis_layanan: string[] | null;
+  catatan_operasional: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransportVehicleCreateInput {
+  workspace_id: string;
+  jenis_kendaraan: string;
+  nomor_polisi: string;
+  kapasitas_kg?: number | null;
+  status?: string;
+  tahun_beli?: number | null;
+  jenis_layanan?: string[] | null;
+  catatan_operasional?: string | null;
+}
+
+export interface TransportDriverDbRow {
+  id: string;
+  workspace_id: string;
+  nama: string;
+  nomor_sim: string | null;
+  kategori_sim: string | null;
+  kendaraan_id: string | null;
+  status: string;
+  pengalaman_tahun: number;
+  nomor_hp: string | null;
+  catatan: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransportDriverCreateInput {
+  workspace_id: string;
+  nama: string;
+  nomor_sim?: string | null;
+  kategori_sim?: string | null;
+  kendaraan_id?: string | null;
+  status?: string;
+  pengalaman_tahun?: number;
+  nomor_hp?: string | null;
+  catatan?: string | null;
 }
 
 export interface TransportDeliveryDbRow {
