@@ -29,6 +29,7 @@ import {
   type DeliveryRecord,
   type TransportWorkspaceMeta,
   type TransportWorkspaceSummary,
+  DELIVERY_STATUS_CONFIG,
 } from '../data/transportWorkspaceData';
 import { getWorkspaceMembers } from '../services/workspaceService';
 import type { WorkspaceMemberRecord } from '../data/workspaceMembersData';
@@ -69,6 +70,8 @@ export default function TransportWorkspace() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
+  const isArmada = tab === 'operational';
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -336,6 +339,22 @@ export default function TransportWorkspace() {
   };
   const rl = roleLabel[access.role];
 
+  const actionBtnStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '10px 16px',
+    background: 'var(--color-surface)',
+    border: '1.5px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--color-text)',
+    cursor: 'pointer',
+    flex: '1 1 140px',
+    justifyContent: 'center',
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -344,33 +363,120 @@ export default function TransportWorkspace() {
     }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 16px' }}>
 
-        {/* ─── 1. HEADER ─────────────────────────────────────────────────── */}
+        {/* ─── HEADER ─────────────────────────────────────────────────── */}
         {meta && <TransportHeader meta={meta} roleLabel={rl} />}
 
-        {/* ─── 2. SUMMARY CARDS ──────────────────────────────────────────── */}
+        {/* ─── SUMMARY ────────────────────────────────────────────────── */}
         <TransportSummary summary={summary} />
 
-        {/* ─── 3. FLEET ──────────────────────────────────────────────────── */}
-        <TransportVehicleSection vehicles={vehicles} access={access} />
+        {isArmada ? (
+          /* ─── ARMADA: Fleet Management ─────────────────────────────── */
+          <>
+            <TransportVehicleSection vehicles={vehicles} access={access} />
+            <TransportDriverSection drivers={drivers} areas={areas} access={access} />
 
-        {/* ─── 4. DRIVERS · 5. SERVICE COVERAGE ─────────────────────────── */}
-        <TransportDriverSection drivers={drivers} areas={areas} access={access} />
+            <div style={{
+              background: 'var(--color-surface)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              padding: 16,
+              marginBottom: 20,
+            }}>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+                Aksi Manajemen Armada
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {access.canEditFleet && (
+                  <>
+                    <button onClick={() => setActiveModal('vehicle')} style={actionBtnStyle}>🚛 Tambah Kendaraan</button>
+                    <button onClick={() => setActiveModal('driver')} style={actionBtnStyle}>👨‍✈️ Tugaskan Pengemudi</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ─── DASHBOARD: Operational Overview ──────────────────────── */
+          <>
+            <div style={{
+              background: 'var(--color-surface)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              padding: 16,
+              marginBottom: 20,
+            }}>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+                Aksi Operasional
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => setActiveModal('delivery')} style={actionBtnStyle}>📦 Buat Pengiriman</button>
+                <button onClick={() => setActiveModal('status')} style={actionBtnStyle}>🔄 Perbarui Status</button>
+                <button onClick={() => setActiveModal('complete')} style={actionBtnStyle}>✅ Selesaikan Pengiriman</button>
+                {access.canEditFleet && (
+                  <>
+                    <button onClick={() => setActiveModal('vehicle')} style={actionBtnStyle}>🚛 Tambah Kendaraan</button>
+                    <button onClick={() => setActiveModal('driver')} style={actionBtnStyle}>👨‍✈️ Tugaskan Pengemudi</button>
+                  </>
+                )}
+              </div>
+            </div>
 
-        {/* ─── 6. DELIVERY HISTORY · 7. MANAGEMENT ACTIONS ──────────────── */}
-        <TransportDeliverySection
-          deliveries={deliveryRecords}
-          filteredDeliveries={deliveryRecords.filter((d) => {
-            const byStatus = deliveryFilter === 'Semua' || d.status === deliveryFilter;
-            const byType = typeFilter === 'Semua' || d.transportType === typeFilter;
-            return byStatus && byType;
-          })}
-          deliveryFilter={deliveryFilter}
-          typeFilter={typeFilter}
-          onDeliveryFilterChange={setDeliveryFilter}
-          onTypeFilterChange={setTypeFilter}
-          access={access}
-          onOpenModal={(modal) => setActiveModal(modal)}
-        />
+            <div style={{
+              background: 'var(--color-surface)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              padding: 16,
+              marginBottom: 20,
+            }}>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+                Pengiriman Terbaru
+              </p>
+              {deliveryRecords.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--color-muted)', textAlign: 'center' }}>
+                  Belum ada pengiriman tercatat.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {deliveryRecords.slice(0, 5).map((dlv) => {
+                    const sc = DELIVERY_STATUS_CONFIG[dlv.status];
+                    return (
+                      <div key={dlv.id} style={{
+                        background: 'var(--color-bg)',
+                        border: `1px solid ${sc.border}`,
+                        borderRadius: 'var(--radius-md)',
+                        padding: 10,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: 'var(--color-text)' }}>
+                            {dlv.id}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--color-muted)' }}>
+                            {dlv.ruteAsal} → {dlv.ruteTujuan}
+                          </p>
+                        </div>
+                        <span style={{
+                          background: sc.bg,
+                          color: sc.color,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: 12,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {sc.icon} {dlv.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {saveError && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#991b1b' }}>{saveError}</div>

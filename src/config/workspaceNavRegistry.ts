@@ -326,7 +326,7 @@ export const WORKSPACE_NAV_REGISTRY: Record<WorkspaceKind, WorkspaceNavConfig> =
       PROFILE_ITEM,
     ],
     defaultTab: 'home',
-    tabBased:   false,
+    tabBased:   true,
   },
 
 } as const;
