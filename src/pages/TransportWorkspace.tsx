@@ -21,7 +21,6 @@ import type {
   TransportDeliveryDbRow,
 } from '../types/transport';
 import {
-  deriveTransportAccess,
   type DeliveryStatus,
   type TransportServiceType,
   type VehicleRecord,
@@ -31,6 +30,8 @@ import {
   type TransportWorkspaceMeta,
   type TransportWorkspaceSummary,
 } from '../data/transportWorkspaceData';
+import { getWorkspaceMembers } from '../services/workspaceService';
+import type { WorkspaceMemberRecord } from '../data/workspaceMembersData';
 
 import TransportHeader from '../components/workspace/TransportHeader';
 import TransportSummary from '../components/workspace/TransportSummary';
@@ -54,6 +55,12 @@ export default function TransportWorkspace() {
   const [deliveries, setDeliveries] = useState<TransportDeliveryDbRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [access, setAccess] = useState<{
+    role: 'public' | 'member' | 'admin' | 'owner' | 'platform_admin';
+    canViewOperational: boolean;
+    canViewFinancial: boolean;
+    canEditFleet: boolean;
+  }>({ role: 'public', canViewOperational: false, canViewFinancial: false, canEditFleet: false });
 
   const [deliveryFilter, setDeliveryFilter] = useState<DeliveryStatus | 'Semua'>('Semua');
   const [typeFilter, setTypeFilter] = useState<TransportServiceType | 'Semua'>('Semua');
@@ -61,7 +68,6 @@ export default function TransportWorkspace() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const access = deriveTransportAccess(workspaceId, currentUser?.id ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -80,12 +86,13 @@ export default function TransportWorkspace() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const [{ data: wsData }, svc, dlv] = await Promise.all([
-        supabase.from('workspaces').select('id,name,description,province,city,phone,status,created_at').eq('id', workspaceId).single(),
+      const [{ data: wsData }, svc, dlv, members] = await Promise.all([
+        supabase.from('workspaces').select('id,name,description,province,city,phone,status,created_at,owner_user_uuid').eq('id', workspaceId).single(),
         repoGetTransportServicesByWorkspace(workspaceId),
         repoGetTransportDeliveriesByWorkspace(workspaceId),
+        getWorkspaceMembers(workspaceId),
       ]);
-      const ws = wsData as { id: string; name: string | null; description: string | null; province: string | null; city: string | null; phone: string | null; created_at: string | null; status: string | null; } | null;
+      const ws = wsData as { id: string; name: string | null; description: string | null; province: string | null; city: string | null; phone: string | null; created_at: string | null; status: string | null; owner_user_uuid: string | null; } | null;
       if (ws) {
         setMeta({
           workspaceId: ws.id,
@@ -98,6 +105,23 @@ export default function TransportWorkspace() {
           bergabungSejak: ws.created_at ?? new Date().toISOString(),
         });
       }
+      const ownerId = ws?.owner_user_uuid ?? null;
+      const isOwner = !!currentUser?.id && ownerId === currentUser.id;
+      const member = members.find((m: WorkspaceMemberRecord) => m.user_id === currentUser?.id);
+      const isActiveMember = !!member && member.status === 'Active';
+      if (isOwner) {
+        setAccess({ role: 'owner', canViewOperational: true, canViewFinancial: true, canEditFleet: true });
+      } else if (isActiveMember) {
+        const role = member.role === 'Owner' ? 'owner' : member.role === 'Admin' ? 'admin' : 'member';
+        setAccess({
+          role,
+          canViewOperational: true,
+          canViewFinancial: role === 'owner' || role === 'admin',
+          canEditFleet: role === 'owner' || role === 'admin',
+        });
+      } else {
+        setAccess({ role: 'public', canViewOperational: false, canViewFinancial: false, canEditFleet: false });
+      }
       setServices(svc);
       setDeliveries(dlv);
     } catch (e) {
@@ -105,7 +129,7 @@ export default function TransportWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceId, currentUser?.id]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
