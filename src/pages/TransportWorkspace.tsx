@@ -11,7 +11,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
   repoGetTransportServicesByWorkspace,
-  repoInsertTransportService,
   repoGetTransportDeliveriesByWorkspace,
   repoInsertTransportDelivery,
   repoUpdateTransportDeliveryStatus,
@@ -19,7 +18,6 @@ import {
   repoInsertTransportVehicle,
   repoGetTransportDriversByWorkspace,
   repoInsertTransportDriver,
-  repoUpdateTransportDriver,
 } from '../repositories/transportRepository';
 import type {
   TransportServiceDbRow,
@@ -450,12 +448,6 @@ export default function TransportWorkspace() {
                 <button onClick={() => setActiveModal('delivery')} style={actionBtnStyle}>📦 Buat Pengiriman</button>
                 <button onClick={() => setActiveModal('status')} style={actionBtnStyle}>🔄 Perbarui Status</button>
                 <button onClick={() => setActiveModal('complete')} style={actionBtnStyle}>✅ Selesaikan Pengiriman</button>
-                {access.canEditFleet && (
-                  <>
-                    <button onClick={() => setActiveModal('vehicle')} style={actionBtnStyle}>🚛 Tambah Kendaraan</button>
-                    <button onClick={() => setActiveModal('driver')} style={actionBtnStyle}>👨‍✈️ Tugaskan Pengemudi</button>
-                  </>
-                )}
               </div>
             </div>
 

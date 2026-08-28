@@ -47,7 +47,8 @@ import FeedStoreOperational  from '../pages/workspaceOperational/FeedStoreOperat
 import DrugStoreOperational  from '../pages/workspaceOperational/DrugStoreOperational';
 import DokterHewanOperational from '../pages/workspaceOperational/DokterHewanOperational';
 import KlinikHewanOperational from '../pages/workspaceOperational/KlinikHewanOperational';
-import TransportOperational  from '../pages/workspaceOperational/TransportOperational';
+// Transport: real tab-aware workspace page (Dashboard Home + Armada) — see App.tsx route /workspace/:id/transport
+import TransportWorkspace  from '../pages/TransportWorkspace';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,7 @@ const WORKSPACE_OPERATIONAL_REGISTRY: Record<WorkspaceKind, WorkspaceOperational
     title:                'Armada & Pengiriman',
     subtitle:             'Manajemen armada kendaraan & pengiriman ternak antar lokasi',
     icon:                 WORKSPACE_REGISTRY.Transport.icon,       // '🚚'
-    operationalComponent: TransportOperational,
+    operationalComponent: TransportWorkspace,
     defaultRoute:         WORKSPACE_REGISTRY.Transport.routeUtama, // '/workspace/:id/transport'
   },
 

@@ -253,7 +253,7 @@ export interface TransportWorkspaceMeta {
 }
 
 // ADMIN-SYNC-008: Seed data dihapus. Meta workspace sekarang dibaca langsung dari
-// tabel `workspaces` di Supabase oleh TransportDashboard dan TransportOperational.
+// tabel `workspaces` di Supabase oleh TransportWorkspace.
 
 const TRANSPORT_WORKSPACE_META: TransportWorkspaceMeta[] = [];
 

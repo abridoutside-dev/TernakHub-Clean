@@ -41,7 +41,8 @@ import FeedStoreDashboard  from '../pages/workspaceDashboards/FeedStoreDashboard
 import DrugStoreDashboard  from '../pages/workspaceDashboards/DrugStoreDashboard';
 import DokterHewanDashboard from '../pages/workspaceDashboards/DokterHewanDashboard';
 import KlinikHewanDashboard from '../pages/workspaceDashboards/KlinikHewanDashboard';
-import TransportDashboard  from '../pages/workspaceDashboards/TransportDashboard';
+// Transport: real tab-aware workspace page (Dashboard Home + Armada) — see App.tsx route /workspace/:id/transport
+import TransportWorkspace  from '../pages/TransportWorkspace';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ const WORKSPACE_DASHBOARD_REGISTRY: Record<WorkspaceKind, WorkspaceDashboardConf
       { id: 'perbarui-status',  label: 'Perbarui Status',  icon: '🔄', route: `${WORKSPACE_REGISTRY.Transport.routeUtama}?action=status` },
       { id: 'selesaikan',       label: 'Selesaikan',       icon: '✅', route: `${WORKSPACE_REGISTRY.Transport.routeUtama}?action=complete` },
     ],
-    dashboardComponent: TransportDashboard,
+    dashboardComponent: TransportWorkspace,
     livestockComponent: null,
     defaultRoute:       WORKSPACE_REGISTRY.Transport.routeDashboard,
   },
