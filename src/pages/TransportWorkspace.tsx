@@ -217,11 +217,14 @@ export default function TransportWorkspace() {
     kendaraanBeroperasi: vehicles.filter((v) => v.status === 'Beroperasi').length,
     totalDriver: drivers.length,
     driverAktif: drivers.filter((d) => d.status === 'Aktif').length,
-    pengirimanSelesai: deliveries.filter((d) => d.status === 'Selesai').length,
-    pengirimanPending: deliveries.filter(
-      (d) => d.status === 'Menunggu' || d.status === 'Dikonfirmasi' || d.status === 'Dalam Perjalanan' || d.status === 'Pickup Ready' || d.status === 'Tiba'
+    pengirimanTerjadwal:       deliveries.filter((d) => d.status === 'Dikonfirmasi').length,
+    pengirimanMenungguGabung:  deliveries.filter((d) => d.status === 'Menunggu').length,
+    pengirimanDalamProses:     deliveries.filter(
+      (d) => d.status === 'Pickup Ready' || d.status === 'Dalam Perjalanan' || d.status === 'Tiba'
     ).length,
-    totalWilayahLayanan: areas.length,
+    pengirimanSelesai:         deliveries.filter((d) => d.status === 'Selesai').length,
+    pengirimanDibatalkan:      deliveries.filter((d) => d.status === 'Dibatalkan').length,
+    totalWilayahLayanan:       areas.length,
   };
 
   const handleAddVehicle = async (data: {
@@ -482,7 +485,7 @@ export default function TransportWorkspace() {
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: 'var(--color-text)' }}>
-                            {dlv.id}
+                            {dlv.transportType}
                           </p>
                           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--color-muted)' }}>
                             {dlv.ruteAsal} → {dlv.ruteTujuan}

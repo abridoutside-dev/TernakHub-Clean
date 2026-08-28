@@ -299,8 +299,11 @@ export interface TransportWorkspaceSummary {
   kendaraanBeroperasi: number;
   totalDriver: number;
   driverAktif: number;
+  pengirimanTerjadwal: number;
+  pengirimanMenungguGabung: number;
+  pengirimanDalamProses: number;
   pengirimanSelesai: number;
-  pengirimanPending: number;
+  pengirimanDibatalkan: number;
   totalWilayahLayanan: number;
 }
 
@@ -316,11 +319,14 @@ export function getTransportWorkspaceSummary(workspaceId: string): TransportWork
     kendaraanBeroperasi: vehicles.filter((v) => v.status === 'Beroperasi').length,
     totalDriver:         drivers.length,
     driverAktif:         drivers.filter((d) => d.status === 'Aktif').length,
-    pengirimanSelesai:   deliveries.filter((d) => d.status === 'Selesai').length,
-    pengirimanPending:   deliveries.filter(
-      (d) => d.status === 'Menunggu' || d.status === 'Dikonfirmasi' || d.status === 'Dalam Perjalanan' || d.status === 'Pickup Ready' || d.status === 'Tiba'
+    pengirimanTerjadwal:       deliveries.filter((d) => d.status === 'Dikonfirmasi').length,
+    pengirimanMenungguGabung:  deliveries.filter((d) => d.status === 'Menunggu').length,
+    pengirimanDalamProses:     deliveries.filter(
+      (d) => d.status === 'Pickup Ready' || d.status === 'Dalam Perjalanan' || d.status === 'Tiba'
     ).length,
-    totalWilayahLayanan: areas.length,
+    pengirimanSelesai:         deliveries.filter((d) => d.status === 'Selesai').length,
+    pengirimanDibatalkan:      deliveries.filter((d) => d.status === 'Dibatalkan').length,
+    totalWilayahLayanan:       areas.length,
   };
 }
 

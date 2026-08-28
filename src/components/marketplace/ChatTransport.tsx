@@ -224,6 +224,38 @@ export function TransportBar({
 }) {
   if (!deal) return null;
 
+  const paymentDecided = !!getEscrowConfig(chatId);
+
+  // FARM-FIX-005.7: Jasa Transport dipilih SETELAH keputusan Escrow/Tidak.
+  // Jika deal sudah terkunci, metode pembayaran (Escrow Bar di atas) harus
+  // dipilih dulu sebelum Transport boleh dikonfigurasi. Membaca konfigurasi
+  // escrow yang sudah ada — tidak menambah data, tidak mengubah arsitektur.
+  if (deal.status === 'Locked' && !paymentDecided) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        style={{
+          width: '100%',
+          padding: '6px 14px',
+          background: 'rgba(124,58,237,0.05)',
+          borderBottom: '1px solid rgba(124,58,237,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          cursor: 'default',
+          border: 'none',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ fontSize: 13, flexShrink: 0 }}>🚚</span>
+        <span style={{ flex: 1, fontSize: 11, color: 'var(--color-muted)' }}>
+          Pilih metode pembayaran di Escrow Bar di atas dulu untuk mengkonfigurasi Transport.
+        </span>
+      </button>
+    );
+  }
+
   const config = getTransportConfig(chatId);
 
   if (!config?.mode) {

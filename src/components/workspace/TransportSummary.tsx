@@ -83,14 +83,29 @@ export default function TransportSummary({ summary }: TransportSummaryProps) {
           sub={`dari ${summary.totalDriver} total`}
         />
         <StatCard
+          icon="📅"
+          value={summary.pengirimanTerjadwal}
+          label="Pengiriman Terjadwal"
+        />
+        <StatCard
+          icon="⏳"
+          value={summary.pengirimanMenungguGabung}
+          label="Menunggu Penggabungan"
+        />
+        <StatCard
+          icon="🚚"
+          value={summary.pengirimanDalamProses}
+          label="Dalam Proses"
+        />
+        <StatCard
           icon="🏁"
           value={summary.pengirimanSelesai}
           label="Pengiriman Selesai"
         />
         <StatCard
-          icon="⏳"
-          value={summary.pengirimanPending}
-          label="Dalam Proses"
+          icon="❌"
+          value={summary.pengirimanDibatalkan}
+          label="Dibatalkan"
         />
         <StatCard
           icon="🗺️"

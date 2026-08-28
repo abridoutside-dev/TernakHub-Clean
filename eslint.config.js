@@ -50,6 +50,8 @@ export default tseslint.config(
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/static-components': 'warn',
       'react-hooks/rules-of-hooks': 'warn',
+      'react-hooks/set-state-in-render': 'warn',
+      'react-hooks/purity': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
