@@ -196,13 +196,17 @@ import {
 import {
   createTrip,
   getTripByChatId,
+  getTripsByWorkspace,
   addTripStop,
+  addTransactionToTrip,
+  assignTransactionStops,
   updateTripStatus,
   updateTrip,
   updateTripStop,
   VEHICLE_TYPES,
   type TransportTrip,
 } from '../../data/transportTripData';
+import { getProviderSnapshot } from '../../data/serviceProviderSnapshotData';
 import { BULAN } from './ChatHelpers';
 
 const TRANSPORT_EVIDENCE_EMOJIS = [
@@ -761,6 +765,14 @@ function MarketplaceTransportPanel({
   const isBuyer    = myRole === 'Pembeli';
   const isTerminal = TERMINAL_TRANSPORT_STATUSES.has(data.status);
   const trip       = getTripByChatId(chatId);
+  // Ongoing trips for this transport provider (for barengan/merge). Real data
+  // from the existing TRIP_STORE — excludes terminal trips and this chat's trip.
+  const ongoingTrips = isTransport
+    ? getTripsByWorkspace(activeWorkspaceId).filter(
+        (t) => !TERMINAL_TRANSPORT_STATUSES.has(t.status)
+          && !t.transactions.some((tx) => tx.chatId === chatId),
+      )
+    : [];
 
   // Next status to advance to
   const currentIdx = TRANSPORT_STATUS_FLOW.indexOf(data.status);
@@ -890,6 +902,28 @@ function MarketplaceTransportPanel({
     if (config.marketplace) config.marketplace.tripId = t.id;
     updateMarketplaceTransportStatus(chatId, 'Assigned', activeWorkspaceId, `Trip ${t.tripNumber} dibuat.`);
     setShowTripForm(false);
+    onRefresh();
+  }
+
+  // FARM-FIX-005.7 — Barengan: gabungkan transaksi ini ke Trip berjalan milik
+  // transport provider yang sama. Semua call ke fungsi existing di
+  // transportTripData.ts (addTransactionToTrip / assignTransactionStops) — tidak
+  // membuat trip data baru, tidak fake. Menggunakan getTripsByWorkspace() +
+  // getProviderSnapshot() yang sudah ada.
+  function handleMergeTrip(t: TransportTrip) {
+    const snap = getProviderSnapshot(chatId, 'Transport');
+    addTransactionToTrip(t.id, chatId, snap?.listingTitle ?? 'Transaksi');
+    if (t.stops.length >= 2) {
+      assignTransactionStops(t.id, chatId, t.stops[0].id, t.stops[1].id);
+    }
+    const config = getOrCreateTransportConfig(chatId);
+    if (config.marketplace) config.marketplace.tripId = t.id;
+    // Hanya promosikan Waiting Assignment -> Assigned bila memang belum terpasang;
+    // jangan mereset transaksi yang sudah berada di tahap lanjut.
+    const cur = getOrCreateTransportConfig(chatId).marketplace;
+    if (cur && cur.status === 'Waiting Assignment') {
+      updateMarketplaceTransportStatus(chatId, 'Assigned', activeWorkspaceId, `Digabung ke Trip ${t.tripNumber}.`);
+    }
     onRefresh();
   }
 
@@ -1049,10 +1083,14 @@ function MarketplaceTransportPanel({
               {([
                 { label: 'Pengemudi', value: trip.driver.name },
                 { label: 'Telp',      value: trip.driver.phone },
-                { label: 'Kendaraan', value: `${trip.vehicle.type} · ${trip.vehicle.licensePlate}` },
+                { label: 'Kendaran', value: `${trip.vehicle.type} · ${trip.vehicle.licensePlate}` },
                 { label: 'Kapasitas', value: `${trip.vehicle.capacityHeads} ekor` },
                 { label: 'Rute',      value: trip.route },
                 { label: 'Stops',     value: `${trip.stops.length} titik` },
+                { label: 'Transaksi', value: `${trip.transactions.length} transaksi` },
+                { label: 'Pickup',    value: trip.stops[0]?.locationName ?? '— belum diatur' },
+                { label: 'Tujuan',    value: trip.stops[1]?.locationName ?? '— belum diatur' },
+                { label: 'Status TX', value: trip.transactions.find((tx) => tx.chatId === chatId)?.status ?? 'Pending' },
               ] as const).map(row => (
                 <div key={row.label} style={{ background: 'var(--color-surface)', borderRadius: 6, padding: '6px 8px', border: '1px solid var(--color-border)' }}>
                   <div style={{ fontSize: 9.5, color: 'var(--color-muted)', marginBottom: 1 }}>{row.label}</div>
@@ -1115,6 +1153,46 @@ function MarketplaceTransportPanel({
                   color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 }}
               >🚛 Buat Trip</button>
+            </div>
+          )}
+
+          {/* Merge ("barengan"): gabungkan ke Trip berjalan milik transport yang sama.
+              driven by getTripsByWorkspace() — real in-memory trip store, no fake trips. */}
+          {ongoingTrips.length > 0 && !showTripForm && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{
+                fontSize: 10.5, fontWeight: 800, color: 'var(--color-text)',
+                textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 8,
+              }}>
+                🧮 Gabungkan ke Trip Berjalan
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 8 }}>
+                {ongoingTrips.length} perjalanan aktif dapat menerima pengiriman ini secara barengan.
+              </div>
+              {ongoingTrips.map((t) => (
+                <div
+                  key={t.id}
+                  style={{
+                    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                    borderRadius: 8, padding: '10px 12px', marginBottom: 10,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>{t.tripNumber}</span>
+                    <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>● {t.status}</span>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: 'var(--color-muted)', lineHeight: 1.6, marginBottom: 8 }}>
+                    🚛 {t.vehicle.type} · 🧑‍✈️ {t.driver.name} · 💼 {t.transactions.length} transaksi gabungan
+                  </div>
+                  <button
+                    type="button" onClick={() => handleMergeTrip(t)}
+                    style={{
+                      width: '100%', padding: '9px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      background: 'rgba(37,99,235,0.08)', border: '1.5px solid rgba(37,99,235,0.3)', color: 'var(--color-primary)',
+                    }}
+                  >🧩 Gabung ke Trip ini</button>
+                </div>
+              ))}
             </div>
           )}
         </>
@@ -1220,6 +1298,9 @@ function MarketplaceTransportPanel({
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text)', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 8 }}>
             📍 Lokasi Live
+          </div>
+          <div style={{ fontSize: 9.5, color: 'var(--color-muted)', fontStyle: 'italic', marginBottom: 6 }}>
+            📡 Snapshot dari browser Geolocation API (in-session). Bukan GPS tracking realtime backend — tidak ada koordinat palsu.
           </div>
           {data.liveLocation?.isActive ? (
             <div style={{
