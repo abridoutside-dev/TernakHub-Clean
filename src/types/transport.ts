@@ -6,6 +6,8 @@
 //   transport_drivers      → drivers
 //   transport_schedules    → scheduled transport requests
 //   transport_transactions → delivery / transport order records
+//   transaction_rooms      → canonical room linking marketplace order ↔ transport
+//                            (canonical table created in 20260725000008_transaction_services.sql)
 
 export interface TransportServiceDbRow {
   id: string;
@@ -123,6 +125,69 @@ export interface TransportDeliveryCreateInput {
   driver_name?: string | null;
   notes?: string | null;
   transport_type?: string | null;
+}
+
+// ─── Transaction Rooms (canonical, for marketplace→transport integration) ────
+
+export interface TransactionRoomDbRow {
+  id: string;
+  marketplace_transaction_id: string;
+  buyer_workspace_id: string;
+  seller_workspace_id: string;
+  status: string;
+  has_escrow: boolean;
+  has_transport: boolean;
+  total_amount: number;
+  notes: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransactionRoomCreateInput {
+  marketplace_transaction_id: string;
+  buyer_workspace_id: string;
+  seller_workspace_id: string;
+  status?: string;
+  has_escrow?: boolean;
+  has_transport?: boolean;
+  total_amount?: number;
+  notes?: string | null;
+}
+
+export interface TransactionRoomUpdateInput {
+  status?: string;
+  has_escrow?: boolean;
+  has_transport?: boolean;
+  total_amount?: number;
+  notes?: string | null;
+  completed_at?: string | null;
+}
+
+// ─── Marketplace Order (minimal shape needed by transport integration) ───────
+
+export interface MarketplaceTransactionLite {
+  id: string;
+  listing_id: string;
+  buyer_workspace_id: string;
+  seller_workspace_id: string;
+  agreed_price: number;
+  status: string;
+  notes: string | null;
+}
+
+export interface CreateTransportFromMarketplaceInput {
+  /** Supabase UUID of marketplace_transactions row. */
+  marketplace_transaction_id: string;
+  /** Supabase UUID of the Transport workspace that will own the new transport_transactions row. */
+  transport_workspace_id: string;
+}
+
+export interface CreateTransportFromMarketplaceResult {
+  transport: TransportDeliveryDbRow;
+  transaction_room: TransactionRoomDbRow;
+  /** True when an existing transport_transactions row was returned instead of creating a new one. */
+  reused: boolean;
 }
 
 // ─── Shipment Batches ─────────────────────────────────────────────────────────

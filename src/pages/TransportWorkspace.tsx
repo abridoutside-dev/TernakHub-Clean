@@ -15,6 +15,7 @@ import {
   repoGetTransportDeliveriesByWorkspace,
   repoInsertTransportDelivery,
   repoUpdateTransportDeliveryStatus,
+  repoSyncTransportStatusToMarketplace,
   repoGetTransportVehiclesByWorkspace,
   repoInsertTransportVehicle,
   repoGetTransportDriversByWorkspace,
@@ -37,6 +38,7 @@ import {
   repoInsertRevenue,
   repoGetTransportFinancialSummary,
   repoListTrackingByDelivery,
+  repoIsDeliveryInAnyBatch,
 } from '../repositories/transportRepository';
 import type {
   TransportServiceDbRow,
@@ -119,6 +121,7 @@ export default function TransportWorkspace() {
 
   const [activeModal, setActiveModal] = useState<'vehicle' | 'driver' | 'delivery' | 'status' | 'complete' | 'batch' | 'addToBatch' | 'maintenance' | 'tripCost' | 'driverPayment' | 'revenue' | null>(null);
   const [selectedDeliveryForBatch, setSelectedDeliveryForBatch] = useState<string | null>(null);
+  const [selectedDeliveriesForBulkBatch, setSelectedDeliveriesForBulkBatch] = useState<string[]>([]);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -411,6 +414,7 @@ export default function TransportWorkspace() {
     setSaveError(null);
     try {
       await repoUpdateTransportDeliveryStatus(deliveryId, newStatus);
+      void repoSyncTransportStatusToMarketplace(deliveryId);
       setSaveSuccess(true);
       setActiveModal(null);
       void loadData();
@@ -423,6 +427,7 @@ export default function TransportWorkspace() {
     setSaveError(null);
     try {
       await repoUpdateTransportDeliveryStatus(deliveryId, 'Selesai');
+      void repoSyncTransportStatusToMarketplace(deliveryId);
       setSaveSuccess(true);
       setActiveModal(null);
       void loadData();
@@ -459,6 +464,11 @@ export default function TransportWorkspace() {
   const handleAddToBatch = async (batchId: string, deliveryId: string, muatanKg: number = 0) => {
     setSaveError(null);
     try {
+      const alreadyInBatch = await repoIsDeliveryInAnyBatch(deliveryId);
+      if (alreadyInBatch) {
+        setSaveError('Pengiriman ini sudah masuk batch lain.');
+        return;
+      }
       const batch = batches.find(b => b.id === batchId);
       if (batch && batch.kapasitas_kg != null) {
         const items = await repoListBatchItems(batchId);
@@ -477,15 +487,47 @@ export default function TransportWorkspace() {
       });
       setSaveSuccess(true);
       setSelectedDeliveryForBatch(null);
+      setSelectedDeliveriesForBulkBatch([]);
       void loadData();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Gagal menambahkan ke batch');
     }
   };
 
+  const handleToggleSelectDelivery = (deliveryId: string) => {
+    setSelectedDeliveriesForBulkBatch(prev =>
+      prev.includes(deliveryId)
+        ? prev.filter(id => id !== deliveryId)
+        : [...prev, deliveryId]
+    );
+  };
+
+  const handleBulkAddToBatch = () => {
+    if (selectedDeliveriesForBulkBatch.length === 0) return;
+    setSelectedDeliveryForBatch(null);
+    setActiveModal('addToBatch');
+  };
+
   const handleUpdateBatchStatus = async (batchId: string, status: string) => {
     setSaveError(null);
     try {
+      const batch = batches.find(b => b.id === batchId);
+      if (!batch) {
+        setSaveError('Batch tidak ditemukan.');
+        return;
+      }
+      if ((status === 'Siap Berangkat' || status === 'Dalam Perjalanan') && (!batch.kendaraan_id || !batch.driver_id)) {
+        setSaveError('Batch harus memiliki kendaraan dan driver sebelum dapat dijalankan.');
+        return;
+      }
+      if ((status === 'Siap Berangkat' || status === 'Dalam Perjalanan') && batch.kapasitas_kg != null) {
+        const items = batchItemsMap[batchId] ?? [];
+        const totalMuatan = items.reduce((sum, item) => sum + (item.muatan_kg ?? 0), 0);
+        if (totalMuatan <= 0) {
+          setSaveError('Batch harus memiliki minimal satu pengiriman dengan muatan sebelum dapat dijalankan.');
+          return;
+        }
+      }
       await repoUpdateShipmentBatch(batchId, { status });
       setSaveSuccess(true);
       void loadData();
@@ -995,6 +1037,9 @@ export default function TransportWorkspace() {
               onAddToBatch={(deliveryId) => setSelectedDeliveryForBatch(deliveryId)}
               onViewDelivery={(deliveryId) => setSelectedDeliveryId(deliveryId)}
               canEdit={access.canEditFleet}
+              selectedIds={selectedDeliveriesForBulkBatch}
+              onToggleSelect={handleToggleSelectDelivery}
+              onBulkAddToBatch={handleBulkAddToBatch}
             />
 
             <TransportShipmentBatchSection
@@ -1185,6 +1230,7 @@ export default function TransportWorkspace() {
       {activeModal === 'addToBatch' && (
         <AddToBatchModal
           delivery={selectedDeliveryForBatch ? deliveries.find(d => d.id === selectedDeliveryForBatch) ?? null : null}
+          deliveries={selectedDeliveriesForBulkBatch.map(id => deliveries.find(d => d.id === id)).filter((d): d is TransportDeliveryDbRow => d != null)}
           batches={batches}
           batchCurrentLoads={Object.fromEntries(
             Object.entries(batchItemsMap).map(([bId, items]) => [
@@ -1193,7 +1239,7 @@ export default function TransportWorkspace() {
             ])
           )}
           onAdd={handleAddToBatch}
-          onClose={() => { setActiveModal(null); setSelectedDeliveryForBatch(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
+          onClose={() => { setActiveModal(null); setSelectedDeliveryForBatch(null); setSelectedDeliveriesForBulkBatch([]); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />
       )}
       {activeModal === 'maintenance' && (
@@ -1207,6 +1253,8 @@ export default function TransportWorkspace() {
         <TripCostModal
           vehicles={vehicles.map(v => ({ id: v.id, nomor_polisi: v.nomor_polisi }))}
           drivers={drivers.map(d => ({ id: d.id, nama: d.nama }))}
+          batches={batches.map(b => ({ id: b.id, rute: b.rute }))}
+          deliveries={deliveries.map(d => ({ id: d.id, origin: d.origin, destination: d.destination }))}
           onSave={handleInsertTripCost}
           onClose={() => { setActiveModal(null); setSearchParams((prev) => { prev.delete('action'); return prev; }); }}
         />

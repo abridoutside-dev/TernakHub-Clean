@@ -38,6 +38,12 @@ import type {
   TransportRevenueCreateInput,
   TransportRevenueUpdateInput,
   TransportFinancialSummary,
+  TransactionRoomDbRow,
+  TransactionRoomCreateInput,
+  TransactionRoomUpdateInput,
+  MarketplaceTransactionLite,
+  CreateTransportFromMarketplaceInput,
+  CreateTransportFromMarketplaceResult,
 } from '../types/transport';
 
 // ─── Error ─────────────────────────────────────────────────────────────────────
@@ -368,6 +374,266 @@ export async function repoUpdateTransportDeliveryStatus(
     .single();
   guard(error);
   return data as TransportDeliveryDbRow;
+}
+
+/**
+ * Sync transport delivery status to linked marketplace transaction.
+ * Only syncs terminal statuses that have valid marketplace counterparts.
+ */
+export async function repoSyncTransportStatusToMarketplace(
+  transportDeliveryId: string,
+): Promise<{ marketplaceUpdated: boolean; newMarketplaceStatus?: string }> {
+  await requireAuthSession();
+  const delivery = await repoGetTransportDeliveryById(transportDeliveryId);
+  if (!delivery || !delivery.room_id) {
+    return { marketplaceUpdated: false };
+  }
+  const room = await repoGetTransactionRoomById(delivery.room_id);
+  if (!room) {
+    return { marketplaceUpdated: false };
+  }
+  let newStatus: string | null = null;
+  if (delivery.status === 'Selesai') {
+    newStatus = 'Selesai';
+  } else if (delivery.status === 'Dibatalkan') {
+    newStatus = 'Dibatalkan';
+  }
+  if (!newStatus) {
+    return { marketplaceUpdated: false };
+  }
+  const { error } = await supabase
+    .from('marketplace_transactions')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', room.marketplace_transaction_id);
+  if (error) {
+    throw new TransportRepoError(error.message, error.code);
+  }
+  return { marketplaceUpdated: true, newMarketplaceStatus: newStatus };
+}
+
+// ─── transaction_rooms (canonical bridge: marketplace order ↔ transport) ─────
+//
+// transport_transactions.room_id is NOT NULL and FKs to transaction_rooms.id.
+// marketplace_transactions has no direct transport FK, so we always go through
+// a transaction_rooms row. One transaction_room per marketplace_transaction
+// (UNIQUE constraint on marketplace_transaction_id) — idempotent on re-call.
+
+/**
+ * Get the canonical transaction_rooms row for a marketplace transaction, if any.
+ * Returns null when none exists yet.
+ */
+export async function repoGetTransactionRoomByMarketplace(
+  marketplaceTransactionId: string,
+): Promise<TransactionRoomDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transaction_rooms')
+    .select('*')
+    .eq('marketplace_transaction_id', marketplaceTransactionId)
+    .maybeSingle();
+  guard(error);
+  return data as TransactionRoomDbRow | null;
+}
+
+/**
+ * Get a transaction_rooms row by its primary key.
+ */
+export async function repoGetTransactionRoomById(
+  id: string,
+): Promise<TransactionRoomDbRow | null> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transaction_rooms')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  guard(error);
+  return data as TransactionRoomDbRow | null;
+}
+
+/**
+ * Idempotent: returns the existing transaction_rooms row for the given
+ * marketplace_transaction_id, or creates a new one if none exists.
+ *
+ * RLS: the row is created under the caller's auth context; the canonical
+ * RLS policies on transaction_rooms (workspace_member + platform_admin) apply.
+ */
+export async function repoGetOrCreateTransactionRoom(
+  input: TransactionRoomCreateInput,
+): Promise<TransactionRoomDbRow> {
+  await requireAuthSession();
+  const existing = await repoGetTransactionRoomByMarketplace(input.marketplace_transaction_id);
+  if (existing) return existing;
+  const { data, error } = await supabase
+    .from('transaction_rooms')
+    .insert({
+      marketplace_transaction_id: input.marketplace_transaction_id,
+      buyer_workspace_id: input.buyer_workspace_id,
+      seller_workspace_id: input.seller_workspace_id,
+      status: input.status ?? 'Open',
+      has_escrow: input.has_escrow ?? false,
+      has_transport: input.has_transport ?? false,
+      total_amount: input.total_amount ?? 0,
+      notes: input.notes ?? null,
+    })
+    .select()
+    .single();
+  guard(error);
+  return data as TransactionRoomDbRow;
+}
+
+/**
+ * Patch a transaction_rooms row (e.g. flip has_transport=true after linking a transport).
+ */
+export async function repoUpdateTransactionRoom(
+  id: string,
+  patch: TransactionRoomUpdateInput,
+): Promise<TransactionRoomDbRow> {
+  await requireAuthSession();
+  const { data, error } = await supabase
+    .from('transaction_rooms')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  guard(error);
+  return data as TransactionRoomDbRow;
+}
+
+/**
+ * Check whether a transport_transactions row already exists for the given
+ * marketplace transaction (via the linked transaction_rooms.room_id and the
+ * transport_listing_id link). Used to make creation idempotent.
+ *
+ * Returns the existing row if any is in an active lifecycle (not Selesai/Dibatalkan).
+ */
+export async function repoFindActiveTransportForMarketplace(
+  marketplaceTransactionId: string,
+): Promise<TransportDeliveryDbRow | null> {
+  await requireAuthSession();
+  const room = await repoGetTransactionRoomByMarketplace(marketplaceTransactionId);
+  if (!room) return null;
+  const { data, error } = await supabase
+    .from('transport_transactions')
+    .select('*')
+    .eq('room_id', room.id)
+    .not('status', 'in', '(Selesai,Dibatalkan)')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  guard(error);
+  return data as TransportDeliveryDbRow | null;
+}
+
+// ─── marketplace → transport integration (Gap #1) ────────────────────────────
+
+/**
+ * Marketplace order → transport_transactions integration.
+ *
+ * Flow:
+ *   1. Read the marketplace_transactions row (buyer/seller/listing/price).
+ *   2. Validate the order is in an eligible status for transport creation.
+ *   3. Get-or-create the canonical transaction_rooms row for the marketplace
+ *      transaction (one per marketplace_transaction_id; UNIQUE enforced by DB).
+ *   4. Set transaction_rooms.has_transport = true.
+ *   5. Check for an existing active transport_transactions row for this room
+ *      → if found, return it (idempotent).
+ *   6. Otherwise insert a new transport_transactions row with:
+ *        - room_id = the transaction_rooms.id
+ *        - transport_listing_id = the marketplace listing UUID
+ *        - transport_workspace_id = the chosen Transport workspace UUID
+ *        - status = 'Menunggu' (canonical transport_status_enum value)
+ *        - fee = marketplace_transactions.agreed_price
+ *        - notes = order reference + qty
+ *        - origin / destination / scheduled_date = NULL (caller / detail view fills them)
+ *
+ * The new row becomes visible to:
+ *   - repoListPendingMergeDeliveries (filters by status='Menunggu' + no batch item yet)
+ *   - The full Transport workspace flow (batch, schedule, start trip, complete).
+ *
+ * Does NOT fake any address/weight/origin data that the marketplace schema does
+ * not expose. Fields not present in the source row are stored as NULL.
+ */
+export async function repoCreateTransportFromMarketplaceOrder(
+  input: CreateTransportFromMarketplaceInput,
+): Promise<CreateTransportFromMarketplaceResult> {
+  await requireAuthSession();
+  if (!input.marketplace_transaction_id) {
+    throw new TransportRepoError('marketplace_transaction_id wajib diisi.');
+  }
+  if (!input.transport_workspace_id) {
+    throw new TransportRepoError('transport_workspace_id wajib diisi.');
+  }
+
+  // 1. Read marketplace_transactions row.
+  const { data: txRow, error: txErr } = await supabase
+    .from('marketplace_transactions')
+    .select('id, listing_id, buyer_workspace_id, seller_workspace_id, agreed_price, status, notes')
+    .eq('id', input.marketplace_transaction_id)
+    .maybeSingle();
+  guard(txErr);
+  if (!txRow) {
+    throw new TransportRepoError('Marketplace order tidak ditemukan.');
+  }
+  const tx = txRow as MarketplaceTransactionLite;
+
+  // 2. Validate order is eligible.
+  const ELIGIBLE_STATUSES = new Set(['Disetujui', 'Diproses', 'Siap Diserahkan', 'Sedang Dikirim']);
+  if (!ELIGIBLE_STATUSES.has(tx.status)) {
+    throw new TransportRepoError(
+      `Order marketplace berstatus "${tx.status}" belum eligible untuk dibuat pengiriman transport. ` +
+        `Status eligible: Disetujui, Diproses, Siap Diserahkan, Sedang Dikirim.`,
+    );
+  }
+  if (tx.buyer_workspace_id === tx.seller_workspace_id) {
+    throw new TransportRepoError('Order marketplace tidak valid: buyer dan seller sama.');
+  }
+  if (tx.agreed_price != null && tx.agreed_price < 0) {
+    throw new TransportRepoError('Order marketplace tidak valid: agreed_price negatif.');
+  }
+
+  // 3. Idempotent: reuse existing transport_transactions row if any.
+  const existing = await repoFindActiveTransportForMarketplace(input.marketplace_transaction_id);
+  if (existing) {
+    if (!existing.room_id) {
+      throw new TransportRepoError('Inkonsisten: transport_transactions.room_id kosong.');
+    }
+    const room = await repoGetTransactionRoomById(existing.room_id);
+    if (!room) {
+      throw new TransportRepoError('Inkonsisten: transport_transactions.room_id tidak ditemukan.');
+    }
+    return { transport: existing, transaction_room: room, reused: true };
+  }
+
+  // 4. Get-or-create transaction_rooms row.
+  const room = await repoGetOrCreateTransactionRoom({
+    marketplace_transaction_id: tx.id,
+    buyer_workspace_id: tx.buyer_workspace_id,
+    seller_workspace_id: tx.seller_workspace_id,
+    has_transport: true,
+    total_amount: tx.agreed_price ?? 0,
+    notes: tx.notes ?? null,
+  });
+
+  // 5. Insert transport_transactions row.
+  const { data: transportRow, error: insErr } = await supabase
+    .from('transport_transactions')
+    .insert({
+      room_id: room.id,
+      transport_workspace_id: input.transport_workspace_id,
+      transport_listing_id: tx.listing_id,
+      fee: tx.agreed_price ?? null,
+      status: 'Menunggu',
+      notes: tx.notes ? `[Marketplace ${tx.id}] ${tx.notes}` : `[Marketplace ${tx.id}]`,
+    })
+    .select()
+    .single();
+  guard(insErr);
+  return {
+    transport: transportRow as TransportDeliveryDbRow,
+    transaction_room: room,
+    reused: false,
+  };
 }
 
 // ─── transport_shipment_batches ─────────────────────────────────────────────────

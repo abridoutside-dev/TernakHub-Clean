@@ -98,6 +98,16 @@ export default function TransportTripCostSection({
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--color-muted)' }}>
                   {rec.tanggal} · {rec.catatan ?? '-'}
                 </p>
+                {rec.transaction_id && (
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>
+                    Pengiriman: {rec.transaction_id}
+                  </p>
+                )}
+                {rec.batch_id && (
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>
+                    Batch: {rec.batch_id}
+                  </p>
+                )}
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--color-text)', fontWeight: 600 }}>
                   Rp {rec.nominal.toLocaleString('id-ID')}
                 </p>

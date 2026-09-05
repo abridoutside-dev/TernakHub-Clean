@@ -11,7 +11,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useMarketplace } from '../hooks/useMarketplace';
-import { recordUpdateTransaksiStatus } from '../services/marketplaceService';
+import { recordUpdateTransaksiStatus, getTransaksiSupabaseId } from '../services/marketplaceService';
+import { getWorkspacesByType } from '../services/workspaceService';
+import { repoCreateTransportFromMarketplaceOrder } from '../repositories/transportRepository';
 import TransactionTabBar from '../components/TransactionTabBar';
 import {
   getTransaksiById,
@@ -564,7 +566,15 @@ function ActionModal({
 
 // ─── Action Buttons ───────────────────────────────────────────────────────────
 
-function ActionButtons({ transaksi, onAction }: { transaksi: TransaksiItem; onAction: (action: ModalAction) => void }) {
+function ActionButtons({
+  transaksi,
+  onAction,
+  onRequestTransport,
+}: {
+  transaksi: TransaksiItem;
+  onAction: (action: ModalAction) => void;
+  onRequestTransport: () => void;
+}) {
   const s = transaksi.status;
   const btn = (color: string, outline = false): React.CSSProperties => ({
     flex: 1, padding: '11px 8px', borderRadius: 10,
@@ -574,6 +584,8 @@ function ActionButtons({ transaksi, onAction }: { transaksi: TransaksiItem; onAc
     fontSize: 13, fontWeight: 700, cursor: 'pointer',
   });
 
+  const showTransportBtn = s === 'Disetujui' || s === 'Diproses' || s === 'Siap Diserahkan' || s === 'Sedang Dikirim';
+
   if (s === 'Menunggu Persetujuan') return (
     <div style={{ display: 'flex', gap: 8 }}>
       <button type="button" style={btn('#c62828', true)} onClick={() => onAction({ type: 'tolak' })}>❌ Tolak</button>
@@ -582,9 +594,16 @@ function ActionButtons({ transaksi, onAction }: { transaksi: TransaksiItem; onAc
     </div>
   );
   if (s === 'Disetujui') return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button type="button" style={btn('#5d4037', true)} onClick={() => onAction({ type: 'batalkan' })}>🚫 Batal</button>
-      <button type="button" style={btn('#e65100')}       onClick={() => onAction({ type: 'bayar' })}>💳 Konfirmasi Bayar</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" style={btn('#5d4037', true)} onClick={() => onAction({ type: 'batalkan' })}>🚫 Batal</button>
+        <button type="button" style={btn('#e65100')}       onClick={() => onAction({ type: 'bayar' })}>💳 Konfirmasi Bayar</button>
+      </div>
+      {showTransportBtn && (
+        <button type="button" style={btn('#006064')} onClick={onRequestTransport}>
+          🚚 Buat Pengiriman Transport
+        </button>
+      )}
     </div>
   );
   if (s === 'Menunggu Pembayaran') return (
@@ -594,19 +613,40 @@ function ActionButtons({ transaksi, onAction }: { transaksi: TransaksiItem; onAc
     </div>
   );
   if (s === 'Diproses') return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button type="button" style={btn('#6a1b9a')} onClick={() => onAction({ type: 'siap' })}>📦 Siap Diserahkan</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" style={btn('#6a1b9a')} onClick={() => onAction({ type: 'siap' })}>📦 Siap Diserahkan</button>
+      </div>
+      {showTransportBtn && (
+        <button type="button" style={btn('#006064')} onClick={onRequestTransport}>
+          🚚 Buat Pengiriman Transport
+        </button>
+      )}
     </div>
   );
   if (s === 'Siap Diserahkan') return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button type="button" style={btn('#006064')} onClick={() => onAction({ type: 'kirim' })}>🚚 Kirim</button>
-      <button type="button" style={btn('#1b5e20')} onClick={() => onAction({ type: 'selesai' })}>🎉 Selesaikan</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" style={btn('#006064')} onClick={() => onAction({ type: 'kirim' })}>🚚 Kirim</button>
+        <button type="button" style={btn('#1b5e20')} onClick={() => onAction({ type: 'selesai' })}>🎉 Selesaikan</button>
+      </div>
+      {showTransportBtn && (
+        <button type="button" style={btn('#006064')} onClick={onRequestTransport}>
+          🚚 Buat Pengiriman Transport
+        </button>
+      )}
     </div>
   );
   if (s === 'Sedang Dikirim') return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button type="button" style={btn('#1b5e20')} onClick={() => onAction({ type: 'selesai' })}>🎉 Konfirmasi & Selesai</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" style={btn('#1b5e20')} onClick={() => onAction({ type: 'selesai' })}>🎉 Konfirmasi & Selesai</button>
+      </div>
+      {showTransportBtn && (
+        <button type="button" style={btn('#006064')} onClick={onRequestTransport}>
+          🚚 Buat Pengiriman Transport
+        </button>
+      )}
     </div>
   );
   return null;
@@ -649,6 +689,102 @@ function QuickAccess({ transaksiId, hasEscrow }: { transaksiId: string; hasEscro
   );
 }
 
+// ─── Transport Workspace Picker Modal ──────────────────────────────────────────
+
+function TransportWorkspacePickerModal({
+  loading,
+  error,
+  workspaces,
+  creating,
+  onSelect,
+  onClose,
+}: {
+  loading: boolean;
+  error: string;
+  workspaces: Array<{ id: string; name: string; icon: string }>;
+  creating: boolean;
+  onSelect: (workspaceId: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(15,23,42,0.5)', zIndex: 300,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff', borderRadius: 16, padding: 22,
+          width: '100%', maxWidth: 440, maxHeight: '85vh', overflowY: 'auto',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+          🚚 Pilih Workspace Transport
+        </p>
+        <p style={{ margin: '0 0 14px', fontSize: 12, color: '#64748b' }}>
+          Order marketplace ini akan dibuat menjadi pengiriman transport pada workspace yang dipilih.
+          Pengiriman akan muncul di <strong>Menunggu Penggabungan</strong> untuk digabung ke batch.
+        </p>
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+            padding: '8px 12px', fontSize: 12, color: '#991b1b', marginBottom: 12,
+          }}>{error}</div>
+        )}
+        {loading ? (
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, padding: '20px 0' }}>
+            ⏳ Memuat workspace Transport…
+          </p>
+        ) : workspaces.length === 0 ? (
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, padding: '20px 0' }}>
+            Belum ada Workspace Transport Aktif. Buat workspace Transport terlebih dahulu.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {workspaces.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                disabled={creating}
+                onClick={() => onSelect(w.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 14px', borderRadius: 10,
+                  border: '1.5px solid #cbd5e1', background: '#fff',
+                  textAlign: 'left', cursor: creating ? 'not-allowed' : 'pointer',
+                  fontSize: 13, fontWeight: 600, color: '#0f172a',
+                }}
+              >
+                <span style={{ fontSize: 22 }}>{w.icon}</span>
+                <span style={{ flex: 1 }}>{w.name}</span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>{creating ? '…' : 'Pilih →'}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={creating}
+            style={{
+              padding: '9px 18px', borderRadius: 8,
+              background: '#f1f5f9', color: '#374151',
+              border: 'none', fontSize: 13, fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Halaman Utama ────────────────────────────────────────────────────────────
 
 export default function MarketplaceDetailTransaksi() {
@@ -658,6 +794,11 @@ export default function MarketplaceDetailTransaksi() {
   const [modalAction, setModal] = useState<ModalAction | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccess] = useState('');
+  const [transportPickerOpen, setTransportPickerOpen] = useState(false);
+  const [transportWorkspaces, setTransportWorkspaces] = useState<Array<{ id: string; name: string; icon: string }>>([]);
+  const [transportPickerLoading, setTransportPickerLoading] = useState(false);
+  const [transportPickerError, setTransportPickerError] = useState('');
+  const [transportCreating, setTransportCreating] = useState(false);
 
   const { activeWorkspace } = useWorkspace();
   useMarketplace(); // FLOW-003M27: hydrate transaksi from Supabase on mount
@@ -776,6 +917,72 @@ export default function MarketplaceDetailTransaksi() {
     }
   }
 
+  // ─── Marketplace → Transport (Gap #1) ────────────────────────────────────────
+  // The user (typically seller) decides to ship the marketplace order via a
+  // Transport workspace. We open a workspace picker, then call
+  // repoCreateTransportFromMarketplaceOrder, which:
+  //   1. Validates the order is in an eligible status
+  //   2. Reuses or creates the canonical transaction_rooms row
+  //   3. Inserts a transport_transactions row with status='Menunggu'
+  //   4. The new row is immediately visible to repoListPendingMergeDeliveries
+  async function openTransportPicker() {
+    setErrorMsg('');
+    setSuccess('');
+    setTransportPickerError('');
+    setTransportPickerOpen(true);
+    setTransportPickerLoading(true);
+    try {
+      const list = await getWorkspacesByType('Transport');
+      setTransportWorkspaces(
+        list
+          .filter((w) => w.workspace_status === 'Active')
+          .map((w) => ({ id: w.workspace_uuid, name: w.workspace_name ?? 'Transport', icon: '🚚' })),
+      );
+    } catch (e) {
+      setTransportPickerError(e instanceof Error ? e.message : 'Gagal memuat daftar Transport.');
+    } finally {
+      setTransportPickerLoading(false);
+    }
+  }
+
+  function closeTransportPicker() {
+    if (transportCreating) return;
+    setTransportPickerOpen(false);
+    setTransportPickerError('');
+  }
+
+  async function handleCreateTransportFromMarketplace(transportWorkspaceId: string) {
+    if (!transaksi) return;
+    const txDbId = getTransaksiSupabaseId(transaksi.id);
+    if (!txDbId) {
+      setTransportPickerError(
+        'Order marketplace belum tersinkronisasi ke database (UUID Supabase tidak ditemukan). ' +
+          'Coba muat ulang halaman.',
+      );
+      return;
+    }
+    setTransportCreating(true);
+    setTransportPickerError('');
+    try {
+      const result = await repoCreateTransportFromMarketplaceOrder({
+        marketplace_transaction_id: txDbId,
+        transport_workspace_id: transportWorkspaceId,
+      });
+      setSuccess(
+        result.reused
+          ? 'Pengiriman transport untuk order ini sudah ada — dibawa ke workspace Transport.'
+          : 'Pengiriman transport berhasil dibuat. Pengiriman muncul di "Menunggu Penggabungan".',
+      );
+      setTransportPickerOpen(false);
+      // Navigate to the Transport workspace so the user can see it in Pending Merge.
+      navigate(`/workspace/${transportWorkspaceId}/transport?tab=home`);
+    } catch (e) {
+      setTransportPickerError(e instanceof Error ? e.message : 'Gagal membuat pengiriman transport.');
+    } finally {
+      setTransportCreating(false);
+    }
+  }
+
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '16px 14px 48px' }}>
 
@@ -883,12 +1090,27 @@ export default function MarketplaceDetailTransaksi() {
 
       {/* ── Tombol Aksi ─────────────────────────────────────────────────── */}
       <div style={{ marginTop: 4 }}>
-        <ActionButtons transaksi={transaksi} onAction={setModal} />
+        <ActionButtons
+          transaksi={transaksi}
+          onAction={setModal}
+          onRequestTransport={() => void openTransportPicker()}
+        />
       </div>
 
       {/* ── Modal ───────────────────────────────────────────────────────── */}
       {modalAction && (
         <ActionModal action={modalAction} onConfirm={handleAction} onClose={() => setModal(null)} />
+      )}
+
+      {transportPickerOpen && (
+        <TransportWorkspacePickerModal
+          loading={transportPickerLoading}
+          error={transportPickerError}
+          workspaces={transportWorkspaces}
+          creating={transportCreating}
+          onSelect={(id) => void handleCreateTransportFromMarketplace(id)}
+          onClose={closeTransportPicker}
+        />
       )}
 
       {/* ── Transaction Tab Bar ─────────────────────────────────────────── */}

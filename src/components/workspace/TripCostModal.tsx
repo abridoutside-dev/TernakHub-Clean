@@ -63,15 +63,19 @@ export interface TripCostData {
 interface TripCostModalProps {
   vehicles: { id: string; nomor_polisi: string }[];
   drivers: { id: string; nama: string }[];
+  batches: { id: string; rute: string | null }[];
+  deliveries: { id: string; origin: string | null; destination: string | null }[];
   onSave: (data: TripCostData) => void;
   onClose: () => void;
 }
 
 const COST_CATEGORIES = ['BBM', 'Tol', 'Parkir', 'Uang Jalan', 'Makan', 'Penginapan', 'Spare Part', 'Biaya Darurat', 'Lainnya'];
 
-export default function TripCostModal({ vehicles, drivers, onSave, onClose }: TripCostModalProps) {
+export default function TripCostModal({ vehicles, drivers, batches, deliveries, onSave, onClose }: TripCostModalProps) {
   const [kendaraanId, setKendaraanId] = useState('');
   const [driverId, setDriverId] = useState('');
+  const [batchId, setBatchId] = useState('');
+  const [transactionId, setTransactionId] = useState('');
   const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
   const [kategori, setKategori] = useState('Lainnya');
   const [nominal, setNominal] = useState('');
@@ -81,6 +85,8 @@ export default function TripCostModal({ vehicles, drivers, onSave, onClose }: Tr
   function handleSubmit() {
     if (!nominal) { setError('Nominal wajib diisi.'); return; }
     onSave({
+      batch_id: batchId || null,
+      transaction_id: transactionId || null,
       kendaraan_id: kendaraanId || null,
       driver_id: driverId || null,
       tanggal,
@@ -96,6 +102,24 @@ export default function TripCostModal({ vehicles, drivers, onSave, onClose }: Tr
       <p style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800 }}>⛽ Catat Biaya Perjalanan</p>
       {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{error}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <label style={labelStyle}>
+          Batch
+          <select value={batchId} onChange={e => setBatchId(e.target.value)} style={fieldStyle}>
+            <option value="">— Tidak ada —</option>
+            {batches.map(b => (
+              <option key={b.id} value={b.id}>{b.rute ?? b.id}</option>
+            ))}
+          </select>
+        </label>
+        <label style={labelStyle}>
+          Pengiriman
+          <select value={transactionId} onChange={e => setTransactionId(e.target.value)} style={fieldStyle}>
+            <option value="">— Tidak ada —</option>
+            {deliveries.map(d => (
+              <option key={d.id} value={d.id}>{d.id} · {d.origin ?? '-'} → {d.destination ?? '-'}</option>
+            ))}
+          </select>
+        </label>
         <label style={labelStyle}>
           Kendaraan
           <select value={kendaraanId} onChange={e => setKendaraanId(e.target.value)} style={fieldStyle}>

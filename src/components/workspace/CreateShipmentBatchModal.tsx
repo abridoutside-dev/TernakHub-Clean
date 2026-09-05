@@ -83,13 +83,14 @@ export default function CreateShipmentBatchModal({ vehicles, drivers, onSave, on
     if (!rute.trim()) { setError('Rute wajib diisi.'); return; }
     if (!kendaraanId) { setError('Pilih kendaraan.'); return; }
     if (!driverId) { setError('Pilih driver.'); return; }
+    if (!kapasitasKg || parseInt(kapasitasKg, 10) <= 0) { setError('Kapasitas kg harus lebih besar dari 0.'); return; }
     onSave({
       kendaraan_id: kendaraanId,
       driver_id: driverId,
       tanggal: tanggal || null,
       jam: jam || null,
       rute: rute.trim(),
-      kapasitas_kg: kapasitasKg ? parseInt(kapasitasKg, 10) : null,
+      kapasitas_kg: parseInt(kapasitasKg, 10),
       biaya_perjalanan: biayaPerjalanan ? parseInt(biayaPerjalanan, 10) : 0,
       status: 'Draft',
       catatan: catatan.trim() || null,

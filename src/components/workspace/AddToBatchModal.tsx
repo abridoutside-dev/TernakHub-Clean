@@ -52,34 +52,41 @@ function ModalOverlay({ children }: { children: React.ReactNode }) {
 
 interface AddToBatchModalProps {
   delivery: TransportDeliveryDbRow | null;
+  deliveries?: TransportDeliveryDbRow[];
   batches: TransportShipmentBatchDbRow[];
   batchCurrentLoads?: Record<string, number>;
   onAdd: (batchId: string, deliveryId: string, muatanKg: number) => void;
   onClose: () => void;
 }
 
-export default function AddToBatchModal({ delivery, batches, batchCurrentLoads = {}, onAdd, onClose }: AddToBatchModalProps) {
+export default function AddToBatchModal({ delivery, deliveries = [], batches, batchCurrentLoads = {}, onAdd, onClose }: AddToBatchModalProps) {
   const [batchId, setBatchId] = useState('');
   const [muatanKg, setMuatanKg] = useState('');
   const [error, setError] = useState('');
 
+  const isBulk = deliveries.length > 0;
+  const items = isBulk ? deliveries : (delivery ? [delivery] : []);
+  const inputMuatan = muatanKg ? parseInt(muatanKg, 10) : 0;
+
   const selectedBatch = batches.find(b => b.id === batchId);
   const currentLoad = selectedBatch ? (batchCurrentLoads[selectedBatch.id] ?? 0) : 0;
   const remainingCapacity = selectedBatch?.kapasitas_kg != null ? selectedBatch.kapasitas_kg - currentLoad : null;
-  const inputMuatan = muatanKg ? parseInt(muatanKg, 10) : 0;
-  const wouldExceed = selectedBatch?.kapasitas_kg != null && remainingCapacity != null && (currentLoad + inputMuatan) > selectedBatch.kapasitas_kg;
+  const wouldExceed = selectedBatch?.kapasitas_kg != null && remainingCapacity != null && (currentLoad + inputMuatan * items.length) > selectedBatch.kapasitas_kg;
 
   function handleSubmit() {
     if (!batchId) { setError('Pilih batch.'); return; }
-    if (selectedBatch?.kapasitas_kg != null && remainingCapacity != null && (currentLoad + inputMuatan) > selectedBatch.kapasitas_kg) {
+    if (items.length === 0) { setError('Tidak ada pengiriman untuk ditambahkan.'); return; }
+    if (selectedBatch?.kapasitas_kg != null && remainingCapacity != null && (currentLoad + inputMuatan * items.length) > selectedBatch.kapasitas_kg) {
       setError(`Kapasitas batch tidak cukup. Kapasitas: ${selectedBatch.kapasitas_kg} kg, Terpakai: ${currentLoad} kg, Sisa: ${remainingCapacity} kg.`);
       return;
     }
-    onAdd(batchId, delivery?.id ?? '', inputMuatan);
+    for (const item of items) {
+      onAdd(batchId, item.id, inputMuatan);
+    }
     onClose();
   }
 
-  if (!delivery) {
+  if (items.length === 0) {
     return (
       <ModalOverlay>
         <p style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800 }}>Gabungkan ke Batch</p>
@@ -95,10 +102,15 @@ export default function AddToBatchModal({ delivery, batches, batchCurrentLoads =
 
   return (
     <ModalOverlay>
-      <p style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800 }}>Gabungkan ke Batch</p>
+      <p style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800 }}>{isBulk ? 'Gabungkan Pengiriman ke Batch' : 'Gabungkan ke Batch'}</p>
       <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--color-muted)' }}>
-        Pengiriman: <strong>{delivery.id}</strong> · {delivery.origin} → {delivery.destination}
+        {isBulk ? `${items.length} pengiriman dipilih:` : `Pengiriman: <strong>${items[0].id}</strong> · ${items[0].origin} → ${items[0].destination}`}
       </p>
+      {!isBulk && items[0] && (
+        <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--color-muted)' }}>
+          <strong>{items[0].id}</strong> · {items[0].origin} → {items[0].destination}
+        </p>
+      )}
       {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{error}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label style={labelStyle}>
@@ -133,14 +145,14 @@ export default function AddToBatchModal({ delivery, batches, batchCurrentLoads =
             <div style={{ marginTop: 6, color: wouldExceed ? '#dc2626' : 'var(--color-muted)', fontWeight: wouldExceed ? 700 : 400 }}>
               {inputMuatan > 0
                 ? (wouldExceed
-                    ? `❌ Melebihi kapasitas jika ditambah ${inputMuatan} kg`
-                    : `✓ Setelah ditambah: ${currentLoad + inputMuatan} / ${selectedBatch.kapasitas_kg} kg`)
+                    ? `❌ Melebihi kapasitas jika ditambah ${inputMuatan * items.length} kg total`
+                    : `✓ Setelah ditambah: ${currentLoad + inputMuatan * items.length} / ${selectedBatch.kapasitas_kg} kg`)
                 : 'Masukkan muatan (kg) untuk validasi.'}
             </div>
           </div>
         )}
         <label style={labelStyle}>
-          Muatan (kg) *
+          Muatan per Pengiriman (kg) *
           <input type="number" value={muatanKg} onChange={e => setMuatanKg(e.target.value)} placeholder="Berat muatan dalam kg" style={fieldStyle} min="0" />
         </label>
       </div>
@@ -149,7 +161,7 @@ export default function AddToBatchModal({ delivery, batches, batchCurrentLoads =
           Batal
         </button>
         <button onClick={handleSubmit} style={{ background: '#16a34a', color: '#fff', padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-          Gabungkan
+          {isBulk ? `Gabungkan ${items.length} Pengiriman` : 'Gabungkan'}
         </button>
       </div>
     </ModalOverlay>

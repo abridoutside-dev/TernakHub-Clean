@@ -10,6 +10,9 @@ interface TransportPendingMergeSectionProps {
   onAddToBatch: (deliveryId: string) => void;
   onViewDelivery: (deliveryId: string) => void;
   canEdit: boolean;
+  selectedIds?: string[];
+  onToggleSelect?: (deliveryId: string) => void;
+  onBulkAddToBatch?: () => void;
 }
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -38,6 +41,9 @@ export default function TransportPendingMergeSection({
   onAddToBatch,
   onViewDelivery,
   canEdit,
+  selectedIds = [],
+  onToggleSelect,
+  onBulkAddToBatch,
 }: TransportPendingMergeSectionProps) {
   if (pendingDeliveries.length === 0) {
     return (
@@ -56,6 +62,8 @@ export default function TransportPendingMergeSection({
     );
   }
 
+  const selectedCount = pendingDeliveries.filter(d => selectedIds.includes(d.id)).length;
+
   return (
     <div style={{
       background: 'var(--color-surface)',
@@ -65,48 +73,81 @@ export default function TransportPendingMergeSection({
       marginBottom: 20,
     }}>
       <SectionHeader title="Menunggu Penggabungan" subtitle={`${pendingDeliveries.length} pengiriman menunggu`} />
+      {canEdit && selectedCount > 0 && onBulkAddToBatch && (
+        <div style={{ marginBottom: 12 }}>
+          <button
+            onClick={onBulkAddToBatch}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: 'none',
+              background: '#1e40af',
+              color: '#fff',
+            }}
+          >
+            Gabungkan {selectedCount} Pengiriman ke Batch
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {pendingDeliveries.map((dlv) => (
-          <div key={dlv.id} style={{
-            background: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: 12,
-            cursor: 'pointer',
-          }} onClick={() => onViewDelivery(dlv.id)}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: 'var(--color-text)' }}>
-                  {dlv.id}
-                </p>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--color-muted)' }}>
-                  {dlv.origin} → {dlv.destination} · {dlv.scheduled_date ?? '-'}
-                </p>
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>
-                  Muatan: {dlv.notes ?? '-'} · Fee: {dlv.fee ? `Rp ${dlv.fee.toLocaleString('id-ID')}` : '-'}
-                </p>
+        {pendingDeliveries.map((dlv) => {
+          const isSelected = selectedIds.includes(dlv.id);
+          return (
+            <div key={dlv.id} style={{
+              background: isSelected ? '#eff6ff' : 'var(--color-bg)',
+              border: `1px solid ${isSelected ? '#3b82f6' : 'var(--color-border)'}`,
+              borderRadius: 'var(--radius-md)',
+              padding: 12,
+              cursor: 'pointer',
+            }} onClick={() => onViewDelivery(dlv.id)}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {canEdit && onToggleSelect && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => { e.stopPropagation(); onToggleSelect(dlv.id); }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: 'var(--color-text)' }}>
+                      {dlv.id}
+                    </p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--color-muted)' }}>
+                      {dlv.origin} → {dlv.destination} · {dlv.scheduled_date ?? '-'}
+                    </p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-muted)' }}>
+                      Muatan: {dlv.notes ?? '-'} · Fee: {dlv.fee ? `Rp ${dlv.fee.toLocaleString('id-ID')}` : '-'}
+                    </p>
+                  </div>
+                </div>
+                {canEdit && !onToggleSelect && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAddToBatch(dlv.id); }}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Gabungkan ke Batch
+                  </button>
+                )}
               </div>
-              {canEdit && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onAddToBatch(dlv.id); }}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: 8,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface)',
-                    color: 'var(--color-text)',
-                    flexShrink: 0,
-                  }}
-                >
-                  Gabungkan ke Batch
-                </button>
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       {canEdit && (
         <div style={{ marginTop: 12 }}>
