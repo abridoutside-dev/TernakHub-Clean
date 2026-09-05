@@ -197,9 +197,53 @@ test('Formula ingredient picker uses Master Pakan catalog', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Summary
+// Contract 8: Ampas Kedelai Kering specific checks
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('Master Pakan + Formula contract summary', () => {
-  assert.ok(true, 'All Master Pakan + Formula contracts verified.');
+test('Ampas Kedelai Kering exists in per-category data', () => {
+  const src = readFile('src/data/limbahIndustriPanganData.ts');
+  assert.ok(src.includes("id: 'ampas-kedelai-kering'"), 'Must have ampas-kedelai-kering ID');
+  assert.ok(src.includes("nama: 'Ampas Kedelai Kering'"), 'Must have correct name');
+  assert.ok(src.includes("kategoriItem: 'Ampas Protein Nabati'"), 'Must be in Ampas Protein Nabati sub-category');
 });
+
+test('Ampas Kedelai Kering exists in legacy Master Pakan DB', () => {
+  const src = readFile('src/data/masterPakanData.ts');
+  assert.ok(src.includes("'mp-17':"), 'Must have mp-17 ID');
+  assert.ok(src.includes("name: 'Ampas Kedelai Kering'"), 'Must have correct name in legacy DB');
+  assert.ok(src.includes("category: 'By Product'"), 'Must have By Product category in legacy DB');
+});
+
+test('Ampas Kedelai Kering does not duplicate Ampas Tahu', () => {
+  const src = readFile('src/data/limbahIndustriPanganData.ts');
+  const ampasKedelaiCount = (src.match(/id: 'ampas-kedelai-kering'/g) || []).length;
+  const ampasTahuCount = (src.match(/id: 'ampas-tahu'/g) || []).length;
+  assert.strictEqual(ampasKedelaiCount, 1, 'Ampas Kedelai Kering must appear exactly once');
+  assert.strictEqual(ampasTahuCount, 1, 'Ampas Tahu must still appear exactly once');
+});
+
+test('Ampas Kedelai Kering has no fake nutrition numbers', () => {
+  const src = readFile('src/data/limbahIndustriPanganData.ts');
+  const itemMatch = src.match(/id: 'ampas-kedelai-kering'[\s\S]*?},\s*\/\//);
+  assert.ok(itemMatch, 'Must find Ampas Kedelai Kering item');
+  const item = itemMatch[0];
+  assert.ok(!item.includes('Protein ±'), 'Must not invent protein numbers in description');
+  assert.ok(!item.includes('TDN ±'), 'Must not invent TDN numbers in description');
+  assert.ok(item.includes('dataLengkap: false'), 'Must mark data as incomplete');
+});
+
+test('Ampas Kedelai Kering has no fake price', () => {
+  const src = readFile('src/data/limbahIndustriPanganData.ts');
+  const itemMatch = src.match(/id: 'ampas-kedelai-kering'[\s\S]*?},\s*\/\//);
+  assert.ok(itemMatch, 'Must find Ampas Kedelai Kering item');
+  const item = itemMatch[0];
+  assert.ok(item.includes('estimasiHarga: null'), 'Must have null price');
+});
+
+test('Ampas Kedelai Kering migration file exists', () => {
+  const src = readFile('supabase/migrations/20260905000001_add_ampas_kedelai_kering.sql');
+  assert.ok(src.includes("'Ampas Kedelai Kering'"), 'Migration must insert Ampas Kedelai Kering');
+  assert.ok(src.includes('master_pakan_catalog'), 'Migration must target master_pakan_catalog');
+  assert.ok(src.includes('ON CONFLICT (name) DO NOTHING'), 'Migration must be idempotent');
+});
+

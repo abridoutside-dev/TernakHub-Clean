@@ -195,6 +195,18 @@ export const LIMBAH_INDUSTRI_DB: LimbahIndustriItem[] = [
     dataLengkap: true,
     updatedAt: '09 Jul 2026',
   },
+  {
+    id: 'ampas-kedelai-kering',
+    nama: 'Ampas Kedelai Kering',
+    namaLatin: 'Glycine max (L.) Merr. dried pulp',
+    namaLain: 'Dried Soy Pulp, Soybean Pulp, Ampasedelai Kering, Ampas Susu Kedelai',
+    deskripsi: 'Sisa padat kering hasil ekstraksi susu kedelai (soy milk) sebelum menjadi tahu. Berbeda dari ampas tahu basah; versi kering lebih tahan simpan karena kadar air rendah. Digunakan sebagai sumber protein nabati ekonomis dalam ransum ternak (sapi, kambing, domba, babi, unggas). Nilai nutrisi spesifik (PK, SK, TDN) perlu ditambahkan berdasarkan analisis laboratorium.',
+    kategoriItem: 'Ampas Protein Nabati',
+    estimasiHarga: null,
+    hargaUpdated: '',
+    dataLengkap: false,
+    updatedAt: '2026-09-05',
+  },
 
   // ── By-product Brewing ────────────────────────────────────────────────────────
   {

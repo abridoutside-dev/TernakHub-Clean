@@ -376,6 +376,21 @@ export const MASTER_PAKAN_DB: Record<string, MasterPakanItem> = {
     catatan: 'Kandungan air sangat tinggi. Berikan segar — tidak tahan lebih dari 2 hari tanpa fermentasi lanjutan.',
     createdAt: '01 May 2026', updatedAt: '01 Jul 2026',
   },
+  'mp-17': {
+    id: 'mp-17', icon: '🏭', name: 'Ampas Kedelai Kering',
+    alias: 'Dried Soy Pulp, Soybean Pulp, Ampasedelai Kering, Ampas Susu Kedelai',
+    category: 'By Product',
+    description: 'Sisa padat kering hasil ekstraksi susu kedelai. Berbeda dari ampas tahu basah; versi kering lebih tahan simpan. Digunakan sebagai sumber protein nabati ekonomis dalam ransum ternak. Nilai nutrisi spesifik (PK, SK, TDN) perlu ditambahkan berdasarkan analisis laboratorium.',
+    proteinKasar: null, seratKasar: null, lemak: null, abu: null, betn: null,
+    tdn: null, me: null, ca: null, p: null, ndf: null, adf: null,
+    moisture: null, bahanKering: null,
+    palatabilitas: 'Sedang', maksimumPenggunaan: 30,
+    bentuk: 'Kering', sumber: 'Industri Pengolahan Kedelai',
+    referensi: '',
+    estimasiHarga: null, hargaMarketplace: null, hargaUpdated: '',
+    catatan: 'Data nutrisi belum lengkap. Tambahkan berdasarkan analisis laboratorium sebelum digunakan untuk perhitungan formula.',
+    createdAt: '05 Sep 2026', updatedAt: '05 Sep 2026',
+  },
 };
 
 // ─── CRUD Functions ───────────────────────────────────────────────────────────
