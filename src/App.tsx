@@ -166,8 +166,8 @@ const DrugStoreStokMasuk = lazy(() => import('./routeBundles/drugStore').then(m 
 const DrugStorePenyesuaianStok = lazy(() => import('./routeBundles/drugStore').then(m => ({ default: m.DrugStorePenyesuaianStok })));
 // workspace routes
 const TransportWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.TransportWorkspace })));
+const VeterinaryWorkspaceRoute = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.VeterinaryWorkspaceRoute })));
 const VeterinaryWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.VeterinaryWorkspace })));
-const KlinikHewanWorkspace = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.KlinikHewanWorkspace })));
 const DrugStoreWorkspaceRoute = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.DrugStoreWorkspaceRoute })));
 const FarmProfile = lazy(() => import('./routeBundles/workspace').then(m => ({ default: m.FarmProfile })));
 // profile routes
@@ -648,8 +648,7 @@ export default function App() {
       <Route path="/profile/support/feedback"               element={<ProfileSupportFeedback />} />
       <Route path="/profile/support/contact"                element={<ProfileSupportContact />} />
       <Route path="/workspace/:id/transport"   element={<TransportWorkspace />} />
-      <Route path="/workspace/:id/veterinary"  element={<VeterinaryWorkspace />} />
-      <Route path="/workspace/:id/clinic"      element={<KlinikHewanWorkspace />} />
+      <Route path="/workspace/:id/veterinary"  element={<VeterinaryWorkspaceRoute />} />
       <Route path="/workspace/:id/feed-store"  element={<FeedStoreWorkspaceRoute />} />
       <Route path="/workspace/:id/feed-store/suppliers"            element={<FeedStoreSupplierList />} />
       <Route path="/workspace/:id/feed-store/suppliers/new"        element={<FeedStoreSupplierForm />} />
