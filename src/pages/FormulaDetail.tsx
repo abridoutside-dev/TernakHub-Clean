@@ -4,13 +4,14 @@ import {
   getFormulaById,
   archiveFormula,
   unarchiveFormula,
+  deleteFormula,
   FORMULA_BATCH_SIZE_KG,
   type FormulaRecord,
   type BahanFormula,
 } from '../data/formulaData';
 import { getInventarisList, getAllRiwayatMasuk, type InventarisItem } from '../data/stokInventarisData';
 import FeatureGate from '../components/subscription/FeatureGate';
-import { recordArchiveFormula, recordUnarchiveFormula } from '../services/formulaService';
+import { recordArchiveFormula, recordUnarchiveFormula, recordDeleteFormula } from '../services/formulaService';
 import { useFormula } from '../hooks/useFormula';
 
 // ─── FormulaDetail (FP-004 Revisi) ──────────────────────────────────────────────
@@ -320,11 +321,23 @@ export default function FormulaDetail() {
   const navigate = useNavigate();
   const [tick, setTick] = useState(0);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Hydrate in-memory store from Supabase on hard refresh (FLOW-003M25).
   const { loading } = useFormula();
 
   const formula = id ? getFormulaById(id) : undefined;
+
+  async function handleDelete() {
+    if (!formula) return;
+    const inMemoryDeleted = deleteFormula(formula.id);
+    if (!inMemoryDeleted) return;
+    void recordDeleteFormula(formula.id).catch((err) =>
+      console.error('[FormulaDetail] recordDeleteFormula failed:', err),
+    );
+    setDeleteConfirm(false);
+    navigate('/stok-pakan', { replace: false });
+  }
 
   // While DB fetch is in-flight, show a neutral loader so that formulas that
   // exist in Supabase but aren't in the seed don't flash NotFound.
@@ -942,6 +955,63 @@ export default function FormulaDetail() {
               }}
             >
               {formula.status === 'Arsip' ? 'Aktifkan' : 'Arsipkan'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Hapus Formula ─────────────────────────────────────────── */}
+      {!deleteConfirm ? (
+        <button
+          type="button"
+          onClick={() => setDeleteConfirm(true)}
+          style={{
+            width: '100%', padding: '13px 0', borderRadius: 'var(--radius-md)',
+            border: '1.5px solid #c62828',
+            background: 'transparent',
+            color: '#c62828', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1 }}>🗑️</span>
+          Hapus Formula
+        </button>
+      ) : (
+        <div style={{
+          padding: '14px 16px', borderRadius: 'var(--radius-md)',
+          border: '1.5px solid #c62828', background: '#fef2f2',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#c62828', marginBottom: 10 }}>
+            Hapus formula ini secara permanen?
+          </div>
+          <div style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 14, lineHeight: 1.55 }}>
+            Semua data formula, komposisi bahan, dan riwayat produksi akan dihapus dari sistem. Tindakan ini tidak dapat dibatalkan.
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => setDeleteConfirm(false)}
+              style={{
+                flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)',
+                border: '1.5px solid var(--color-border)', background: 'transparent',
+                fontSize: 13, fontWeight: 700, color: 'var(--color-muted)', cursor: 'pointer',
+              }}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              style={{
+                flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: '#c62828',
+                fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer',
+              }}
+            >
+              Hapus Permanen
             </button>
           </div>
         </div>

@@ -22,6 +22,7 @@ import {
   recordCreateFormula,
   recordUpdateFormula,
   recordCreateFormulaIngredients,
+  recordReplaceFormulaIngredients,
 } from '../services/formulaService';
 import { useFormula } from '../hooks/useFormula';
 
@@ -829,11 +830,20 @@ export default function FormulaEditor() {
 
     let targetId: string;
     if (isEdit && existing) {
-      const updated = updateFormula(existing.id, input);
-      targetId = updated?.id ?? existing.id;
-      void recordUpdateFormula(existing.id, input).catch((err) =>
-        console.error('[FormulaEditor] recordUpdateFormula failed:', err),
-      );
+      const updated = updateFormula(existing.id, input) ?? existing;
+      targetId = updated.id;
+      try {
+        const result = await recordUpdateFormula(existing.id, input);
+        if (!result.ok) {
+          setServerError(result.error);
+          return;
+        }
+        await recordReplaceFormulaIngredients(existing.id, updated.bahan ?? []);
+      } catch (err) {
+        console.error('[FormulaEditor] recordUpdateFormula failed:', err);
+        setServerError(err instanceof Error ? err.message : 'Gagal menyimpan perubahan formula.');
+        return;
+      }
     } else {
       const added = addFormula(input);
       targetId = added.id;

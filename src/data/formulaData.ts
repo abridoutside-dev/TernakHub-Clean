@@ -446,6 +446,14 @@ export function unarchiveFormula(id: string): FormulaRecord | undefined {
   return updateFormula(id, { status: 'Aktif' });
 }
 
+/** Menghapus formula secara permanen dari daftar. */
+export function deleteFormula(id: string): boolean {
+  const idx = FORMULA_LIST.findIndex((f) => f.id === id);
+  if (idx === -1) return false;
+  FORMULA_LIST.splice(idx, 1);
+  return true;
+}
+
 export function getTotalFormula(): number {
   return FORMULA_LIST.length;
 }

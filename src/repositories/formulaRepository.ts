@@ -266,3 +266,42 @@ export async function repoInsertFormulaProduction(
   if (error) return { data: null, error: error.message };
   return { data, error: null };
 }
+
+// ─── Delete functions ──────────────────────────────────────────────────────────
+
+export interface FormulaDeleteResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Delete a feed_formulas row by Supabase UUID.
+ * CASCADE removes feed_formula_ingredients and feed_formula_productions.
+ */
+export async function repoDeleteFormula(
+  supabaseId: string,
+): Promise<FormulaDeleteResult> {
+  const { error } = await supabase
+    .from('feed_formulas')
+    .delete()
+    .eq('id', supabaseId);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Delete all feed_formula_ingredients rows for a given formula UUID.
+ * Used before re-inserting ingredients on edit.
+ */
+export async function repoDeleteFormulaIngredients(
+  supabaseFormulaId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('feed_formula_ingredients')
+    .delete()
+    .eq('formula_id', supabaseFormulaId);
+
+  if (error) return { error: error.message };
+  return { error: null };
+}

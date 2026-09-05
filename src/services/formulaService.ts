@@ -26,6 +26,8 @@ import {
   repoInsertFormula,
   repoInsertFormulaProduction,
   repoInsertFormulaIngredients,
+  repoDeleteFormula,
+  repoDeleteFormulaIngredients,
   FormulaRepoError,
 } from '../repositories/formulaRepository';
 import type { FormulaIngredientInsertInput } from '../repositories/formulaRepository';
@@ -202,6 +204,113 @@ export async function recordUnarchiveFormula(
   } catch (err) {
     const msg = err instanceof FormulaRepoError ? err.message : String(err);
     console.error('[formulaService] recordUnarchiveFormula error:', msg);
+    return fail(msg);
+  }
+}
+
+// ─── recordDeleteFormula ───────────────────────────────────────────────────────
+// Called by FormulaDetail.tsx after deleteFormula() succeeds in in-memory store.
+// Removes the formula row from Supabase. CASCADE removes ingredients and productions.
+
+export async function recordDeleteFormula(
+  inMemoryId: string,
+): Promise<FormulaServiceResult<Record<string, never>>> {
+  const supabaseId = FORMULA_SUPABASE_ID_MAP.get(inMemoryId);
+  if (!supabaseId) return ok({}); // seed formula or cross-session — skip silently
+
+  try {
+    const result = await repoDeleteFormula(supabaseId);
+    if (!result.ok) {
+      console.warn('[formulaService] repoDeleteFormula failed:', result.error);
+      return fail(result.error ?? 'Hapus formula gagal.');
+    }
+    FORMULA_SUPABASE_ID_MAP.delete(inMemoryId);
+    return ok({});
+  } catch (err) {
+    const msg = err instanceof FormulaRepoError ? err.message : String(err);
+    console.error('[formulaService] recordDeleteFormula error:', msg);
+    return fail(msg);
+  }
+}
+
+// ─── recordReplaceFormulaIngredients ──────────────────────────────────────────
+// Called by FormulaEditor.tsx after recordUpdateFormula() resolves ok.
+// Deletes all existing ingredients for the formula, then re-inserts the new set.
+// This ensures the DB stays in sync with the in-memory state after edits.
+
+export async function recordReplaceFormulaIngredients(
+  inMemoryFormulaId: string,
+  bahan: BahanFormula[],
+): Promise<FormulaServiceResult<Record<string, never>>> {
+  const supabaseFormulaId = FORMULA_SUPABASE_ID_MAP.get(inMemoryFormulaId);
+  if (!supabaseFormulaId) return ok({}); // seed formula or cross-session — skip silently
+
+  if (bahan.length === 0) {
+    // Delete all ingredients if formula becomes empty
+    const { error } = await repoDeleteFormulaIngredients(supabaseFormulaId);
+    if (error) {
+      console.warn('[formulaService] repoDeleteFormulaIngredients (empty) failed:', error);
+      return fail(error);
+    }
+    return ok({});
+  }
+
+  try {
+    // 1. Delete existing ingredients
+    const deleteResult = await repoDeleteFormulaIngredients(supabaseFormulaId);
+    if (deleteResult.error) {
+      console.warn('[formulaService] repoDeleteFormulaIngredients failed:', deleteResult.error);
+      return fail(deleteResult.error);
+    }
+
+    // 2. Re-insert new ingredients (same logic as recordCreateFormulaIngredients)
+    const masterPakanItems = bahan.filter(
+      (b) => (b.sumberBahan ?? 'Master Pakan') === 'Master Pakan',
+    );
+
+    if (masterPakanItems.length === 0) return ok({});
+
+    const names    = masterPakanItems.map((b) => b.nama);
+    const idByName = await bulkLookupMasterPakanIds(names);
+
+    const rows: FormulaIngredientInsertInput[] = [];
+    for (let i = 0; i < masterPakanItems.length; i++) {
+      const item    = masterPakanItems[i];
+      const nameKey = item.nama.trim().toLowerCase();
+      const mpId    = idByName.get(nameKey) ?? null;
+
+      if (!mpId) {
+        console.warn(
+          `[formulaService] master_pakan_catalog miss for "${item.nama}" — ingredient skipped`,
+        );
+        continue;
+      }
+
+      rows.push({
+        formula_id:          supabaseFormulaId,
+        source_type:         'Master Pakan',
+        master_pakan_id:     mpId,
+        produk_komersial_id: null,
+        ingredient_name:     item.nama,
+        percentage:          item.proporsi,
+        amount_kg:           null,
+        cost_per_kg:         item.hargaEstimasiPerKg > 0 ? item.hargaEstimasiPerKg : null,
+        sort_order:          i,
+      });
+    }
+
+    if (rows.length === 0) return ok({});
+
+    const { error } = await repoInsertFormulaIngredients(rows);
+    if (error) {
+      console.warn('[formulaService] repoInsertFormulaIngredients (replace) failed:', error);
+      return fail(error);
+    }
+
+    return ok({});
+  } catch (err) {
+    const msg = err instanceof FormulaRepoError ? err.message : String(err);
+    console.error('[formulaService] recordReplaceFormulaIngredients error:', msg);
     return fail(msg);
   }
 }
